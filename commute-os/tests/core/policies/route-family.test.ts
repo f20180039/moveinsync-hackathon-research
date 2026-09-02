@@ -64,6 +64,9 @@ describe('timeWindow', () => {
     const v = timeWindow(c, W, CTX)
     expect(v.status).toBe('soft')
     expect(v.cause).toBe('lead_time')
+    // 60 min early, 15 tolerated => 45 over. Pins the formula, not just the status:
+    // forgetting to subtract LEAD_TIME_TOLERANCE_MIN would still give soft/lead_time.
+    expect(v.slack!.value).toBeCloseTo(-45, 6)
   })
 
   it('tolerates a small early arrival', () => {
@@ -120,16 +123,18 @@ describe('detourSla', () => {
 })
 
 describe('gateSpread', () => {
-  it('passes a single gate with no penalty', () => {
+  it('passes a single gate with a full gate of headroom', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: 0, unit: 'min' })
+    expect(v.slack).toEqual({ value: 1, unit: 'gates' })
   })
 
-  it('passes two gates and reports the added minutes', () => {
+  it('passes two gates at exactly zero headroom, reporting the cost in reason', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g2'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: -EXTRA_MIN_PER_GATE, unit: 'min' })
+    expect(v.slack).toEqual({ value: 0, unit: 'gates' })
+    // the minutes cost lives in reason, not in slack — slack is headroom
+    expect(v.reason).toContain(`${EXTRA_MIN_PER_GATE} min`)
   })
 
   it('blocks three gates with cause=max_tasks', () => {
@@ -137,10 +142,18 @@ describe('gateSpread', () => {
     expect(v.status).toBe('block')
     expect(v.cause).toBe('max_tasks')
     expect(MAX_GATES).toBe(2)
+    expect(v.slack).toEqual({ value: -1, unit: 'gates' })
   })
 
   it('counts DISTINCT gates only', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g1', 'g1'] }), W, CTX)
     expect(v.status).toBe('pass')
+  })
+
+  it('never reports negative slack on a passing verdict', () => {
+    for (const gateIds of [['g1'], ['g1', 'g2'], ['g1', 'g1', 'g1']]) {
+      const v = gateSpread(makeCandidate({ gateIds }), W, CTX)
+      if (v.status === 'pass' && v.slack) expect(v.slack.value).toBeGreaterThanOrEqual(0)
+    }
   })
 })
