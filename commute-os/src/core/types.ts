@@ -175,7 +175,12 @@ export type PolicyCtx = {
  */
 export type PolicyStatus = 'pass' | 'soft' | 'medium' | 'block'
 
-/** VROOM's vocabulary (docs/API.md:445) plus one of ours. */
+/**
+ * VROOM's vocabulary (docs/API.md:445) plus three of ours. The UI renders
+ * `cause` directly, so each policy must use the one that actually describes its
+ * refusal — a zone-confidence warning displaying "unfair_detour" is simply
+ * wrong information in front of an admin.
+ */
 export type ViolationCause =
   | 'delay'
   | 'lead_time'
@@ -187,7 +192,10 @@ export type ViolationCause =
   | 'max_travel_time'
   | 'max_distance'
   | 'max_load'
+  // ours — no VROOM equivalent
   | 'unfair_detour'
+  | 'low_confidence'
+  | 'no_show_risk'
 
 export type PolicyVerdict = {
   id: string
