@@ -15,9 +15,6 @@ const MS_PER_MIN = 60_000
 function earliestStart(t: Trip): number {
   return Math.min(...t.windows.map((wnd) => wnd[0]))
 }
-function latestEnd(t: Trip): number {
-  return Math.max(...t.windows.map((wnd) => wnd[1]))
-}
 function insideAnyWindow(t: Trip, at: number): boolean {
   return t.windows.some((wnd) => at >= wnd[0] && at <= wnd[1])
 }
@@ -36,10 +33,21 @@ export const timeWindow: Policy = (c) => {
     if (at === undefined || t.windows.length === 0) continue
     if (insideAnyWindow(t, at)) continue
 
-    if (at > latestEnd(t)) {
-      const lateMin = (at - latestEnd(t)) / MS_PER_MIN
+    // Outside every window. Which kind of violation depends on WHERE:
+    // if any window has already closed, the pickup is late relative to the most
+    // recently closed one; otherwise it is before all windows and merely early.
+    //
+    // This must NOT be written as `at > latestEnd(t)`. A pickup in a GAP between
+    // two windows is after neither the latest end nor before the earliest start,
+    // so that formulation falls through to pass() and silently approves a pickup
+    // that satisfies no window at all.
+    const closedEnds = t.windows.map((wnd) => wnd[1]).filter((end) => end < at)
+
+    if (closedEnds.length > 0) {
+      const lastClosed = Math.max(...closedEnds)
+      const lateMin = (at - lastClosed) / MS_PER_MIN
       if (lateMin > worstLateMin) { worstLateMin = lateMin; lateTripId = t.id }
-    } else if (at < earliestStart(t)) {
+    } else {
       const earlyMin = (earliestStart(t) - at) / MS_PER_MIN
       if (earlyMin > worstEarlyMin) { worstEarlyMin = earlyMin; earlyTripId = t.id }
     }

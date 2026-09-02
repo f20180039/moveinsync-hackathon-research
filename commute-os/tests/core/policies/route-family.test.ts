@@ -72,6 +72,17 @@ describe('timeWindow', () => {
     expect(timeWindow(c, W, CTX).status).toBe('pass')
     expect(LEAD_TIME_TOLERANCE_MIN).toBe(15)
   })
+
+  it('blocks a pickup in the GAP between two windows', () => {
+    // Outside BOTH windows. The old rule only asked "after the latest end?",
+    // so a gap pickup fell through to pass() and satisfied no window at all.
+    const trip = makeTrip({ windows: [[T0, T0 + 10 * MIN], [T0 + 60 * MIN, T0 + 90 * MIN]] })
+    const c = makeCandidate({ trips: [trip], pickupTimes: { t1: T0 + 30 * MIN } })
+    const v = timeWindow(c, W, CTX)
+    expect(v.status).toBe('block')
+    expect(v.cause).toBe('delay')
+    expect(v.slack!.value).toBeCloseTo(-20, 6)   // 20 min past window 1's close
+  })
 })
 
 describe('detourSla', () => {
