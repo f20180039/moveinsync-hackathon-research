@@ -1465,7 +1465,12 @@ export type MetroPath = { stationIds: string[]; km: number; interchanges: number
  * more than one line, so mergeEdge cannot lose a parallel edge.
  */
 export function toMetroGraph(edges: MetroEdge[]): MetroGraph {
-  const g: Graph = new Graph({ type: 'undirected', multi: false })
+  // DIRECTED, deliberately. An undirected graph would let Dijkstra traverse
+  // both ways from a single forward edge, silently laundering away the source
+  // CSV's directedness — and making the reverse-direction test vacuous, since
+  // it would pass even with reverse-edge synthesis removed. Directed keeps the
+  // synthesis load-bearing and the guard real.
+  const g: Graph = new Graph({ type: 'directed', multi: false })
   for (const e of edges) {
     g.mergeNode(e.from)
     g.mergeNode(e.to)

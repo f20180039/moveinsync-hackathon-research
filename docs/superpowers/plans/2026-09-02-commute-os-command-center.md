@@ -43,6 +43,13 @@ blue, metro lines in their `line_color` from the CC0 data, `source==='estimate'`
 routes **dotted** and labelled "Estimated route" (§14), cab markers with
 occupancy badges driven by `core/clock`.
 
+**One data shape to know before you render:** `world.metroEdges` holds **both
+directions** of every hop (164 edges for 82 physical segments), because
+`buildMetroGraph` synthesises reverse edges — the source CSV is directed and
+trains are not. A layer that iterates `metroEdges` will therefore draw every
+segment **twice**. Render metro lines from `MetroLine.stationIds` in sequence
+order instead, or de-duplicate on an unordered `{from,to}` key.
+
 Two things that matter more than looks:
 - **Tile failure must degrade, not blank.** On tile error, render routes over a
   flat background — the routes are the information, the basemap is decoration.
