@@ -88,6 +88,18 @@ Run button, and the no-show / traffic sliders that move the savings band.
 `{ code, error?, summary, unassigned[], routes[] }`-shaped, with four numeric
 codes rather than HTTP-status soup.
 
+**HARD REQUIREMENT — validate `PolicyStatus` at this boundary.** `tierRank` is
+`TIER_ORDER.indexOf(status)`, which returns **-1** for any string outside the
+four literals. So `compareTiers('bogus', 'block')` is `-4` — **negative**, which
+by the comparator's own convention means *more acceptable than everything,
+including `pass`*. Inside `src/core` every caller is statically typed and cannot
+reach this. But a `PolicyTrace` deserialized from untyped JSON here can: a
+corrupted or unknown `status` would sort a blocked plan to the **front** of the
+list, ahead of legitimately passing plans, silently. Parse the incoming status
+against the four literals (a zod enum, or an explicit
+`TIER_ORDER.includes(s)` check) and reject anything else. Do not rely on
+TypeScript for this — it is a runtime boundary.
+
 `ai/sarvam.ts` — `explainProposal`, `translate`, `speak`. Each wrapped so a
 failure returns a **pre-written deterministic string**, never throws. Env-gated
 by `SARVAM_API_KEY`; absent key means fallbacks and the UI still works end to
