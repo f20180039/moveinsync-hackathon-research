@@ -1,60 +1,88 @@
 # Reference Repo Index — MoveInSync Hackathon
 
-Five repos cloned to `../reference/` (shallow, git-ignored). Surveyed 2026-09-02.
-This file is the **router**: read it, pick the one spec you need, ignore the rest.
+Repos cloned to `../reference/` (shallow/sparse, git-ignored).
+Surveyed 2026-09-02, revised after pruning.
+
+This file is the **router**: read it, open the one or two specs you need, ignore
+everything else.
 
 ## Verdict table
 
-| # | Repo | Claimed | **Actually is** | Reuse | Spec |
-|---|---|---|---|---|---|
-| 1 | `smart-aiport-cabpooling-backend` | H3 + Redis + matching worker | ✅ **True.** Working TS backend, real matching algorithm | 🟢 **HIGH** | [01](01-smart-airport-cabpooling.md) |
-| 2 | `RideShare-Optimizer` | BFS, Prim's, TSP | ✅ **True.** One 1186-line Streamlit file, all three implemented | 🟢 **HIGH** | [02](02-rideshare-optimizer.md) |
-| 3 | `Car-Pooling-System` | Auth + ride matching + Maps | ⚠️ **Half.** MERN CRUD works; **matching is commented out** | 🟡 **LOW-MED** | [03](03-car-pooling-mern.md) |
-| 4 | `Carpool_Management_System` | Real-time tracking + optimal allocation | ❌ **False.** Zero distance/allocation code. Leaflet + Firebase + chat | 🔴 **LOW** | [04](04-carpool-management.md) |
-| 5 | `rideAndMove` | Routing + Admin Panel + CDK | ❌ **False.** 6 markdown files, **no code**. `datamodel.md` is 0 bytes | 🔴 **NONE** | [05](05-rideandmove.md) |
+| # | Repo | What it is | Reuse | Spec |
+|---|---|---|---|---|
+| **04** | `bengaluru-metro-dataset` | 83 real Namma Metro stations: coords, graph edges, real inter-station distances. CC0 | 🟢🟢 **HIGHEST** | [04](04-bengaluru-metro-dataset.md) |
+| **01** | `smart-aiport-cabpooling-backend` | Working H3 + Redis corridor matching. TS | 🟢 **HIGH** | [01](01-smart-airport-cabpooling.md) |
+| **06** | `vroom` | Production VRP solver; **its API schema is the best design template here** | 🟢 **HIGH** | [06](06-vroom.md) |
+| **07** | `fleetpy` | TUM ride-pooling fleet simulator. Semi-on-demand feeder + Alonso-Mora | 🟢 **HIGH** | [07](07-fleetpy.md) |
+| **05** | `pyvrp` | State-of-the-art VRP solver. Its constraint vocabulary validates our policy list | 🟢 **HIGH** | [05](05-pyvrp.md) |
+| **08** | `timefold-quickstarts` | Constraint-based solver patterns + employee rostering | 🟡 **MED-HIGH** | [08](08-timefold-quickstarts.md) |
+| **02** | `RideShare-Optimizer` | BFS/Prim's/TSP hand-implemented. Python/Streamlit | 🟡 **MED** | [02](02-rideshare-optimizer.md) |
+| **03** | `Car-Pooling-System` | MERN CRUD; matching commented out. Kept for **context** — it's a MoveInSync recruitment assignment | 🟡 **LOW** | [03](03-car-pooling-mern.md) |
 
-**Bottom line:** two of the five are worth your time. Repos 4 and 5 were mis-sold
-in the PRD — don't budget hours for them.
+Disk: 25 MB total (662 MB of FleetPy reduced to 4.9 MB by sparse clone).
 
-## If you only read one thing
+### Removed 2026-09-02
 
-**The single best idea across all five repos** is in #1: encode a route as a
-concatenated string of H3 cell indexes, store it in a lexicographically-sorted
-set, and find poolable routes with a **prefix range scan**. Longest common
-prefix = the split point = where the detour begins. It turns "find me a
-shareable route" into a substring problem.
+- ❌ `Carpool_Management_System` — PRD claimed "real-time tracking + optimal
+  allocation". Grep found **zero** distance/matching/allocation code. Leaflet +
+  Firebase + a 45 MB vendored chat UI kit. **53 MB deleted.**
+- ❌ `rideAndMove` — PRD claimed "Routing + Admin Panel + CDK". Actually **6
+  markdown files, no code**; `doc/datamodel.md` was 0 bytes. **Deleted.**
 
-`reference/smart-aiport-cabpooling-backend/src/utils/redisCaching.ts:130`
+Lesson worth carrying: three of the five PRD-supplied repos were mis-sold. The
+replacements were found by searching for the *actual problem class* — vehicle
+routing with time windows, demand-responsive transport, semi-on-demand feeder
+services — rather than for the word "carpool".
 
-**For commute-os this needs one inversion.** The airport case is *divergent*
-(one origin, many destinations) so routes share a **prefix**. Employee login
-transport is *convergent* (many pickups, one office) so routes share a
-**suffix** — the common approach into the office. Reverse the H3 string and the
-same prefix scan works unchanged.
+## Do these five things
 
-And you don't need Redis: a sorted in-memory array + binary search gives the
-same complexity for 200 trips.
+Ordered by value per minute. Total ≈ 3 hours, and it upgrades the design
+materially.
 
-## Reuse map → commute-os
+1. **Copy the metro CSVs into `commute-os/data/`** ([04](04-bengaluru-metro-dataset.md))
+   — retires design assumption §17 #1, and replaces guessed per-stop timing with
+   real inter-station distances. *Zero algorithm work.* Do this first.
+2. **Read `vroom/docs/API.md` end to end** ([06](06-vroom.md)) — highest
+   value-per-minute document in the set. Adopt `skills`, an array of time
+   windows per trip, and `priority`.
+3. **Add the `detour-fairness` policy** ([08](08-timefold-quickstarts.md)) — the
+   best idea recovered that wasn't already in the design. Stops the same
+   employee absorbing the detour every day.
+4. **Port the insertion heuristic** ([07](07-fleetpy.md) §5) — the right
+   primitive for Approve and Revert, instead of re-running the whole solver.
+5. **Implement the reversed-suffix H3 prefix scan** ([01](01-smart-airport-cabpooling.md) §4)
+   — O(log n) corridor candidates, ~40 lines, no Redis.
 
-| commute-os module | Take from | What |
+## Findings that change the commute-os design
+
+| Change | Source | Why |
 |---|---|---|
-| `core/geo.ts` | #3 `rideRequestController.js:61-75` | Haversine (commented but correct) |
-| `core/geo.ts` — zone bucketing | #1 `h3Indexing.ts:11` | H3 res 8 ≈ 0.7 km hex — good urban default |
-| `solvers/pool-merger.ts` — corridor candidates | #1 `redisCaching.ts:130` | Reversed-suffix prefix scan |
-| `solvers/pool-merger.ts` — pickup order | #2 `app.py:352` | Multi-start nearest-neighbour → **replace with brute force, see below** |
-| `solvers/metro-feeder.ts` — route gap filling | #1 `h3Indexing.ts:92` | Interpolating cells between sparse route points |
-| `core/policies/gender-safety.ts` | #3 `rideSchema.js:13-17` | `preferences.femaleOnly` flag precedent |
-| `ui/SuggestionFeed.tsx` — confidence badge | #3 `rideRequestController.js:37-42` | Match-% banding table (100/75/50/0%) |
-| `core/routing.ts` fallback | #2 `app.py:80` | OpenRouteService as a keyless-ish alternative to Google |
+| Real metro coords + distances | 04 | Retires §17 assumption #1 outright |
+| Reversed H3 suffix key for convergent trips | 01 §4 | Airport is divergent; commute is convergent |
+| Suitability checks as `skills` matching | 06 §2 | One mechanism instead of N special cases |
+| Array of time windows per trip | 06 §5 | Employees have two windows, not one |
+| `priority` for over-subscription | 06 §4 | Peak demand exceeds supply; handle it openly |
+| Driver `breaks`, not just a 12 h cap | 06 §3 | Real labour compliance |
+| **`detour-fairness` as policy #10** | 08 §3 | Pooling dies on employee trust, not arithmetic |
+| `vehiclesUsed` as the headline metric | 05 §3 | "138 cabs instead of 174" > "saved 8.2 km" |
+| Vector capacity `[seats, luggage, wheelchair]` | 05 §4 | Accessibility, ~free to add |
+| Insertion heuristic for Approve/Revert | 07 §5 | Don't re-solve to approve one merge |
+| Never reward dropping trips | 08 §4 | `MAXIMIZE_VISITS_ASSIGNED` outranks travel time |
+| Brute-force pickup order at n≤4 | 02 §3 | 24 permutations — exact beats heuristic |
 
-## Two corrections to make when lifting
+## Answers to have ready
 
-1. **Don't copy #2's pickup ordering.** `find_optimal_pickup_order` is
-   multi-start nearest-neighbour at O(n³). A cab seats 4. With n≤4 pickups
-   there are at most 4! = 24 permutations — **brute-force it and be exact**,
-   in microseconds. Their `TSPSolver` branch-and-bound (`app.py:248`) is
-   likewise over-engineered for n≤4. Simpler *and* optimal.
-2. **Don't copy #1's infrastructure.** Redis, pub/sub, worker pools, Prisma,
-   Docker — all correct for a production airport service, all pure liability
-   in a 14-hour single-process demo. Take the *algorithm*, leave the plumbing.
+Judges ask these. The specs give real answers rather than bluffs.
+
+- *"How do you find candidates at scale?"* → H3 corridor keys in a sorted
+  index, O(log n) prefix scan, not an O(n²) distance matrix. ([01](01-smart-airport-cabpooling.md) §7)
+- *"Is your merge optimal?"* → No. Clarke-Wright savings, the standard VRP
+  construction heuristic since 1964, typically 5–10% off optimal, solved in 2 ms
+  so it re-plans on every cancellation. ([02](02-rideshare-optimizer.md) §3)
+- *"Why not a real solver?"* → For a live dispatch board, responsiveness beats
+  optimality; the constraint model is identical either way. ([05](05-pyvrp.md) §5)
+- *"How does this scale to a real fleet?"* → Alonso-Mora RTV formulation, which
+  FleetPy implements. The policy engine transfers unchanged because it's
+  independent of the assignment algorithm. ([07](07-fleetpy.md) §4)
+- *"What is this called in the literature?"* → A semi-on-demand feeder service.
+  ([07](07-fleetpy.md) §3)
