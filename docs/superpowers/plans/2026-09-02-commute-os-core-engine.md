@@ -3299,12 +3299,34 @@ describe('computeMetrics', () => {
   })
 
   it('reports the theoretical floor alongside actual usage', () => {
+    // The shared fixture defines only 4 vehicles (v-sedan, v-ev, v-ev-low,
+    // v-shuttle). computeMetrics SKIPS any trip whose vehicle does not resolve,
+    // so referencing v0..v7 against the default world silently drops all 8 trips
+    // and yields vehiclesUsed 0 — the world has to be widened for this case.
+    const vehicles = Array.from({ length: 8 }, (_, i) => ({
+      id: `v${i}`, plate: `KA01XX${1000 + i}`, seats: 4, fuel: 'ICE' as const,
+    }))
+    const w = makeWorld({ vehicles })
     const trips = Array.from({ length: 8 }, (_, i) =>
       makeTrip({ id: `t${i}`, vehicleId: `v${i}`, seatsUsed: 1 }))
-    const m = computeMetrics(trips, W, RP)
+    const m = computeMetrics(trips, w, RP)
     expect(m.vehiclesUsed).toBe(8)
     expect(m.theoreticalFloorVehicles).toBe(2) // ceil(8/4)
     expect(m.theoreticalFloorVehicles).toBeLessThan(m.vehiclesUsed)
+  })
+
+  it('SILENTLY EXCLUDES a trip whose vehicle does not resolve', () => {
+    // Documenting a real hazard rather than leaving it to be rediscovered.
+    // computeMetrics guards with `if (!vehicle || !gate) continue`, so a bad
+    // reference produces a plausible-looking ZERO instead of an error — in the
+    // one module that produces every number the UI displays. The guard is
+    // deliberate (a metrics call must not throw mid-render) but it must be
+    // known: anything upstream is responsible for referential integrity, which
+    // is what the fixture test in the next task enforces.
+    const m = computeMetrics([makeTrip({ vehicleId: 'does-not-exist' })], W, RP)
+    expect(m.vehiclesUsed).toBe(0)
+    expect(m.cabKm).toBe(0)
+    expect(m.costInr).toBe(0)
   })
 
   it('accumulates cab km from the route provider', () => {
