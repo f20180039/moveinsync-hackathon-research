@@ -116,8 +116,27 @@ describe('genderSafety', () => {
     expect(genderSafety(makeCandidate({ trips: [a, b, c] }), W, CTX).status).toBe('pass')
   })
 
-  it('ignores employees it cannot resolve rather than crashing', () => {
+  it('evaluates the resolvable passengers when one employee id is unresolvable', () => {
+    // 'ghost' cannot be resolved, but e3 (male) still resolves — this should
+    // evaluate normally on the resolvable passengers, not blanket-pass or throw.
     const c = makeCandidate({ trips: [nightTrip(['ghost']), nightTrip(['e3'], 'tn2')] })
+    const v = genderSafety(c, W, CTX)
     expect(() => genderSafety(c, W, CTX)).not.toThrow()
+    expect(v.status).toBe('pass')
+  })
+
+  it('blocks a night merge where NO employee id resolves — fail closed', () => {
+    const c = makeCandidate({ trips: [nightTrip(['ghost1']), nightTrip(['ghost2'], 'tn2')] })
+    const v = genderSafety(c, W, CTX)
+    expect(v.status).toBe('block')
+    expect(v.reason).toMatch(/cannot resolve/i)
+  })
+
+  it('does not let a DAY-leg female shield a lone female on the night leg', () => {
+    const nightLoneF = makeTrip({ id: 'n1', employeeIds: ['e1'], isNightShift: true })
+    const dayOtherF = makeTrip({ id: 'd1', employeeIds: ['e2'], isNightShift: false })
+    const v = genderSafety(makeCandidate({ trips: [nightLoneF, dayOtherF] }), W, CTX)
+    expect(v.status).toBe('block')
+    expect(v.reason).toMatch(/lone female/i)
   })
 })

@@ -25,6 +25,18 @@ describe('zoneConfidence', () => {
     expect(v.reason).toContain('5')
     expect(REJECTION_THRESHOLD).toBe(3)
   })
+
+  it('takes the worst rejection count across ALL zones in the candidate', () => {
+    // Rejections are on the SECOND trip's zone only. A first-zone-only
+    // implementation would return pass here.
+    const trips = [
+      makeTrip({ id: 'a', employeeIds: ['e1'], zoneId: 'z-koramangala' }),
+      makeTrip({ id: 'b', employeeIds: ['e3'], zoneId: 'z-other' }),
+    ]
+    const v = zoneConfidence(makeCandidate({ trips }), W, makeCtx({ zoneRejections: { 'z-other': 5 } }))
+    expect(v.status).toBe('soft')
+    expect(v.cause).toBe('low_confidence')
+  })
 })
 
 describe('noShowRisk', () => {
@@ -98,9 +110,23 @@ describe('detourFairness', () => {
     expect(detourFairness(makeCandidate({ perPassengerAddedMin: { e1: 10 } }), W, ctx).status).toBe('soft')
   })
 
-  it('includes employees with no prior detour history at zero', () => {
-    const v = detourFairness(makeCandidate({ perPassengerAddedMin: { e2: 3 } }), W, makeCtx())
-    expect(v.status).toBe('pass')
+  it('includes an employee with NO prior history, at zero', () => {
+    // e2 has no detourMinutesThisWeek entry. If unseen employees were skipped
+    // rather than counted from zero, e2's 95 min would be invisible and this
+    // would pass. e2 must be in `trips` — the policy reads employees from
+    // trips, not from perPassengerAddedMin's keys.
+    const trips = [
+      makeTrip({ id: 'a', employeeIds: ['e1'] }),
+      makeTrip({ id: 'b', employeeIds: ['e2'] }),
+    ]
+    const ctx = makeCtx({ detourMinutesThisWeek: { e1: 20 } })
+    const v = detourFairness(makeCandidate({ trips, perPassengerAddedMin: { e1: 5, e2: 95 } }), W, ctx)
+    expect(v.status).toBe('soft')
+    expect(v.slack!.value).toBeCloseTo(-5, 6)
+    expect(v.reason).toContain('Bhavna')
+  })
+
+  it('uses the documented weekly threshold', () => {
     expect(FAIR_WEEKLY_DETOUR_MIN).toBe(90)
   })
 })
