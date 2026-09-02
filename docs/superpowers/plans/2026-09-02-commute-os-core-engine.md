@@ -777,7 +777,7 @@ export function nearestN<T extends { at: LatLng }>(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/geo.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: 17 tests PASS, typecheck clean.
 
 All four distance expectations were produced by turf 7.4.0 locally:
 `3.644013`, `20.126280`, `16.453067`, `111.195080`.
@@ -1059,7 +1059,7 @@ export function boardingMinutes(stops: number, passengers: number): number {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/ledger.test.ts && npx tsc --noEmit`
-Expected: 16 tests PASS, typecheck clean.
+Expected: 17 tests PASS, typecheck clean.
 
 - [ ] **Step 5: Commit**
 
@@ -1517,7 +1517,7 @@ export function metroLegMinutes(path: MetroPath, headwayMin?: number): number {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/metro.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: 22 tests PASS, typecheck clean.
 
 Reference values, produced locally against the real CSV with an independent
 Dijkstra: **164 edges**, `RVR→BTML` = **3.16 km / 0 interchanges / 4 stations**,
@@ -1834,7 +1834,7 @@ export function createRouteProvider(cache: RouteCache, trafficMultiplier = 1): R
 - [ ] **Step 6: Run both test files to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/clock.test.ts tests/core/routing.test.ts && npx tsc --noEmit`
-Expected: 13 tests PASS, typecheck clean.
+Expected: 14 tests PASS, typecheck clean.
 
 - [ ] **Step 7: Commit**
 
@@ -2052,7 +2052,7 @@ export function evaluate(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policy.test.ts && npx tsc --noEmit`
-Expected: 12 tests PASS, typecheck clean.
+Expected: 10 tests PASS, typecheck clean.
 
 - [ ] **Step 5: Commit**
 
@@ -2493,7 +2493,7 @@ export const gateSpread: Policy = (c) => {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies/route-family.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: 19 tests PASS, typecheck clean.
 
 - [ ] **Step 6: Commit**
 
@@ -3125,7 +3125,7 @@ export {
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies && npx tsc --noEmit`
-Expected: all policy tests PASS (route-family 20, fleet-safety 18, soft-family 16), typecheck clean.
+Expected: all policy tests PASS (route-family 19, fleet-safety 17, soft-family 16 = 52), typecheck clean.
 
 - [ ] **Step 8: Commit**
 
@@ -3991,7 +3991,7 @@ npm test                                       # all pass
 npm run fixtures && git diff --exit-code data/generated/   # byte-stable
 ```
 
-Expected totals: **11 tasks, 11 commits**, roughly 168 tests across
+Expected totals: **11 tasks, 11 commits**, **175 tests** across
 `boundaries`, `geo`, `ledger`, `metro`, `clock`, `routing`, `policy`,
 `policies/route-family`, `policies/fleet-safety`, `policies/soft-family`,
 `scenario` and `fixtures`.
