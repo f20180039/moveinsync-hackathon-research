@@ -50,10 +50,28 @@ describe('createRouteProvider', () => {
     expect(heavy.km).toBe(plain.km)
   })
 
+  it('applies the traffic multiplier on the ESTIMATE tier too — minutes only', () => {
+    // Empty cache forces the estimate branch, which the cache-seeded test above
+    // never reaches. Without this, a regression multiplying km on the estimate
+    // path would pass the whole suite.
+    const plain = createRouteProvider({}).route(A, B)
+    const heavy = createRouteProvider({}, 1.5).route(A, B)
+    expect(heavy.minutes).toBeCloseTo(plain.minutes * 1.5, 6)
+    expect(heavy.km).toBe(plain.km)
+    expect(heavy.source).toBe('estimate')
+  })
+
   it('returns zero for identical points without consulting the cache', () => {
-    const r = createRouteProvider({}).route(A, A)
+    // Seed a DISTINGUISHABLE entry under the A->A key. If the identical-point
+    // short-circuit were removed, this cache hit would be returned instead of
+    // zeros — which is what makes this test prove the short-circuit exists.
+    const seeded: RouteCache = {
+      [cacheKey(A, A)]: { km: 99, minutes: 99, polyline: [A, B, A] },
+    }
+    const r = createRouteProvider(seeded).route(A, A)
     expect(r.km).toBe(0)
     expect(r.minutes).toBe(0)
     expect(r.source).toBe('estimate')
+    expect(r.polyline).toEqual([A])   // [a], not [a, b] — distinguishes the two paths
   })
 })
