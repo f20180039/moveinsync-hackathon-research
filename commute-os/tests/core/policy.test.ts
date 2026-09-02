@@ -70,6 +70,11 @@ describe('evaluate', () => {
     const t = evaluate([mk('p1', 'block'), mk('p2', 'soft'), mk('p3', 'pass')], CAND, EMPTY_WORLD, CTX)
     expect(t.verdicts.length).toBe(3)
     expect(t.verdicts.map((v) => v.id)).toEqual(['p1', 'p2', 'p3'])
+    // The worst verdict is FIRST here, so these two also prove worstTier does a
+    // true max scan rather than reading the last element — every other test
+    // that checks `tier` happens to put the worst verdict last.
+    expect(t.tier).toBe('block')
+    expect(t.blocked).toBe(true)
   })
 
   it('returns an unblocked pass trace for an empty policy list', () => {
