@@ -124,12 +124,17 @@ export function bestPickupOrder(pickups, office, d): number[] {
 | 4 | n=4 | result is a permutation of 0..3, and no other permutation is cheaper (brute-force cross-check in the test) |
 | 5 | `permutations([1,2,3])` | 6 arrays, all distinct |
 | 6 | `permutations` of 4 items | 24 |
-| 7 | n=7 | falls back, does not enumerate 5040 (assert it returns within a time bound and is a valid permutation) |
-| 8 | 12-seat shuttle case n=8 | falls back, no hang |
+| 7 | n=7 | falls back — assert the **strategy marker**, not wall-clock |
+| 8 | 12-seat shuttle case n=8 | falls back, returns a valid permutation |
 
 Case 4 is the important one: the test **independently** enumerates all 24
 orders and asserts `bestPickupOrder`'s answer ties the minimum. That is what
 makes "exact, not approximated" a verified claim rather than a slogan.
+
+**No wall-clock assertions.** Return `{ order, strategy }` where `strategy` is
+`'exact' | 'nearest-neighbour'`, and assert the strategy at n=6 vs n=7. Timing
+in a test is machine- and load-dependent, and what we actually care about is
+which code path ran.
 
 ---
 
@@ -165,10 +170,12 @@ Mechanism (spec 01 §5–§6):
 | 5 | `prefixRange` | returns exactly the entries with that prefix |
 | 6 | `prefixRange` with no match | `[]` |
 | 7 | `corridorCandidates` | excludes the querying trip itself |
-| 8 | 200 fixture trips indexed | a candidate lookup returns in < 5 ms |
+| 8 | 200 fixture trips indexed | correctness only — **no timing assertion** |
 
 Case 4 is the one that proves the design's central adaptation is real rather
-than asserted.
+than asserted — and it is now backed by measurement: two homes converging on a
+Bellandur office share **8** leading cells keyed reversed for login and **0**
+keyed as-is. Pin those two counts in the test, not merely "shared / not shared".
 
 ---
 
@@ -204,12 +211,26 @@ Algorithm:
 | 4 | four adjacent 1-seat trips, 4-seat cab | a single 4-passenger chain, not two pairs |
 | 5 | five adjacent trips, 4-seat cab | at most 4 in any proposal |
 | 6 | a merge that trips `gender-safety` | proposal emitted with `trace.blocked === true`, NOT silently dropped |
-| 7 | golden: 200 fixture trips | `diff.cabKm >= 30` |
+| 7 | golden: 200 fixture trips | `diff.cabKm` — **measure, then pin** (see below) |
 | 8 | golden: 200 fixture trips | `solved.vehiclesUsed < baseline.vehiclesUsed` |
 | 9 | run twice on the same input | identical result (determinism) |
 | 10 | `input.trips` | not mutated |
 
 Case 6 is the demo's most memorable beat and must be a test, not a hope.
+
+**Golden thresholds are measured, never guessed.** Land case 7 in two steps:
+first assert `toBeGreaterThan(0)` and log the real value; once green, pin at
+~80% of what you measured and record it in a comment
+(`// measured 47.3 km on the committed fixture, seed 20260905`). The "≥30 km"
+figure in earlier drafts was invented. A threshold nobody measured either
+asserts nothing or fails and invites someone to lower it to match — both turn a
+golden test into decoration.
+
+**Prove each guard by breaking it.** Before committing, temporarily break the
+behaviour the guard names, confirm the guard FAILS, restore, and report that it
+did. Task 1 and Task 2 of Plan 1 each shipped a guard that did not guard what
+its name claimed; this step is what catches that. Applies here to case 6 (a
+policy-blocked proposal must still be emitted, not dropped).
 
 ---
 

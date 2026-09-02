@@ -558,8 +558,12 @@ Vitest. TDD — tests first for every `core` and `solvers` module.
   These are cheap, fast, and are the highest-value tests in the repo.
 - `ledger.ts` — cost and CO₂ arithmetic against hand-computed values
 - `scenario.ts` — diff correctness; p10/expected/p90 ordering
-- `pool-merger` — golden fixture: `200 trips → ≥30 km saved`, plus the CW
-  savings formula against a hand-worked 3-node example
+- `pool-merger` — golden fixture, **threshold measured, not guessed**: write the
+  assertion as `> 0` first, log the actual saving, then pin at ~80% of the
+  measured value with the number recorded in a comment. The "≥30 km" in v1.0 of
+  this spec was invented, never measured; a golden number nobody measured is
+  either a tautology or a trap that invites lowering the bar to match. Plus the
+  CW savings formula against a hand-worked 3-node example
 - `metro-feeder` — golden fixture on cab-km deleted; asserts the composition
   step actually pools feeder legs
 - import-boundary test asserting §4.1 dependency rules
