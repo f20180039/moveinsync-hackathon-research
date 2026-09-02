@@ -783,7 +783,8 @@ export function nearestN<T extends { at: LatLng }>(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/geo.test.ts && npx tsc --noEmit`
-Expected: 17 tests PASS, typecheck clean.
+Expected: **18** new tests PASS (25 total in the suite, with Task 1's 7),
+typecheck clean.
 
 All four distance expectations were produced by turf 7.4.0 locally:
 `3.644013`, `20.126280`, `16.453067`, `111.195080`.
