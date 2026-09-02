@@ -8,7 +8,7 @@ hackathon (Bengaluru, ~2026-09-05). Nothing here touches other projects.
 ```
 hackathon-moveinsync/
 ├─ README.md            you are here
-├─ specs/               ← START HERE
+├─ specs/               ← START HERE  (8 detailed specs, 2,460 lines)
 │  ├─ INDEX.md          router + the 5 things to actually do
 │  ├─ 04-bengaluru-metro-dataset.md    🟢🟢 real metro data — do this first
 │  ├─ 01-smart-airport-cabpooling.md   🟢  H3 corridor matching
@@ -27,8 +27,13 @@ ship, this folder is research you read.
 
 ## How to use this on the day
 
-1. Read `specs/INDEX.md` — 2 minutes. It ends with **"Answers to have ready"**
-   for the questions judges actually ask.
+1. Read `specs/INDEX.md` — 2 minutes. It has a spec-depth table so you open
+   only what you need, and ends with **"Answers to have ready"** for the
+   questions judges actually ask.
+
+Each spec is a full technical reference — architecture, data model, algorithms
+with `file:line` citations, bugs found, and a costed action list — so you should
+never need to reopen the source repos on the day.
 2. Open only the 🟢 specs relevant to the statement.
 3. Build in `../commute-os/`, guided by `../commute-os/PIVOT.md`.
 

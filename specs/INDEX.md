@@ -1,10 +1,15 @@
 # Reference Repo Index — MoveInSync Hackathon
 
 Repos cloned to `../reference/` (shallow/sparse, git-ignored).
-Surveyed 2026-09-02, revised after pruning.
+Surveyed 2026-09-02; pruned and deep-spec'd the same day.
 
 This file is the **router**: read it, open the one or two specs you need, ignore
 everything else.
+
+Each `NN-*.md` is a **detailed technical spec** — architecture, data model, key
+algorithms with `file:line` citations and code excerpts, bugs found, what to
+port, what to ignore, and a costed action list. 2,460 lines total, so use the
+tables below to open only what you need.
 
 ## Verdict table
 
@@ -19,7 +24,20 @@ everything else.
 | **02** | `RideShare-Optimizer` | BFS/Prim's/TSP hand-implemented. Python/Streamlit | 🟡 **MED** | [02](02-rideshare-optimizer.md) |
 | **03** | `Car-Pooling-System` | MERN CRUD; matching commented out. Kept for **context** — it's a MoveInSync recruitment assignment | 🟡 **LOW** | [03](03-car-pooling-mern.md) |
 
-Disk: 25 MB total (662 MB of FleetPy reduced to 4.9 MB by sparse clone).
+Disk: 29 MB total (662 MB of FleetPy reduced to 4.9 MB by sparse clone).
+
+### Spec depth
+
+| Spec | Lines | Deepest sections |
+|---|---|---|
+| [01](01-smart-airport-cabpooling.md) smart-airport | 342 | §4 Redis key design · §5 the algorithm · §6 the inversion · §7 bugs found |
+| [02](02-rideshare-optimizer.md) rideshare-optimizer | 241 | §3 pickup ordering · §4 OpenRouteService · §5 the Prim's trap |
+| [03](03-car-pooling-mern.md) car-pooling MERN | 248 | §3 what ships · §4 what was abandoned · §5 calibration |
+| [04](04-bengaluru-metro-dataset.md) metro dataset | 273 | §2 verified stats · §3 three parsing gotchas · §5 the Yellow Line |
+| [05](05-pyvrp.md) pyvrp | 329 | §3 constraint mapping · §4 fleet floor · §5 penalties |
+| [06](06-vroom.md) vroom | 317 | §2 violations · §3 skills · §5 priority · §6 schema details |
+| [07](07-fleetpy.md) fleetpy | 332 | §2 semi-on-demand · §3 insertion heuristic · §4 Alonso-Mora |
+| [08](08-timefold-quickstarts.md) timefold | 294 | §2 three-tier scoring · §3 the fairness policy |
 
 ### Removed 2026-09-02
 
