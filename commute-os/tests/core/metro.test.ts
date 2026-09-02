@@ -4,6 +4,7 @@ import {
   parseMetroCsv, buildMetroGraph, toMetroGraph, findMetroPath, metroLegMinutes,
   AVG_METRO_SPEED_KMPH, DWELL_MIN_PER_STOP, INTERCHANGE_MIN,
 } from '../../src/core/metro'
+import type { MetroCsvRow } from '../../src/core/metro'
 
 const CSV = readFileSync('data/bengaluru_metro_network.csv', 'utf8')
 const rows = parseMetroCsv(CSV)
@@ -160,5 +161,26 @@ describe('metroLegMinutes', () => {
     expect(AVG_METRO_SPEED_KMPH).toBe(32)
     expect(DWELL_MIN_PER_STOP).toBe(0.35)
     expect(INTERCHANGE_MIN).toBe(5)
+  })
+})
+
+describe('buildMetroGraph — trap 3 isolated from trap 1', () => {
+  it('drops a zero-distance hop even when next_station_code is a real station', () => {
+    // The real CSV never contains this row shape: distance 0 with a real next
+    // station. Without it, the zero-distance guard is unreachable and untested,
+    // because every zero-distance row is also a terminal.
+    const mk = (code: string, next: string | null, km: number): MetroCsvRow => ({
+      station_code: code, station_name: code, line: 'Test Line', sequence: 1,
+      is_interchange: false, next_station_code: next,
+      latitude: 12.9, longitude: 77.6, distance_to_next_km: km, line_color: '#000000',
+    })
+    const g = buildMetroGraph([mk('A', 'B', 0), mk('B', 'C', 1.5), mk('C', null, 0)])
+
+    // A->B: real next station, zero distance => no edge in EITHER direction
+    expect(g.edges.filter((e) => e.from === 'A' || e.to === 'A')).toEqual([])
+    // B<->C: valid hop => both directions emitted
+    expect(g.edges).toHaveLength(2)
+    // and the stations themselves are still all registered
+    expect(g.stations.map((s) => s.id).sort()).toEqual(['A', 'B', 'C'])
   })
 })
