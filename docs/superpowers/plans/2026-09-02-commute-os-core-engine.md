@@ -14,9 +14,24 @@ clever generics, no ambient state. Determinism is a hard requirement: no
 `Date.now()`, no unseeded `Math.random()` anywhere in `src/core`, so golden
 tests are byte-stable.
 
-**Tech Stack:** TypeScript 5.4 · Vitest 1.6 · tsx (fixture script runner) ·
-Node 18.19.0 / npm 10.2.3. No runtime dependencies. Next.js is added in Plan 3,
-deliberately not here.
+**Tech Stack:** TypeScript 5.4 · Vitest 1.6 · tsx · Node 18.19.0 / npm 10.2.3.
+
+Runtime dependencies, all permissively licensed and **all verified against the
+npm registry and exercised locally on 2026-09-02** (see `docs/REUSE-AUDIT.md`):
+`@turf/distance` + `@turf/boolean-point-in-polygon` + `@turf/helpers` 7.4.0 (MIT)
+for geodesy and polygon containment · `graphology` 0.26.0 +
+`graphology-shortest-path` 2.1.0 (MIT) for the metro Dijkstra · `papaparse`
+5.7.0 (MIT, 0 deps) for CSV · `seedrandom` 3.0.5 (MIT, 0 deps) and
+`@faker-js/faker` 10.6.0 (MIT) for deterministic fixtures. 16 packages, 5.6 MB.
+
+Next.js is added in Plan 3, `h3-js` in Plan 2 — deliberately not here.
+
+**Do not install `@turf/turf`** — the meta-package pulls 117 runtime
+dependencies. Only the three sub-packages above.
+
+**Do not vendor or fork these libraries.** Depending on them via npm keeps their
+patches and their test suites; a fork means owning their bugs. If behaviour ever
+needs changing, wrap — never fork.
 
 **Spec:** `docs/superpowers/specs/2026-09-02-commute-os-design.md` (v1.1) —
 implements §5, §6, §7, §11 and the Tier A items in §19.
@@ -25,6 +40,13 @@ implements §5, §6, §7, §11 and the Tier A items in §19.
 
 - **Node 18.19.0**, npm 10.2.3. Next.js, when added in Plan 3, is pinned to
   `14.x` for Node 18 compatibility. Do not add Next in this plan.
+- **Prefer a library over hand-rolled code** for anything generic (geodesy,
+  CSV, graph search, seeded PRNG). Hand-write only genuine domain logic: the ten
+  policies, the ledger, scenario metrics, and the solvers. See
+  `docs/REUSE-AUDIT.md`.
+- **turf works in `[lng, lat]`; this domain uses `{ lat, lng }`.** The adapter
+  lives in `geo.ts` and nowhere else. Getting it backwards silently produces
+  distances that look plausible and are wrong.
 - **`src/core/**` must not import** from `src/solvers/`, `src/ui/`, `src/ai/`,
   `app/`, `react`, or `next`. Enforced by a test in Task 1.
 - **No file exceeds 250 lines.** If one does, it is doing too much.
@@ -106,8 +128,20 @@ implements §5, §6, §7, §11 and the Tier A items in §19.
     "test:watch": "vitest",
     "fixtures": "tsx scripts/generate-fixtures.ts"
   },
+  "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/distance": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "graphology": "^0.26.0",
+    "graphology-shortest-path": "^2.1.0",
+    "papaparse": "^5.7.0",
+    "seedrandom": "^3.0.5"
+  },
   "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@types/node": "20.11.30",
+    "@types/papaparse": "^5.5.2",
+    "@types/seedrandom": "^3.0.8",
     "tsx": "4.7.1",
     "typescript": "5.4.3",
     "vitest": "1.6.0"
@@ -167,8 +201,17 @@ coverage/
 cd commute-os && npm install
 ```
 
-Expected: installs cleanly on Node 18.19.0, no peer warnings that mention React
-or Next.
+Expected: installs cleanly on Node 18.19.0 — 16 packages, ~5.6 MB — with no
+peer warnings mentioning React or Next.
+
+Sanity-check the library whose numbers the geo tests depend on:
+
+```bash
+node -e "const {distance}=require('@turf/distance'); const {point}=require('@turf/helpers'); console.log(distance(point([77.57313,12.97559]), point([77.60676,12.97566]), {units:'kilometers'}).toFixed(6))"
+```
+
+Expected: `3.644013`. If it differs, turf changed its earth radius and the
+Task 2 expectations need regenerating.
 
 - [ ] **Step 3: Write the failing import-boundary test**
 
@@ -504,8 +547,14 @@ Math.random (determinism for golden tests), 250-line cap, and the mandatory
 - Create: `commute-os/src/core/geo.ts`
 - Test: `commute-os/tests/core/geo.test.ts`
 
+**Library-backed.** Distance and polygon containment come from `@turf/*`; only
+the `{lat,lng}` ↔ `[lng,lat]` adapter and the road factor are ours. Every
+expected number below was produced by turf 7.4.0 locally, not derived by hand.
+
 **Interfaces:**
-- Consumes: `LatLng`, `Zone` from `src/core/types.ts`.
+- Consumes: `LatLng`, `Zone` from `src/core/types.ts`; `distance` from
+  `@turf/distance`; `booleanPointInPolygon` from
+  `@turf/boolean-point-in-polygon`; `point`, `polygon` from `@turf/helpers`.
 - Produces:
   - `haversineKm(a: LatLng, b: LatLng): number`
   - `ROAD_FACTOR: number` (1.3)
@@ -558,6 +607,37 @@ describe('estimateKm', () => {
 
   it('uses a road factor of 1.3', () => {
     expect(ROAD_FACTOR).toBe(1.3)
+  })
+})
+
+describe('turf integration guards', () => {
+  it('does not silently swap lat and lng', () => {
+    // If toPos were reversed, this Bengaluru pair would land in the Indian
+    // Ocean and the distance would be wildly different.
+    expect(haversineKm(MAJESTIC, MG_ROAD)).toBeLessThan(10)
+  })
+
+  it('does not throw on an open ring — geo.ts closes it', () => {
+    const openSquare: Zone = {
+      id: 'z2', name: 'Open', centroid: { lat: 12.95, lng: 77.62 },
+      polygon: [
+        { lat: 12.90, lng: 77.57 }, { lat: 12.90, lng: 77.67 },
+        { lat: 13.00, lng: 77.67 }, { lat: 13.00, lng: 77.57 },
+      ],
+      confidence: 1,
+    }
+    expect(() => pointInZone({ lat: 12.95, lng: 77.62 }, openSquare)).not.toThrow()
+    expect(pointInZone({ lat: 12.95, lng: 77.62 }, openSquare)).toBe(true)
+  })
+
+  it('does not throw on a 2-point degenerate ring', () => {
+    const bad: Zone = {
+      id: 'z3', name: 'Bad', centroid: { lat: 12.95, lng: 77.62 },
+      polygon: [{ lat: 12.90, lng: 77.57 }, { lat: 12.90, lng: 77.67 }],
+      confidence: 1,
+    }
+    expect(() => pointInZone({ lat: 12.95, lng: 77.62 }, bad)).not.toThrow()
+    expect(pointInZone({ lat: 12.95, lng: 77.62 }, bad)).toBe(false)
   })
 })
 
@@ -627,10 +707,14 @@ Expected: FAIL — `Failed to resolve import "../../src/core/geo"`.
  * PIVOT: if the statement needs real road distance everywhere, raise ROAD_FACTOR
  *        or move callers onto routing.ts's cache; this file stays the fallback.
  * SAFE-TO-DELETE: no — geo is used by every solver and half the policies.
+ *
+ * Geodesy and polygon containment are @turf/* (MIT). We own only the coordinate
+ * adapter and the road factor — see docs/REUSE-AUDIT.md.
  */
+import { distance } from '@turf/distance'
+import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon'
+import { point, polygon as turfPolygon } from '@turf/helpers'
 import type { LatLng, Zone } from './types'
-
-const EARTH_RADIUS_KM = 6371
 
 /**
  * Multiplier from great-circle to driving distance. Design §6.2 / spec 01 §7:
@@ -639,16 +723,16 @@ const EARTH_RADIUS_KM = 6371
  */
 export const ROAD_FACTOR = 1.3
 
-const toRad = (deg: number): number => (deg * Math.PI) / 180
+/**
+ * THE ONLY PLACE the two coordinate conventions meet. turf and GeoJSON are
+ * [lng, lat]; our domain is { lat, lng }. Reversing this produces distances
+ * that look plausible and are wrong, so it lives here and nowhere else.
+ */
+const toPos = (p: LatLng): [number, number] => [p.lng, p.lat]
 
-/** Great-circle distance in kilometres. */
+/** Great-circle distance in kilometres (turf's haversine, R = 6371008.8 m). */
 export function haversineKm(a: LatLng, b: LatLng): number {
-  const dLat = toRad(b.lat - a.lat)
-  const dLng = toRad(b.lng - a.lng)
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
-  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+  return distance(point(toPos(a)), point(toPos(b)), { units: 'kilometers' })
 }
 
 /** Road-distance estimate: great-circle inflated by ROAD_FACTOR. */
@@ -657,23 +741,18 @@ export function estimateKm(a: LatLng, b: LatLng): number {
 }
 
 /**
- * Ray-casting point-in-polygon. The ring is implicitly closed, so the caller
- * must NOT repeat the first vertex at the end.
+ * Zone.polygon is stored as an OPEN ring (the first vertex is not repeated),
+ * but GeoJSON requires a closed one and turf THROWS
+ * "First and last Position are not equivalent" if it is open. Close it here so
+ * no caller has to know. A ring of fewer than 3 vertices is rejected before
+ * turf sees it, since that also throws.
  */
 export function pointInZone(p: LatLng, z: Zone): boolean {
-  const ring = z.polygon
-  if (ring.length < 3) return false
-
-  let inside = false
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const pi = ring[i]!
-    const pj = ring[j]!
-    const straddles = pi.lat > p.lat !== pj.lat > p.lat
-    if (!straddles) continue
-    const lngAtLat = ((pj.lng - pi.lng) * (p.lat - pi.lat)) / (pj.lat - pi.lat) + pi.lng
-    if (p.lng < lngAtLat) inside = !inside
-  }
-  return inside
+  if (z.polygon.length < 3) return false
+  const ring = z.polygon.map(toPos)
+  const first = ring[0]!
+  const closed: Array<[number, number]> = [...ring, [first[0], first[1]]]
+  return booleanPointInPolygon(point(toPos(p)), turfPolygon([closed]))
 }
 
 /**
@@ -698,19 +777,27 @@ export function nearestN<T extends { at: LatLng }>(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/geo.test.ts && npx tsc --noEmit`
-Expected: 17 tests PASS, typecheck clean.
+Expected: 20 tests PASS, typecheck clean.
+
+All four distance expectations were produced by turf 7.4.0 locally:
+`3.644013`, `20.126280`, `16.453067`, `111.195080`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 cd commute-os
 git add src/core/geo.ts tests/core/geo.test.ts
-git commit -m "feat(core): geo — haversine, road-factor estimate, zone containment
+git commit -m "feat(core): geo on @turf — distance, road estimate, zone containment
 
-Distances asserted against real Bengaluru landmarks from the CC0 metro
-dataset rather than synthetic values, so a sign or radians error cannot
-pass. estimateKm x1.3 is the offline fallback that keeps the demo
-independent of any routing API (design G5)."
+Geodesy and point-in-polygon delegate to @turf/* (MIT) rather than being
+hand-rolled; we own only the {lat,lng} <-> [lng,lat] adapter and the 1.3
+road factor. Distances asserted against real Bengaluru landmarks from the
+CC0 metro dataset, with expectations generated by turf itself.
+
+Two turf behaviours are covered by guard tests because both are silent
+footguns: it needs a CLOSED GeoJSON ring (throws otherwise, and our Zone
+stores an open one), and it takes [lng, lat] (reversing it yields
+plausible-looking wrong distances)."
 ```
 
 ---
@@ -998,16 +1085,28 @@ service-per-passenger (VROOM setup/service, FleetPy std_bt/add_bt)."
 - Create: `commute-os/src/core/metro.ts`
 - Test: `commute-os/tests/core/metro.test.ts`
 
+**Library-backed.** CSV parsing is `papaparse`; the shortest path is
+`graphology` + `graphology-shortest-path`. We own the de-duplication, the
+bidirectional edge synthesis, the interchange count and the leg timing.
+
 **Interfaces:**
-- Consumes: `MetroStation`, `MetroLine`, `MetroEdge`, `LatLng` from `types.ts`; `haversineKm` from `geo.ts`.
+- Consumes: `MetroStation`, `MetroLine`, `MetroEdge` from `types.ts`; `Papa` from
+  `papaparse`; `Graph` from `graphology`; `dijkstra` from
+  `graphology-shortest-path`.
 - Produces:
   - `MetroCsvRow` (parsed row shape)
   - `AVG_METRO_SPEED_KMPH`, `DWELL_MIN_PER_STOP`, `INTERCHANGE_MIN`, `DEFAULT_HEADWAY_MIN`
   - `parseMetroCsv(csv: string): MetroCsvRow[]`
   - `buildMetroGraph(rows: MetroCsvRow[]): { stations: MetroStation[]; lines: MetroLine[]; edges: MetroEdge[] }`
+  - `MetroGraph` (a `graphology` `Graph`)
+  - `toMetroGraph(edges: MetroEdge[]): MetroGraph`
   - `MetroPath = { stationIds: string[]; km: number; interchanges: number }`
-  - `findMetroPath(fromId: string, toId: string, edges: MetroEdge[]): MetroPath | null`
+  - `findMetroPath(fromId: string, toId: string, g: MetroGraph): MetroPath | null`
   - `metroLegMinutes(path: MetroPath, headwayMin?: number): number`
+
+**Signature note.** `findMetroPath` takes a prebuilt `MetroGraph`, not the edge
+array, so the graph is constructed once rather than per query — Metro Feeder
+Mesh calls it hundreds of times during candidate search.
 
 **Critical context (spec 04 §3).** Three gotchas, each with a dedicated test:
 1. The CSV graph is **directed** — exactly 3 rows have an empty
@@ -1052,13 +1151,14 @@ EOF
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
-  parseMetroCsv, buildMetroGraph, findMetroPath, metroLegMinutes,
+  parseMetroCsv, buildMetroGraph, toMetroGraph, findMetroPath, metroLegMinutes,
   AVG_METRO_SPEED_KMPH, DWELL_MIN_PER_STOP, INTERCHANGE_MIN,
 } from '../../src/core/metro'
 
 const CSV = readFileSync('data/bengaluru_metro_network.csv', 'utf8')
 const rows = parseMetroCsv(CSV)
 const graph = buildMetroGraph(rows)
+const mg = toMetroGraph(graph.edges) // built once; findMetroPath takes the graph
 
 describe('parseMetroCsv', () => {
   it('parses all 85 data rows', () => {
@@ -1153,19 +1253,19 @@ describe('buildMetroGraph — edges', () => {
 
 describe('findMetroPath', () => {
   it('returns a zero-length path for the same station', () => {
-    const p = findMetroPath('RVR', 'RVR', graph.edges)
+    const p = findMetroPath('RVR', 'RVR', mg)
     expect(p).toEqual({ stationIds: ['RVR'], km: 0, interchanges: 0 })
   })
 
   it('finds the 3-hop Yellow Line path RVR -> BTM Layout at 3.16 km', () => {
-    const p = findMetroPath('RVR', 'BTML', graph.edges)!
+    const p = findMetroPath('RVR', 'BTML', mg)!
     expect(p.stationIds).toEqual(['RVR', 'RAGI', 'JDEV', 'BTML'])
     expect(p.km).toBeCloseTo(3.16, 2)
     expect(p.interchanges).toBe(0)
   })
 
   it('travels the reverse direction too — proving gotcha 1 is handled', () => {
-    const p = findMetroPath('BTML', 'RVR', graph.edges)!
+    const p = findMetroPath('BTML', 'RVR', mg)!
     expect(p.stationIds).toEqual(['BTML', 'JDEV', 'RAGI', 'RVR'])
     expect(p.km).toBeCloseTo(3.16, 2)
   })
@@ -1173,7 +1273,7 @@ describe('findMetroPath', () => {
   it('routes across an interchange and counts it', () => {
     // Whitefield (Purple) -> Electronic City (Yellow) must change lines twice:
     // Purple -> Green at KGWA, Green -> Yellow at RVR
-    const p = findMetroPath('WHTM', 'ELCT', graph.edges)!
+    const p = findMetroPath('WHTM', 'ELCT', mg)!
     expect(p.stationIds[0]).toBe('WHTM')
     expect(p.stationIds[p.stationIds.length - 1]).toBe('ELCT')
     expect(p.stationIds).toContain('KGWA')
@@ -1183,8 +1283,8 @@ describe('findMetroPath', () => {
   })
 
   it('returns null for an unknown station', () => {
-    expect(findMetroPath('RVR', 'NOPE', graph.edges)).toBeNull()
-    expect(findMetroPath('NOPE', 'RVR', graph.edges)).toBeNull()
+    expect(findMetroPath('RVR', 'NOPE', mg)).toBeNull()
+    expect(findMetroPath('NOPE', 'RVR', mg)).toBeNull()
   })
 })
 
@@ -1228,6 +1328,9 @@ Expected: FAIL — `Failed to resolve import "../../src/core/metro"`.
  *        the hero path; new lines are new CSV rows, no code change.
  * SAFE-TO-DELETE: no — Metro Feeder Mesh cannot run without it.
  */
+import Graph from 'graphology'
+import { dijkstra } from 'graphology-shortest-path'
+import Papa from 'papaparse'
 import type { MetroEdge, MetroLine, MetroStation } from './types'
 
 /** BMRCL scheduled average including dwell. Estimate — label it in the UI. */
@@ -1255,28 +1358,34 @@ export type MetroCsvRow = {
 }
 
 /**
- * The CSV has no quoted fields and exactly 10 columns per row (verified), so a
- * naive split is safe. Blank trailing lines are skipped.
+ * Parsed with papaparse rather than split(',') — the current file is unquoted,
+ * but a hand parser breaks silently the day a station name contains a comma.
+ * papaparse yields `""` for an empty field, which is how the three terminals'
+ * missing next_station_code arrives; it is mapped to null here.
  */
 export function parseMetroCsv(csv: string): MetroCsvRow[] {
-  const lines = csv.trim().split(/\r?\n/)
-  return lines.slice(1).flatMap((line) => {
-    if (!line.trim()) return []
-    const f = line.split(',')
-    if (f.length !== 10) throw new Error(`metro CSV: expected 10 fields, got ${f.length}: ${line}`)
-    const next = (f[5] ?? '').trim()
-    return [{
-      station_code: f[0]!.trim(),
-      station_name: f[1]!.trim(),
-      line: f[2]!.trim(),
-      sequence: Number(f[3]),
-      is_interchange: f[4]!.trim() === '1',
+  const parsed = Papa.parse<Record<string, string>>(csv, {
+    header: true,
+    skipEmptyLines: true,
+    transform: (v) => v.trim(),
+  })
+  if (parsed.errors.length > 0) {
+    throw new Error(`metro CSV parse error: ${parsed.errors[0]!.message}`)
+  }
+  return parsed.data.map((r) => {
+    const next = r['next_station_code'] ?? ''
+    return {
+      station_code: r['station_code'] ?? '',
+      station_name: r['station_name'] ?? '',
+      line: r['line'] ?? '',
+      sequence: Number(r['sequence']),
+      is_interchange: r['is_interchange'] === '1',
       next_station_code: next === '' || next.toUpperCase() === 'NULL' ? null : next,
-      latitude: Number(f[6]),
-      longitude: Number(f[7]),
-      distance_to_next_km: Number(f[8]),
-      line_color: f[9]!.trim(),
-    }]
+      latitude: Number(r['latitude']),
+      longitude: Number(r['longitude']),
+      distance_to_next_km: Number(r['distance_to_next_km']),
+      line_color: r['line_color'] ?? '',
+    }
   })
 }
 
@@ -1340,68 +1449,55 @@ export function buildMetroGraph(rows: MetroCsvRow[]): {
   return { stations: [...stations.values()], lines, edges }
 }
 
+export type MetroGraph = Graph
 export type MetroPath = { stationIds: string[]; km: number; interchanges: number }
 
 /**
- * Dijkstra over the bidirectional edge list, minimising kilometres.
- * Interchanges are counted afterwards by walking the chosen edges and
- * detecting lineId changes.
+ * Build the graphology graph once. Undirected and simple: buildMetroGraph
+ * already emitted both directions, and no two adjacent stations are joined by
+ * more than one line, so mergeEdge cannot lose a parallel edge.
  */
-export function findMetroPath(fromId: string, toId: string, edges: MetroEdge[]): MetroPath | null {
-  const adj = new Map<string, MetroEdge[]>()
+export function toMetroGraph(edges: MetroEdge[]): MetroGraph {
+  const g: Graph = new Graph({ type: 'undirected', multi: false })
   for (const e of edges) {
-    const list = adj.get(e.from)
-    if (list) list.push(e)
-    else adj.set(e.from, [e])
+    g.mergeNode(e.from)
+    g.mergeNode(e.to)
+    g.mergeEdge(e.from, e.to, { km: e.km, lineId: e.lineId })
   }
-  if (!adj.has(fromId) || !adj.has(toId)) return null
+  return g
+}
+
+/**
+ * Shortest path by kilometres, via graphology's Dijkstra (a real binary heap —
+ * the hand-rolled version this replaced re-sorted its queue every iteration).
+ *
+ * Two library behaviours must be handled, both verified against
+ * graphology-shortest-path 2.1.0:
+ *   - `dijkstra.bidirectional` THROWS on a node that is not in the graph, so
+ *     guard with hasNode first;
+ *   - it returns `null` (not `[]`) when the nodes exist but are disconnected.
+ */
+export function findMetroPath(fromId: string, toId: string, g: MetroGraph): MetroPath | null {
+  if (!g.hasNode(fromId) || !g.hasNode(toId)) return null
   if (fromId === toId) return { stationIds: [fromId], km: 0, interchanges: 0 }
 
-  const dist = new Map<string, number>([[fromId, 0]])
-  const prev = new Map<string, MetroEdge>()
-  const seen = new Set<string>()
-  const queue: Array<{ id: string; km: number }> = [{ id: fromId, km: 0 }]
+  const path = dijkstra.bidirectional(g, fromId, toId, 'km')
+  if (!path || path.length === 0) return null
 
-  while (queue.length > 0) {
-    queue.sort((a, b) => a.km - b.km)
-    const cur = queue.shift()!
-    if (seen.has(cur.id)) continue
-    seen.add(cur.id)
-    if (cur.id === toId) break
-
-    for (const e of adj.get(cur.id) ?? []) {
-      if (seen.has(e.to)) continue
-      const next = cur.km + e.km
-      if (next < (dist.get(e.to) ?? Infinity)) {
-        dist.set(e.to, next)
-        prev.set(e.to, e)
-        queue.push({ id: e.to, km: next })
-      }
-    }
-  }
-
-  if (!dist.has(toId)) return null
-
-  // walk back to build the path and its edge sequence
-  const path: string[] = [toId]
-  const used: MetroEdge[] = []
-  let cursor = toId
-  while (cursor !== fromId) {
-    const e = prev.get(cursor)
-    if (!e) return null
-    used.push(e)
-    cursor = e.from
-    path.push(cursor)
-  }
-  path.reverse()
-  used.reverse()
-
+  let km = 0
   let interchanges = 0
-  for (let i = 1; i < used.length; i++) {
-    if (used[i]!.lineId !== used[i - 1]!.lineId) interchanges++
+  let prevLine: string | null = null
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const edgeKey = g.edge(path[i]!, path[i + 1]!)
+    if (edgeKey === undefined) return null
+    km += g.getEdgeAttribute(edgeKey, 'km') as number
+    const lineId = g.getEdgeAttribute(edgeKey, 'lineId') as string
+    if (prevLine !== null && lineId !== prevLine) interchanges++
+    prevLine = lineId
   }
 
-  return { stationIds: path, km: dist.get(toId)!, interchanges }
+  return { stationIds: path, km, interchanges }
 }
 
 /**
@@ -1423,16 +1519,20 @@ export function metroLegMinutes(path: MetroPath, headwayMin?: number): number {
 Run: `cd commute-os && npx vitest run tests/core/metro.test.ts && npx tsc --noEmit`
 Expected: 20 tests PASS, typecheck clean.
 
-If `interchanges` is 1 rather than 2 on the WHTM→ELCT test, the interchange
-count is being derived from station flags instead of edge `lineId` transitions —
-re-read Step 4's final loop.
+Reference values, produced locally against the real CSV with an independent
+Dijkstra: **164 edges**, `RVR→BTML` = **3.16 km / 0 interchanges / 4 stations**,
+`WHTM→ELCT` = **43.05 km / 2 interchanges / 41 stations**.
+
+If `interchanges` comes back as 1 rather than 2 on WHTM→ELCT, the count is being
+derived from station `isInterchange` flags instead of edge `lineId` transitions —
+re-read the loop in `findMetroPath`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 cd commute-os
 git add data/bengaluru_metro_network.csv data/README.md src/core/metro.ts tests/core/metro.test.ts
-git commit -m "feat(core): metro graph from real CC0 Namma Metro data
+git commit -m "feat(core): metro graph from real CC0 data, on papaparse + graphology
 
 Replaces hand-approximated coordinates and the guessed 2.2 min/stop with
 83 real stations and real inter-station distances (design v1.1 A3, spec 04).
@@ -3394,7 +3494,9 @@ challenged and ranges get believed."
 
 **Interfaces:**
 - Consumes: `parseMetroCsv`/`buildMetroGraph` from `metro.ts`; `AVG_CITY_SPEED_KMPH`/`cacheKey` from `routing.ts`; `estimateKm`/`haversineKm` from `geo.ts`; domain types from `types.ts`.
-- Produces: `mulberry32(seed: number): () => number`, `SEED` (20260905), and the three committed JSON files.
+- Produces: `SEED` (20260905) and the three committed JSON files. Randomness is
+  `seedrandom` (MIT, 0 deps); names are `@faker-js/faker`'s **`fakerEN_IN`**
+  locale, seeded — both verified deterministic locally.
 
 **Why fixtures are adversarial.** The demo must be able to show a *refusal*
 without staging one live, so the generated set deliberately contains at least
@@ -3545,6 +3647,8 @@ Expected: FAIL — `missing fixture data/generated/bengaluru.world.json`.
  * SAFE-TO-DELETE: no — the committed JSON is generated, not hand-edited.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import seedrandom from 'seedrandom'
+import { fakerEN_IN as faker } from '@faker-js/faker'
 import { buildMetroGraph, parseMetroCsv } from '../src/core/metro'
 import { AVG_CITY_SPEED_KMPH, cacheKey } from '../src/core/routing'
 import { estimateKm, haversineKm } from '../src/core/geo'
@@ -3555,19 +3659,13 @@ import type {
 /** Fixed seed = the hackathon date. Never change it casually. */
 export const SEED = 20260905
 
-/** mulberry32 — small, fast, well-distributed, and reproducible. */
-export function mulberry32(seed: number): () => number {
-  let a = seed >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = a
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-const rnd = mulberry32(SEED)
+/**
+ * seedrandom (MIT, zero deps) rather than a hand-rolled PRNG, and faker's
+ * Indian-English locale for names. Both are seeded, so regeneration is
+ * byte-stable — proven by the git diff --exit-code step below.
+ */
+const rnd = seedrandom(String(SEED))
+faker.seed(SEED)
 const pick = <T,>(xs: T[]): T => xs[Math.floor(rnd() * xs.length)]!
 const jitter = (v: number, spread: number): number => v + (rnd() - 0.5) * 2 * spread
 const MIN = 60_000
@@ -3619,18 +3717,16 @@ const offices: Office[] = OFFICE_SEEDS.map((o, i) => {
 })
 
 // ── employees ───────────────────────────────────────────────────────────────
-const FIRST = ['Asha', 'Bhavna', 'Chandran', 'Divya', 'Eshwar', 'Farida', 'Gopal',
-  'Harini', 'Imran', 'Jyoti', 'Kiran', 'Lakshmi', 'Manoj', 'Nandini', 'Omkar',
-  'Priya', 'Rahul', 'Sneha', 'Tarun', 'Uma', 'Vikram', 'Yamini']
-
 const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
   const z = zones[i % zones.length]!
-  // ~42% female, deterministic by index rather than random, so the night
-  // cohort reliably contains lone-female trips for the safety demo.
+  // ~42% female, deterministic BY INDEX rather than random, so the night cohort
+  // (i % 9 === 0, below) reliably contains lone-female trips for the safety
+  // demo. Leaving this to the PRNG would make the demo's best beat a lottery.
   const gender: Employee['gender'] = i % 12 < 5 ? 'F' : 'M'
+  const firstName = faker.person.firstName(gender === 'F' ? 'female' : 'male')
   return {
     id: `e${String(i).padStart(3, '0')}`,
-    name: `${pick(FIRST)} ${String.fromCharCode(65 + (i % 26))}.`,
+    name: `${firstName} ${faker.person.lastName()}`,
     gender,
     homeAt: { lat: jitter(z.centroid.lat, 0.018), lng: jitter(z.centroid.lng, 0.018) },
     zoneId: z.id,
@@ -3784,9 +3880,11 @@ cd commute-os
 git add scripts/generate-fixtures.ts data/generated tests/fixtures.test.ts
 git commit -m "feat(core): seeded deterministic Bengaluru fixtures
 
-mulberry32 seeded on the hackathon date, so regeneration is byte-stable
-and every golden test downstream is reproducible (verified by a
-git diff --exit-code step).
+seedrandom + faker's fakerEN_IN locale, both seeded on the hackathon
+date, so regeneration is byte-stable and every golden test downstream is
+reproducible (verified by a git diff --exit-code step). Gender is assigned
+BY INDEX, not by the PRNG, so the night-shift lone-female cohort the
+safety demo depends on is guaranteed rather than probable.
 
 Fixtures are deliberately ADVERSARIAL: a driver over the duty cap, three
 more over the warn line, EVs at 25-35% charge, a ~22-trip night cohort
@@ -3847,6 +3945,30 @@ implements it — or to the plan that will.
 **Nothing in Tier A is unassigned.** A5, A8 and A11 are solver concerns and
 belong to Plan 2 by design, not by omission.
 
+### Library-backed vs hand-written
+
+Revised 2026-09-02 per `docs/REUSE-AUDIT.md` — generic work is delegated, domain
+work is owned.
+
+| Task | Delegated to | We still own |
+|---|---|---|
+| 2 `geo.ts` | `@turf/distance`, `@turf/boolean-point-in-polygon` | the `{lat,lng}`↔`[lng,lat]` adapter, `ROAD_FACTOR`, ring closing, `nearestN` |
+| 4 `metro.ts` | `papaparse`, `graphology`, `graphology-shortest-path` | station de-duplication, bidirectional edge synthesis, interchange counting, leg timing |
+| 11 fixtures | `seedrandom`, `@faker-js/faker` (`fakerEN_IN`) | the whole adversarial fixture design |
+| 3, 5, 6, 7, 8, 9, 10 | *nothing* | all of it — ledger, clock, routing, policy engine, ten policies, scenario |
+
+`@types/papaparse` and `@types/seedrandom` are required (neither ships types);
+`graphology` and `graphology-shortest-path` ship their own — verified.
+
+Three library behaviours are covered by explicit guard tests because each is a
+silent footgun, all verified against the installed versions:
+
+1. `booleanPointInPolygon` **throws** on an open GeoJSON ring — and `Zone.polygon`
+   stores an open one. `geo.ts` closes it.
+2. turf takes `[lng, lat]`. Reversing it yields plausible-looking wrong distances.
+3. `dijkstra.bidirectional` **throws** on an unknown node but returns **`null`**
+   for a disconnected one — two different failure modes, both handled.
+
 ### Deliberately absent (spec §19 Tier C)
 
 Not implemented, and no task should add them: `priority`/`unassigned[]`
@@ -3869,7 +3991,7 @@ npm test                                       # all pass
 npm run fixtures && git diff --exit-code data/generated/   # byte-stable
 ```
 
-Expected totals: **11 tasks, 11 commits**, roughly 165 tests across
+Expected totals: **11 tasks, 11 commits**, roughly 168 tests across
 `boundaries`, `geo`, `ledger`, `metro`, `clock`, `routing`, `policy`,
 `policies/route-family`, `policies/fleet-safety`, `policies/soft-family`,
 `scenario` and `fixtures`.

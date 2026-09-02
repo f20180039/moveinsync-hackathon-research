@@ -86,11 +86,39 @@ construction heuristic that returns in 2 ms is the right tool anyway.*
 
 ---
 
-## 4. Action
+## 4. Status: DONE — Plan 1 revised 2026-09-02
 
-Plan 1 needs revising in five tasks — 2 (`geo`), 4 (`metro`), 11 (`fixtures`),
-plus the dependency list in Task 1 and the boundary test's allowance for the new
-imports. Tasks 3, 5, 6, 7, 8, 9 and 10 are unaffected: they are all domain logic.
+Tasks 1, 2, 4 and 11 revised; Tasks 3, 5, 6, 7, 8, 9, 10 unchanged because they
+are pure domain logic. Every library was installed locally and its API and
+numeric output verified before being written into the plan — which surfaced
+three behaviours that would otherwise have been bugs:
+
+1. `booleanPointInPolygon` **throws** on an open GeoJSON ring, and `Zone.polygon`
+   stores an open ring. `geo.ts` now closes it.
+2. `dijkstra.bidirectional` **throws** on an unknown node but returns **`null`**
+   when nodes are disconnected — two distinct failure modes, both handled.
+3. `papaparse` yields `""` (not `undefined`) for an empty field, which is how the
+   three metro terminals' missing `next_station_code` arrives.
+
+Also confirmed: `papaparse` and `seedrandom` ship no types (so `@types/*` are
+required), `graphology` and `graphology-shortest-path` do, and
+`@faker-js/faker` exposes a `fakerEN_IN` locale that is deterministic when
+seeded — better fixture names than a hand-typed array.
+
+### On "it's on GitHub so it can be used directly"
+
+Worth recording, because it is the one place this could go wrong: **public
+visibility is not a licence grant.** GitHub's terms let others view and fork a
+public repo *within GitHub*; rights to copy code into your own project come from
+a LICENSE file. So `pyvrp`, `fleetpy` (MIT), `vroom` (BSD-2) and
+`timefold-quickstarts` (Apache-2.0) may be copied and modified with attribution
+— but `smart-aiport-cabpooling-backend`, `RideShare-Optimizer` and
+`Car-Pooling-System` declare no licence, so their code cannot be used regardless
+of being public. Their *ideas* remain fair game, which is what the specs captured.
+
+And we **depend** on the npm libraries rather than vendoring or forking them:
+a fork means owning their bugs and losing their patches. If behaviour ever needs
+changing, wrap — never fork.
 
 Expected `package.json` after revision:
 
