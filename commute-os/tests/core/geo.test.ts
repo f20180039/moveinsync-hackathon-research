@@ -43,9 +43,12 @@ describe('estimateKm', () => {
 
 describe('turf integration guards', () => {
   it('does not silently swap lat and lng', () => {
-    // If toPos were reversed, this Bengaluru pair would land in the Indian
-    // Ocean and the distance would be wildly different.
-    expect(haversineKm(MAJESTIC, MG_ROAD)).toBeLessThan(10)
+    // A pure-longitude delta at latitude 60: the cos(lat) factor makes a swapped
+    // adapter differ by exactly 2x (55.597 vs 111.195 km), so this fails loudly
+    // if toPos is reversed. A Bengaluru pair cannot do this job — both points sit
+    // close together, so a swap shifts the result by only ~2.6% (3.644 -> 3.740),
+    // which any loose bound would accept.
+    expect(haversineKm({ lat: 60, lng: 0 }, { lat: 60, lng: 1 })).toBeCloseTo(55.597, 2)
   })
 
   it('does not throw on an open ring — geo.ts closes it', () => {
