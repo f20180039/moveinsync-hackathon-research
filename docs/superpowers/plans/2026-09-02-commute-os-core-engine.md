@@ -2866,7 +2866,10 @@ export const genderSafety: Policy = (c, w) => {
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies/fleet-safety.test.ts && npx tsc --noEmit`
-Expected: 18 tests PASS, typecheck clean.
+Expected: the 17 tests in this file PASS, typecheck clean. **Report the
+actual suite total rather than matching a number here** — the counts in this
+plan have been wrong four times, and a test must never be added or deleted to
+make one match.
 
 - [ ] **Step 7: Commit**
 
@@ -3190,7 +3193,10 @@ export {
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies && npx tsc --noEmit`
-Expected: all policy tests PASS (route-family 19, fleet-safety 17, soft-family 16 = 52), typecheck clean.
+Expected: every policy test file PASSES, typecheck clean. **Report the actual
+per-file and suite totals.** Do not reconcile against a figure in this plan:
+`route-family.test.ts` has already grown past its original count via Task 7's
+fix rounds, so any aggregate written here is stale by construction.
 
 - [ ] **Step 8: Commit**
 
