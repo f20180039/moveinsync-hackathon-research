@@ -18,6 +18,7 @@ Reference it, don't copy from it.
 | **[`specs/INDEX.md`](specs/INDEX.md)** | The router. Which repos matter, the 5 things worth doing, and **"Answers to have ready"** for the questions judges ask | 2 min |
 | [`docs/superpowers/specs/2026-09-02-commute-os-design.md`](docs/superpowers/specs/2026-09-02-commute-os-design.md) | The design: problem-agnostic core + two solvers (Pool Merger, Metro Feeder Mesh) | 15 min |
 | `specs/01…08-*.md` | Detailed per-repo technical specs — open only what you need | varies |
+| [`AGENTS.md`](AGENTS.md) | Orientation for an **AI agent** landing in this repo: reading order, conventions, and the one command that fetches the reference clones | 3 min |
 
 ---
 
@@ -38,7 +39,10 @@ Reference it, don't copy from it.
 │   └── 08-timefold-quickstarts.md       🟡  the fairness policy        (294)
 ├── docs/superpowers/specs/
 │   └── 2026-09-02-commute-os-design.md  the design spec               (591)
-└── reference/                LOCAL ONLY — git-ignored, never pushed (§Reference)
+├── AGENTS.md                 orientation for an AI agent (CLAUDE.md points here)
+├── reference-repos.json      machine-readable manifest of the 8 sources
+├── scripts/setup-reference.sh  one command to clone all 8 correctly
+└── reference/                LOCAL ONLY — git-ignored, never pushed
 ```
 
 ---
@@ -100,38 +104,42 @@ Eleven-plus concrete design changes and ~61 costed action items are tabulated in
 
 ---
 
-## Reference clones (local only)
+## Reference repos — the 8 analysed sources
 
-`reference/` is **git-ignored and never pushed** — three of the eight repos
-carry no licence, so redistributing their source isn't ours to do. Clone them
-yourself:
+**Not vendored here** (3 of the 8 declare no licence, so their source isn't ours
+to redistribute). Get all of them in one command:
 
 ```sh
-mkdir -p reference && cd reference
-
-# small — clone whole
-for u in maheshwarisharman/smart-aiport-cabpooling-backend \
-         ashhwiithac22/RideShare-Optimizer \
-         LohithMarneni/Car-Pooling-System \
-         Vinayak-Chinchakhandi/Bengaluru-Metro-Network-Dataset \
-         PyVRP/PyVRP \
-         VROOM-Project/vroom ; do
-  git clone --depth 1 "https://github.com/$u.git" "$(basename "$u")"
-done
-
-# large — sparse, or you will pull 700 MB
-git clone --depth 1 --filter=blob:none --sparse https://github.com/TUM-VT/FleetPy.git fleetpy
-git -C fleetpy sparse-checkout set src docs examples
-
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/TimefoldAI/timefold-quickstarts.git timefold-quickstarts
-git -C timefold-quickstarts sparse-checkout set use-cases/vehicle-routing use-cases/employee-scheduling
+./scripts/setup-reference.sh                # all 8 into reference/  (~29 MB)
+./scripts/setup-reference.sh pyvrp vroom    # or just the ones you need
 ```
 
-FleetPy is 662 MB upstream → 4.9 MB sparse; timefold 38.6 MB → 6.4 MB.
-Every spec cites `file:line`, so the clones are only needed to follow a citation.
+Idempotent, and it applies the right sparse checkouts — FleetPy is 662 MB whole
+and 4.9 MB sparse.
 
----
+| Repo | Reuse | Spec | Licence |
+|---|---|---|---|
+| [Vinayak-Chinchakhandi/Bengaluru-Metro-Network-Dataset](https://github.com/Vinayak-Chinchakhandi/Bengaluru-Metro-Network-Dataset) | 🟢🟢 HIGHEST | [04](specs/04-bengaluru-metro-dataset.md) | CC0 (README only) |
+| [maheshwarisharman/smart-aiport-cabpooling-backend](https://github.com/maheshwarisharman/smart-aiport-cabpooling-backend) | 🟢 HIGH | [01](specs/01-smart-airport-cabpooling.md) | **none** |
+| [VROOM-Project/vroom](https://github.com/VROOM-Project/vroom) | 🟢 HIGH | [06](specs/06-vroom.md) | BSD-2-Clause |
+| [TUM-VT/FleetPy](https://github.com/TUM-VT/FleetPy) | 🟢 HIGH | [07](specs/07-fleetpy.md) | MIT |
+| [PyVRP/PyVRP](https://github.com/PyVRP/PyVRP) | 🟢 HIGH | [05](specs/05-pyvrp.md) | MIT |
+| [TimefoldAI/timefold-quickstarts](https://github.com/TimefoldAI/timefold-quickstarts) | 🟡 MED-HIGH | [08](specs/08-timefold-quickstarts.md) | Apache-2.0 |
+| [ashhwiithac22/RideShare-Optimizer](https://github.com/ashhwiithac22/RideShare-Optimizer) | 🟡 MED | [02](specs/02-rideshare-optimizer.md) | **none** |
+| [LohithMarneni/Car-Pooling-System](https://github.com/LohithMarneni/Car-Pooling-System) | 🟡 LOW | [03](specs/03-car-pooling-mern.md) | **none** |
+
+Checked and **rejected** — don't spend time here:
+[parthkvv/Carpool_Management_System](https://github.com/parthkvv/Carpool_Management_System)
+(no allocation code at all) ·
+[iavofficial/rideAndMove](https://github.com/iavofficial/rideAndMove)
+(6 markdown files, no code).
+
+[`reference-repos.json`](reference-repos.json) is the machine-readable version —
+per repo: url, clone strategy, sparse paths, licence, the spec that analyses it,
+and a `read_first` list of the files that actually matter. Agents should parse
+that rather than this table.
+
+Every spec cites `file:line`, so the clones are only needed to follow a citation.
 
 ## Licence & attribution
 

@@ -1,0 +1,154 @@
+{
+  "$comment": "Machine-readable manifest of the reference repos analysed in specs/. They are NOT vendored in this repo (3 of 8 carry no licence). Clone with scripts/setup-reference.sh, or read this manifest and clone yourself. Every spec cites file:line against these exact clone strategies.",
+  "clone_root": "reference",
+  "surveyed": "2026-09-02",
+  "repos": [
+    {
+      "key": "bengaluru-metro-dataset",
+      "url": "https://github.com/Vinayak-Chinchakhandi/Bengaluru-Metro-Network-Dataset",
+      "dir": "bengaluru-metro-dataset",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "HIGHEST",
+      "spec": "specs/04-bengaluru-metro-dataset.md",
+      "licence": "CC0 (asserted in README; no LICENSE file — attribute explicitly)",
+      "language": "CSV data",
+      "approx_size_mb": 0.14,
+      "upstream_last_push": "2026-03-20",
+      "why": "83 real Namma Metro stations: coordinates, directed graph edges, real inter-station distances, interchange flags, line colours. Use the data directly.",
+      "read_first": ["bengaluru_metro_network.csv", "data_dictionary.csv"]
+    },
+    {
+      "key": "smart-airport-cabpooling",
+      "url": "https://github.com/maheshwarisharman/smart-aiport-cabpooling-backend",
+      "dir": "smart-aiport-cabpooling-backend",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "HIGH",
+      "spec": "specs/01-smart-airport-cabpooling.md",
+      "licence": "NONE DECLARED — read for ideas, do not copy code",
+      "language": "TypeScript (Bun)",
+      "approx_size_mb": 1.8,
+      "upstream_last_push": "2026-02-18",
+      "why": "Working H3 corridor matching: routes encoded as concatenated H3 cells in a lexicographic sorted set, candidates found by prefix range scan. The best algorithm in the set.",
+      "read_first": ["src/utils/redisCaching.ts", "src/rideMatching/h3Indexing.ts", "prisma/schema.prisma"]
+    },
+    {
+      "key": "vroom",
+      "url": "https://github.com/VROOM-Project/vroom",
+      "dir": "vroom",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "HIGH",
+      "spec": "specs/06-vroom.md",
+      "licence": "BSD-2-Clause",
+      "language": "C++",
+      "approx_size_mb": 1.8,
+      "upstream_last_push": "2026-03-17",
+      "why": "Production VRP API schema — skills, breaks, priority, shipments, multi-window tasks, and a `violation` object that is the model for a policy trace. Highest value-per-minute document in the set.",
+      "read_first": ["docs/API.md", "docs/example_3.json"]
+    },
+    {
+      "key": "fleetpy",
+      "url": "https://github.com/TUM-VT/FleetPy",
+      "dir": "fleetpy",
+      "clone": "sparse",
+      "depth": 1,
+      "sparse_paths": ["src", "docs", "examples"],
+      "reuse": "HIGH",
+      "spec": "specs/07-fleetpy.md",
+      "licence": "MIT",
+      "language": "Python",
+      "approx_size_mb": 4.9,
+      "upstream_size_mb": 662,
+      "upstream_last_push": "2026-03-23",
+      "why": "TU Munich ride-pooling fleet simulator. Semi-on-demand feeder services (the literature name for metro-feeder), insertion heuristic, Alonso-Mora RTV pooling, EV charging, fleet sizing.",
+      "read_first": [
+        "src/fleetctrl/SemiOnDemandBatchAssignmentFleetcontrol.py",
+        "src/fleetctrl/pooling/immediate/insertion.py",
+        "src/fleetctrl/pooling/objectives.py",
+        "Input_Parameters.md"
+      ],
+      "paper": "arXiv:2207.14246"
+    },
+    {
+      "key": "pyvrp",
+      "url": "https://github.com/PyVRP/PyVRP",
+      "dir": "pyvrp",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "HIGH",
+      "spec": "specs/05-pyvrp.md",
+      "licence": "MIT",
+      "language": "Python + C++",
+      "approx_size_mb": 3.6,
+      "upstream_last_push": "2026-08-28",
+      "why": "State-of-the-art VRPTW solver. Its constraint vocabulary (shift_duration, max_distance, capacity vectors, client groups, prizes) maps 1:1 onto an employee-transport policy engine. Also a free bin-packing fleet lower bound.",
+      "read_first": ["pyvrp/Model.py", "pyvrp/minimise_fleet.py"],
+      "paper": "arXiv:2403.13795"
+    },
+    {
+      "key": "timefold-quickstarts",
+      "url": "https://github.com/TimefoldAI/timefold-quickstarts",
+      "dir": "timefold-quickstarts",
+      "clone": "sparse",
+      "depth": 1,
+      "sparse_paths": ["use-cases/vehicle-routing", "use-cases/employee-scheduling"],
+      "reuse": "MEDIUM-HIGH",
+      "spec": "specs/08-timefold-quickstarts.md",
+      "licence": "Apache-2.0",
+      "language": "Java",
+      "approx_size_mb": 6.4,
+      "upstream_size_mb": 38.6,
+      "upstream_last_push": "2026-09-01",
+      "why": "Constraint-based scoring: named declarative constraints, three-tier hard/medium/soft score, and a load-balancing 'fairness' constraint that is the missing policy for pooling.",
+      "read_first": [
+        "use-cases/vehicle-routing/src/main/java/org/acme/vehiclerouting/solver/VehicleRoutingConstraintProvider.java",
+        "use-cases/employee-scheduling/src/main/java/org/acme/employeescheduling/solver/EmployeeSchedulingConstraintProvider.java"
+      ],
+      "other_use_cases_available": ["facility-location", "flight-crew-scheduling"]
+    },
+    {
+      "key": "rideshare-optimizer",
+      "url": "https://github.com/ashhwiithac22/RideShare-Optimizer",
+      "dir": "RideShare-Optimizer",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "MEDIUM",
+      "spec": "specs/02-rideshare-optimizer.md",
+      "licence": "NONE DECLARED — read for ideas, do not copy code",
+      "language": "Python (Streamlit)",
+      "approx_size_mb": 0.19,
+      "upstream_last_push": "2025-10-25",
+      "why": "One 1186-line file with hand-written Dijkstra, Prim's and branch-and-bound TSP. Useful for pickup ordering and an OpenRouteService integration; its MST-as-route-cost is an instructive wrong turn.",
+      "read_first": ["app.py"]
+    },
+    {
+      "key": "car-pooling-mern",
+      "url": "https://github.com/LohithMarneni/Car-Pooling-System",
+      "dir": "Car-Pooling-System",
+      "clone": "full",
+      "depth": 1,
+      "reuse": "LOW",
+      "spec": "specs/03-car-pooling-mern.md",
+      "licence": "NONE DECLARED — read for ideas, do not copy code",
+      "language": "JavaScript (MERN)",
+      "approx_size_mb": 10,
+      "upstream_last_push": "2025-04-16",
+      "why": "Reportedly a MoveInSync recruitment assignment. Its matching algorithm is commented out (36% of one controller), so it is calibration data: it shows where a competent candidate runs out of time.",
+      "read_first": ["backend/controllers/rideRequestController.js", "backend/model/rideSchema.js"]
+    }
+  ],
+  "rejected": [
+    {
+      "url": "https://github.com/parthkvv/Carpool_Management_System",
+      "reason": "Claimed 'real-time tracking + optimal allocation logic'. Grep across all of src/ found zero distance, matching or allocation code. Leaflet + Firebase + a 45 MB vendored CometChat UI kit. 53 MB for one dependency insight.",
+      "verified": "2026-09-02"
+    },
+    {
+      "url": "https://github.com/iavofficial/rideAndMove",
+      "reason": "Claimed 'Routing + Admin Panel + Cloud CDK'. Repository contains 6 markdown files and no code; doc/datamodel.md is 0 bytes. The README feature list is an aspirational roadmap for an unstarted project.",
+      "verified": "2026-09-02"
+    }
+  ]
+}
