@@ -2410,10 +2410,21 @@ export const timeWindow: Policy = (c) => {
     if (at === undefined || t.windows.length === 0) continue
     if (insideAnyWindow(t, at)) continue
 
-    if (at > latestEnd(t)) {
-      const lateMin = (at - latestEnd(t)) / MS_PER_MIN
+    // Outside every window. Which kind of violation depends on WHERE:
+    // if any window has already closed, the pickup is late relative to the most
+    // recently closed one; otherwise it is before all windows and merely early.
+    //
+    // This must NOT be written as `at > latestEnd(t)`. A pickup in a GAP between
+    // two windows is after neither the latest end nor before the earliest start,
+    // so that formulation falls through to pass() and silently approves a pickup
+    // that satisfies no window at all.
+    const closedEnds = t.windows.map((wnd) => wnd[1]).filter((end) => end < at)
+
+    if (closedEnds.length > 0) {
+      const lastClosed = Math.max(...closedEnds)
+      const lateMin = (at - lastClosed) / MS_PER_MIN
       if (lateMin > worstLateMin) { worstLateMin = lateMin; lateTripId = t.id }
-    } else if (at < earliestStart(t)) {
+    } else {
       const earlyMin = (earliestStart(t) - at) / MS_PER_MIN
       if (earlyMin > worstEarlyMin) { worstEarlyMin = earlyMin; earlyTripId = t.id }
     }
@@ -2493,12 +2504,15 @@ export const gateSpread: Policy = (c) => {
   const id = 'gate-spread'
   const name = 'Gate spread'
   const distinct = [...new Set(c.gateIds)]
+  // `|| 0` normalises the single-gate case: -0 is what `-extraMin` yields when
+  // extraMin is 0, and Vitest's toEqual uses Object.is, which distinguishes
+  // -0 from +0 — so without this the plan's own test fails its own code.
   const extraMin = Math.max(0, distinct.length - 1) * EXTRA_MIN_PER_GATE
 
   return distinct.length <= MAX_GATES
     ? pass(id, name,
         `${distinct.length} gate${distinct.length === 1 ? '' : 's'}, +${extraMin} min`,
-        { value: -extraMin, unit: 'min' })
+        { value: -extraMin || 0, unit: 'min' })
     : verdict(id, name, 'block', 'max_tasks',
         `${distinct.length} distinct gates exceeds the limit of ${MAX_GATES}`,
         { value: -extraMin, unit: 'min' })

@@ -345,7 +345,7 @@ amount of kilometre saving can outrank leaving someone behind.**
 | `ev-range` | If `fuel === 'EV'`: `mergedKm ≤ rangeKm × 0.8` (20% reserve). On block, reason names the CNG/ICE reassignment. | block |
 | `seat-capacity` | `Σ seatsUsed ≤ vehicle.seats`. | block |
 | `gate-spread` | Multiple office gates allowed; +5 min per extra gate, max 2 distinct gates. >2 → block. Feeds its penalty into `detour-sla`. | block |
-| `time-window` | Pickup windows must overlap within 15 min. | block |
+| `time-window` | The pickup must start **inside one of** the trip's windows. Outside any window it is late relative to the most recently closed window → `block`/`delay`; before all windows by more than 15 min → `soft`/`lead_time`. **A pickup in a GAP between two windows is a violation, not a pass** — the v1.0 rule only tested "after all windows" and silently approved gap pickups. | block / soft |
 | `zone-confidence` | Zone rejected ≥3 times → warn, and the solver de-prioritises that zone. Never blocks. | warn |
 | `no-show-risk` | Computes expected vs p10 savings from `employee.noShowRate`. Never blocks. | warn |
 
