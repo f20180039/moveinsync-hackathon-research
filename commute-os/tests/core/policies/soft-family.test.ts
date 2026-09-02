@@ -54,6 +54,23 @@ describe('noShowRisk', () => {
     const trips = [makeTrip({ id: 'a', employeeIds: ['e4'] })] // 0.02
     expect(noShowRisk(makeCandidate({ trips }), W, makeCtx()).status).toBe('pass')
   })
+
+  it('uses the multiplicative formula, not a sum of rates', () => {
+    // Three passengers at 9% each. 1 - 0.91^3 = 0.2464, BELOW the 0.25 threshold
+    // => pass. Summing the rates gives 0.27 => soft. This is the only shape that
+    // separates the two formulas: every other fixture case puts both on the same
+    // side of the threshold, so without this the formula is unpinned and a
+    // sum-instead-of-product bug passes the whole suite.
+    const trips = [
+      makeTrip({ id: 'a', employeeIds: ['e1'] }),
+      makeTrip({ id: 'b', employeeIds: ['e2'] }),
+      makeTrip({ id: 'c', employeeIds: ['e3'] }),
+    ]
+    const v = noShowRisk(makeCandidate({ trips }), W, makeCtx({ noShowOverride: 0.09 }))
+    expect(v.status).toBe('pass')
+    // slack = (0.25 - 0.246429) * 100 — pins the arithmetic, not just the verdict
+    expect(v.slack!.value).toBeCloseTo(0.357, 2)
+  })
 })
 
 describe('detourFairness', () => {
