@@ -482,7 +482,12 @@ export type PolicyCtx = {
  */
 export type PolicyStatus = 'pass' | 'soft' | 'medium' | 'block'
 
-/** VROOM's vocabulary (docs/API.md:445) plus one of ours. */
+/**
+ * VROOM's vocabulary (docs/API.md:445) plus three of ours. The UI renders
+ * `cause` directly, so each policy must use the one that actually describes its
+ * refusal — a zone-confidence warning displaying "unfair_detour" is simply
+ * wrong information in front of an admin.
+ */
 export type ViolationCause =
   | 'delay'
   | 'lead_time'
@@ -494,7 +499,10 @@ export type ViolationCause =
   | 'max_travel_time'
   | 'max_distance'
   | 'max_load'
+  // ours — no VROOM equivalent
   | 'unfair_detour'
+  | 'low_confidence'
+  | 'no_show_risk'
 
 export type PolicyVerdict = {
   id: string
@@ -3043,7 +3051,7 @@ export const zoneConfidence: Policy = (c, _w, ctx) => {
   return worst < REJECTION_THRESHOLD
     ? pass(id, name, `Zone confidence normal (${worst} prior rejections)`,
         { value: REJECTION_THRESHOLD - worst, unit: 'rejections' })
-    : verdict(id, name, 'soft', 'unfair_detour',
+    : verdict(id, name, 'soft', 'low_confidence',
         `Admin rejected ${worst} suggestions in this zone — de-prioritising`,
         { value: REJECTION_THRESHOLD - worst, unit: 'rejections' })
 }
@@ -3082,7 +3090,7 @@ export const noShowRisk: Policy = (c, w, ctx) => {
   return risk < RISK_SOFT_THRESHOLD
     ? pass(id, name, `${pct.toFixed(0)}% chance of at least one no-show`,
         { value: (RISK_SOFT_THRESHOLD - risk) * 100, unit: '%' })
-    : verdict(id, name, 'soft', 'unfair_detour',
+    : verdict(id, name, 'soft', 'no_show_risk',
         `${pct.toFixed(0)}% chance of at least one no-show — savings may not fully realise`,
         { value: (RISK_SOFT_THRESHOLD - risk) * 100, unit: '%' })
 }
