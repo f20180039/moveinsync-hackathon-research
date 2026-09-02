@@ -22,7 +22,12 @@ npm registry and exercised locally on 2026-09-02** (see `docs/REUSE-AUDIT.md`):
 for geodesy and polygon containment · `graphology` 0.26.0 +
 `graphology-shortest-path` 2.1.0 (MIT) for the metro Dijkstra · `papaparse`
 5.7.0 (MIT, 0 deps) for CSV · `seedrandom` 3.0.5 (MIT, 0 deps) and
-`@faker-js/faker` 10.6.0 (MIT) for deterministic fixtures. 16 packages, 5.6 MB.
+`@faker-js/faker` 10.6.0 (MIT) for deterministic fixtures.
+
+Footprint: the 7 runtime deps alone resolve to 16 packages / 5.6 MB; with the
+7 devDependencies (typescript, vitest, tsx, faker, @types/*) a full install is
+**~91 packages / ~79 MB** in `node_modules`. Both numbers are fine — only the
+runtime set ships.
 
 Next.js is added in Plan 3, `h3-js` in Plan 2 — deliberately not here.
 
@@ -201,8 +206,8 @@ coverage/
 cd commute-os && npm install
 ```
 
-Expected: installs cleanly on Node 18.19.0 — 16 packages, ~5.6 MB — with no
-peer warnings mentioning React or Next.
+Expected: installs cleanly on Node 18.19.0 — ~91 packages / ~79 MB including
+devDependencies — with no peer warnings mentioning React or Next.
 
 Sanity-check the library whose numbers the geo tests depend on:
 
