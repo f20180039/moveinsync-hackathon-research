@@ -1,8 +1,12 @@
-# commute-os — Design Spec v1.0
+# commute-os — Design Spec v1.1
 
-**Date:** 2026-09-02
+**Date:** 2026-09-02 (v1.0) · revised 2026-09-02 (v1.1)
 **Status:** Approved for planning
-**Author:** anshuman.singh@healthplix.com (with Claude)
+**Author:** f20180039 (with Claude)
+
+**v1.1** folds in findings from the deep analysis of eight reference repos
+(`specs/01`–`08` in this repo) and adds **§19 scope tiers**, which is the
+governing section: it decides what actually gets built. Full change list in §20.
 
 ---
 
@@ -21,18 +25,28 @@ than R&D.
 Observation that drives the design: every MoveInSync theme reduces to the same
 shape — **trips in a city + constraints + a solver + before/after KPIs on a map**.
 
-### 1.1 What this repo is NOT
+### 1.1 What this is, and the disclosure that goes with it
 
-`commute-os` is a **reference kit**, not the hackathon submission. On the day a
-**separate repo** is created and code is *copied* from here. Therefore:
+`commute-os` is a **publicly published, honestly dated starter** — confirmed
+permitted by the hackathon rules. It is built before the event, with its real
+commit history, and **declared**. The submission README must carry a disclosure
+line naming what was pre-built (this starter) and what was built during the
+event (the statement-specific solver, policies and pitch).
+
+Non-negotiable: **no backdating, no fresh-folder date laundering, no squashing
+history to hide the timeline.** The rules allow a disclosed starter, so there is
+nothing to hide, and a repo whose entire design appears in one commit at hour
+zero invites precisely the scrutiny disclosure avoids.
+
+Design consequences, which survive from v1.0:
 
 - Files must be **liftable in isolation** — copy one file, it works.
 - Code must be **boringly explicit** — no DI, no clever generics, no indirection
   an agent has to trace across files.
 - A **manifest** must exist so an agent is pointed at 3 files, not a crawl.
 
-This is a hard constraint, not a preference: it exists to minimise LLM token
-consumption and wall-clock on hackathon day.
+This is a hard constraint, not a preference: it minimises LLM token consumption
+and wall-clock on the day.
 
 ---
 
@@ -285,17 +299,43 @@ range, never a point estimate.
 ## 7. Policy engine — the moat
 
 ```ts
-type PolicyStatus  = 'pass' | 'warn' | 'block'
-type PolicyVerdict = { id, name, status: PolicyStatus,
-                       slack?: { value: number; unit: string }, reason: string }
-type PolicyTrace   = { verdicts: PolicyVerdict[], blocked: boolean }
+// v1.1: FOUR tiers, not three. Compared lexicographically, never summed.
+//   block  — hard. never acceptable.            (safety, capacity, hours, range)
+//   medium — serve everyone before optimising.  (an unassigned trip)
+//   soft   — then be efficient.                 (fairness, confidence, cost)
+//   pass   — no violation.
+type PolicyStatus  = 'pass' | 'soft' | 'medium' | 'block'
+
+type PolicyVerdict = {
+  id: string
+  name: string
+  status: PolicyStatus
+  cause?: ViolationCause          // v1.1: VROOM's vocabulary, spec 06 §2
+  slack?: { value: number; unit: string }   // magnitude of the miss; drives ranking
+  reason: string
+}
+type PolicyTrace   = { verdicts: PolicyVerdict[], blocked: boolean, tier: PolicyStatus }
+
+// v1.1: adopted verbatim from VROOM docs/API.md:445 (spec 06 §2)
+type ViolationCause =
+  | 'delay' | 'lead_time' | 'load' | 'max_tasks' | 'skills' | 'precedence'
+  | 'missing_break' | 'max_travel_time' | 'max_distance' | 'max_load'
+  | 'unfair_detour'               // ours; no VROOM equivalent
 
 type Policy = (c: Candidate, w: World, ctx: PolicyCtx) => PolicyVerdict
 ```
 
 `Candidate` = a proposed grouping of trips + its computed route. Policies are
 **pure functions**, one per file, individually unit-tested. `evaluate()` runs all
-nine and returns the trace; `blocked = verdicts.some(v => v.status === 'block')`.
+ten and returns the trace; `blocked = verdicts.some(v => v.status === 'block')`.
+
+**Why four tiers (v1.1).** With only `block`/`warn`, nothing stops the solver
+from dropping a trip to look efficient — an unserved employee and a longer route
+become commensurable. Timefold enforces the separation with a
+`HardMediumSoftScore` and FleetPy with a large per-request `assignment_reward`;
+two independent systems converging makes it a rule, not a preference
+(spec 08 §2, spec 07 §5). `scenario.ts` compares plans tier by tier, so **no
+amount of kilometre saving can outrank leaving someone behind.**
 
 | id | Rule | Verdict |
 |---|---|---|
@@ -556,17 +596,29 @@ kit exists.
 
 ## 17. Assumptions to verify before the event
 
-1. **Metro station coordinates** in `bengaluru.world.json` are hand-approximated
-   and must be spot-checked.
+1. ~~**Metro station coordinates** are hand-approximated and must be
+   spot-checked.~~ **RETIRED in v1.1** — replaced by the CC0
+   `Bengaluru-Metro-Network-Dataset`: 83 real stations with coordinates,
+   directed graph edges, `is_interchange`, and **real inter-station distances**.
+   Five coordinates spot-checked against known locations, all correct. Both
+   predicted interchanges (Majestic, RV Road) confirmed, and there are no
+   others. See spec 04.
 2. **Ledger constants** (§6.4) are industry-typical, not MoveInSync's actuals.
    All are labelled as assumptions in the UI.
-3. **Hackathon rules on pre-existing code.** This kit must have commit history
-   clearly pre-dating the event, and the framing should be stated openly to
-   judges: the kit is a generic sandbox; the solver and policies are the event
-   work. Confirm the rules permit it.
+3. ~~**Hackathon rules on pre-existing code.**~~ **RESOLVED in v1.1** — a
+   disclosed public starter is permitted. History stays honest and the
+   submission README carries the disclosure line (§1.1).
 4. **Node 18.19** is installed; Next.js pinned to 14 accordingly.
-5. **Metro headways and stop times** (2.2 min/stop, headway/2 wait) are
-   estimates, labelled in the UI.
+5. **Metro headways and average speed.** `distance_to_next_km` is now real
+   data, so only `AVG_METRO_SPEED_KMPH` (32), `DWELL_MIN_PER_STOP` (0.35) and
+   `headwayMin` remain estimates. Label them in the cost-model panel.
+6. **`is_interchange` de-duplication.** The dataset has 85 rows for 83 stations
+   because interchanges appear once per line, with coordinates ~50 m apart.
+   De-duplicate on `station_code` while accumulating `lineIds`, or Majestic and
+   RV Road double-count. See spec 04 §3.2.
+7. **The metro graph is directed.** Only three rows have a null
+   `next_station_code` (one terminal per line), so reverse edges must be
+   synthesised or logout routing silently returns nothing. See spec 04 §3.1.
 
 ---
 
@@ -589,3 +641,98 @@ alone as reference.
 
 **Cut line: after step 6.** Steps 1–6 are the kit's actual worth; 7–10 make it
 demoable.
+
+---
+
+## 19. Scope tiers (v1.1) — **the governing section**
+
+The repo research produced ~21 candidate improvements. Building all of them is
+how a working demo becomes a broken ambitious one. Everything is therefore
+tiered, and **Tier C is a commitment not to build, not a backlog.**
+
+Two budgets: ~2 days of pre-event work on the disclosed starter, and 14 hours on
+the day with a hard freeze at H12.
+
+### Tier A — in the pre-built starter (before the event)
+
+Structural (cannot be retrofitted cheaply), or cheap-and-differentiating.
+
+| # | Item | Source | Why Tier A |
+|---|---|---|---|
+| A1 | Four-tier `PolicyStatus` + lexicographic comparison | spec 08 §2 | Structural. Retrofitting means touching every policy and the scenario diff. |
+| A2 | **Policy #10 `detour-fairness`** | spec 08 §3 | The differentiator. Nobody else will have it. |
+| A3 | Real metro data: coords, directed edges, distances, colours | spec 04 | Retires assumption §17.1. Data work, no algorithm risk. |
+| A4 | `ViolationCause` vocabulary adopted verbatim | spec 06 §2 | A rename. Free credibility. |
+| A5 | Brute-force pickup order at n≤4 (exact) | spec 02 §3 | *Simpler* than the heuristic it replaces, and optimal. |
+| A6 | `theoreticalFloor()` + `vehiclesUsed` as headline metric | spec 05 §4 | 30 min. Lets you state your own optimality gap on stage. |
+| A7 | `windows: [number,number][]` on `Trip` | spec 06 §6.2 | Structural in `types.ts`. Cheap now, invasive later. |
+| A8 | H3 corridor key + prefix scan (reversed for login) | spec 01 §4–§6 | ~40 lines, and it *is* the answer to "how does this scale?" |
+| A9 | `setup`/`service` boarding split | spec 06 §6.4, 07 §3 | 20 min, and it makes pooling look genuinely better. |
+| A10 | `lead_time` (too-early pickup) as a `soft` verdict | spec 06 §2 | 15 min, closes a real SLA gap. |
+| A11 | Both solvers: Pool Merger **and** Metro Feeder Mesh | v1.0 §9–§10 | The starter's whole purpose is that you *adapt* on the day rather than write. |
+
+### Tier B — on the day, only if the statement calls for it
+
+| # | Item | Source | Trigger |
+|---|---|---|---|
+| B1 | Suitability checks as `skills` subset matching | spec 06 §3 | statement is safety- or compliance-led |
+| B2 | Insertion heuristic for Approve / Revert | spec 07 §3 | live-dispatch framing, or edge case 10 is demoed |
+| B3 | Two-tier SLA (`user_max_wait_time_2`) | spec 07 §2 | statement is SLA- or experience-led |
+| B4 | Commitment window after acceptance | spec 07 §2 | the nudge becomes a hero beat |
+| B5 | Metro feeder fixture + radius tuning | spec 04 §6 | statement is mass-transit or green |
+| B6 | Sarvam chat / Mayura / Bulbul | v1.0 §13 | always attempt, but behind fallbacks — never load-bearing |
+
+### Tier C — **deliberately not building**
+
+Each is defensible, none is worth the hours. If a judge raises one, the answer
+is "modelled, deferred — here's where it plugs in", which is a better answer
+than a half-built feature.
+
+`priority` / `unassigned[]` over-subscription · driver `breaks[]` with
+`max_load` · vector capacity beyond seats · multi-wave shuttles
+(`reload_depots`) · per-proposal route-schedule timeline UI · OpenRouteService
+routing tier · `'bonus'` reward verdicts · `emergencyContacts` ·
+`max_tasks` cap · Alonso-Mora RTV · PyVRP or VROOM as a live solver.
+
+### The one rule that overrides this table
+
+If at H10 the demo does not run end to end, **stop adding and start cutting.**
+A working Pool Merger with four policies and three honest numbers beats two
+solvers, ten policies and a blank screen. Tier A11 is the first thing to sacrifice.
+
+---
+
+## 20. v1.1 change log
+
+Sourced from `specs/01`–`08`. Section references are to this document.
+
+| Change | Section | Source spec | Tier |
+|---|---|---|---|
+| Disclosed public starter; no date laundering | §1.1 | — | A |
+| Four-tier `PolicyStatus`, compared lexicographically | §7 | 08 §2, 07 §5 | A1 |
+| `ViolationCause` vocabulary (10 VROOM causes + `unfair_detour`) | §7 | 06 §2 | A4 |
+| `slack` now drives ranking, not just display | §7 | 08 §2.2 | A1 |
+| Policy #10 `detour-fairness` | §7 | 08 §3 | A2 |
+| `lead_time` too-early pickup | §7 | 06 §2 | A10 |
+| Metro coords/edges/distances from real CC0 data | §10.2, §11 | 04 | A3 |
+| Metro graph is directed — synthesise reverse edges | §17.7 | 04 §3.1 | A3 |
+| De-duplicate stations on `station_code`, accumulate `lineIds` | §17.6 | 04 §3.2 | A3 |
+| `metroLegMinutes()` from real distances, not 2.2 min/stop | §10.1 | 04 §4 | A3 |
+| Assumption §17.1 retired; §17.3 resolved | §17 | 04 | — |
+| Brute-force pickup order, exact at n≤4 | §9.2 | 02 §3 | A5 |
+| H3 corridor key + prefix scan, reversed for convergent trips | §9.2 | 01 §4–§6 | A8 |
+| `theoreticalFloor()`; `vehiclesUsed` as headline | §6.5 | 05 §4 | A6 |
+| `windows: [number,number][]` per trip | §5 | 06 §6.2 | A7 |
+| `setup`/`service` boarding split | §5, §6.5 | 06 §6.4, 07 §3 | A9 |
+| Both solvers pre-built so the day is adaptation | §19 | — | A11 |
+| Scope tiers introduced as the governing section | §19 | — | — |
+| 11 further findings explicitly deferred | §19 Tier C | 05, 06, 07, 03 | C |
+
+**Judge answers earned by this revision** (full list in `specs/INDEX.md`):
+candidate lookup is an O(log n) prefix scan, not an O(n²) matrix (spec 01);
+pickup order is exact, not approximated, because four seats is 24 permutations
+(spec 02); we can state our own optimality gap against a bin-packing floor
+(spec 05); constraint evaluation is a first-class operation that reports
+structured violations, which is what VROOM's plan mode exists for (spec 06);
+the scaling path is an Alonso-Mora RTV formulation and the policy engine
+transfers to it unchanged (spec 07).
