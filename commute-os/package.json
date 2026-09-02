@@ -1,0 +1,31 @@
+{
+  "name": "commute-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18.19.0" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fixtures": "tsx scripts/generate-fixtures.ts"
+  },
+  "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/distance": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "graphology": "^0.26.0",
+    "graphology-shortest-path": "^2.1.0",
+    "papaparse": "^5.7.0",
+    "seedrandom": "^3.0.5"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
+    "@types/node": "20.11.30",
+    "@types/papaparse": "^5.5.2",
+    "@types/seedrandom": "^3.0.8",
+    "tsx": "4.7.1",
+    "typescript": "5.4.3",
+    "vitest": "1.6.0"
+  }
+}
