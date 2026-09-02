@@ -63,6 +63,14 @@ implements §5, §6, §7, §11 and the Tier A items in §19.
   Randomness only in `scripts/generate-fixtures.ts`, via a seeded PRNG.
 - **`PolicyStatus` is four tiers** compared lexicographically:
   `block` > `medium` > `soft` > `pass`. Never summed into one number.
+- **`slack` is REMAINING HEADROOM, not cost incurred.** Positive means room to
+  spare, zero means exactly at the limit, negative means over it — so the sign
+  alone tells a caller whether a constraint is satisfied, and it must agree with
+  `status`. A `pass` verdict may never carry negative slack. Its `unit` names
+  what is being measured (`seats`, `min`, `gates`), not what it costs. Any
+  secondary cost a policy computes (e.g. minutes added per extra gate) belongs
+  in `reason` and is consumed by the policy that owns that dimension — never
+  smuggled into `slack` with an inverted sign.
 - **All money is integer paise-free rupees (₹, number)**; all distances
   kilometres (number); all durations **minutes** (number); all timestamps
   **epoch milliseconds** (number). No `Date` objects in `src/core`.
@@ -2263,6 +2271,9 @@ describe('timeWindow', () => {
     const v = timeWindow(c, W, CTX)
     expect(v.status).toBe('soft')
     expect(v.cause).toBe('lead_time')
+    // 60 min early, 15 tolerated => 45 over. Pins the formula, not just the status:
+    // forgetting to subtract LEAD_TIME_TOLERANCE_MIN would still give soft/lead_time.
+    expect(v.slack!.value).toBeCloseTo(-45, 6)
   })
 
   it('tolerates a small early arrival', () => {
@@ -2308,22 +2319,32 @@ describe('detourSla', () => {
 })
 
 describe('gateSpread', () => {
-  it('passes a single gate with no penalty', () => {
+  it('passes a single gate with a full gate of headroom', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: 0, unit: 'min' })
+    expect(v.slack).toEqual({ value: 1, unit: 'gates' })
   })
 
-  it('passes two gates and reports the added minutes', () => {
+  it('passes two gates at exactly zero headroom, reporting the cost in reason', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g2'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: -EXTRA_MIN_PER_GATE, unit: 'min' })
+    expect(v.slack).toEqual({ value: 0, unit: 'gates' })
+    // the minutes cost lives in reason, not in slack — slack is headroom
+    expect(v.reason).toContain(`${EXTRA_MIN_PER_GATE} min`)
   })
 
-  it('blocks three gates with cause=max_tasks', () => {
+  it('never reports negative slack on a passing verdict', () => {
+    for (const gateIds of [['g1'], ['g1', 'g2'], ['g1', 'g1', 'g1']]) {
+      const v = gateSpread(makeCandidate({ gateIds }), W, CTX)
+      if (v.status === 'pass' && v.slack) expect(v.slack.value).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('blocks three gates with cause=max_tasks and one gate over', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g2', 'g3'] }), W, CTX)
     expect(v.status).toBe('block')
     expect(v.cause).toBe('max_tasks')
+    expect(v.slack).toEqual({ value: -1, unit: 'gates' })
     expect(MAX_GATES).toBe(2)
   })
 
@@ -2509,13 +2530,20 @@ export const gateSpread: Policy = (c) => {
   // -0 from +0 — so without this the plan's own test fails its own code.
   const extraMin = Math.max(0, distinct.length - 1) * EXTRA_MIN_PER_GATE
 
+  // slack is HEADROOM IN GATES, per the plan's slack invariant — positive means
+  // room to spare, negative means over the limit. The +5 min/extra-gate cost is
+  // reported in `reason` and consumed by detour-sla, which owns the time
+  // dimension; encoding it here as negative slack on a PASSING verdict would
+  // contradict the invariant and mislead anything ranking verdicts by sign.
+  const spareGates = MAX_GATES - distinct.length
+
   return distinct.length <= MAX_GATES
     ? pass(id, name,
-        `${distinct.length} gate${distinct.length === 1 ? '' : 's'}, +${extraMin} min`,
-        { value: -extraMin || 0, unit: 'min' })
+        `${distinct.length} gate${distinct.length === 1 ? '' : 's'}, +${extraMin} min detour cost`,
+        { value: spareGates, unit: 'gates' })
     : verdict(id, name, 'block', 'max_tasks',
-        `${distinct.length} distinct gates exceeds the limit of ${MAX_GATES}`,
-        { value: -extraMin, unit: 'min' })
+        `${distinct.length} distinct gates exceeds the limit of ${MAX_GATES} (+${extraMin} min)`,
+        { value: spareGates, unit: 'gates' })
 }
 ```
 
