@@ -14,6 +14,7 @@ describe('MODEL', () => {
   it('holds the design §6.4 rates', () => {
     expect(MODEL.cabRatePerKm).toBe(18)
     expect(MODEL.cabBaseFarePerTrip).toBe(60)
+    expect(MODEL.suvRatePerKm).toBe(22)
     expect(MODEL.shuttleRatePerKm).toBe(26)
     expect(MODEL.driverCostPerHour).toBe(180)
     expect(MODEL.metroFarePerTrip).toBe(30)
@@ -43,6 +44,7 @@ describe('classOf', () => {
     expect(classOf(sedan)).toBe('sedan')
     expect(classOf(suv)).toBe('suv')
     expect(classOf(shuttle)).toBe('shuttle')
+    expect(classOf(ev)).toBe('sedan')   // 4 seats — fuel is irrelevant to class
   })
 })
 
@@ -55,6 +57,11 @@ describe('cabCostInr', () => {
   it('charges the shuttle rate for a shuttle', () => {
     // 60 + 10*26 + (30/60)*180 = 60 + 260 + 90 = 410
     expect(cabCostInr(10, 30, 'shuttle')).toBeCloseTo(410, 6)
+  })
+
+  it('charges the SUV rate for an SUV', () => {
+    // 60 + 10*22 + (30/60)*180 = 60 + 220 + 90 = 370
+    expect(cabCostInr(10, 30, 'suv')).toBeCloseTo(370, 6)
   })
 
   it('still charges the base fare for a zero-distance trip', () => {
@@ -83,6 +90,7 @@ describe('co2KgPerKm', () => {
 describe('co2Kg and metro', () => {
   it('scales carbon linearly with distance', () => {
     expect(co2Kg(10, 'sedan', 'ICE')).toBeCloseTo(1.42, 6)
+    expect(co2Kg(5, 'suv', 'ICE')).toBeCloseTo(0.93, 6)
   })
 
   it('prices metro per passenger', () => {
