@@ -19,6 +19,19 @@ const FORBIDDEN = [
   /from\s+['"].*\/ai\//,
 ]
 
+/**
+ * Strip block (`/* ... *\/`, including `/** ... *\/`) and line (`// ...`)
+ * comments so the determinism check can't be tripped by a comment merely
+ * mentioning `Date.now()` or `Math.random()` (e.g. a doc comment warning
+ * against using them). Only the determinism check uses this — the import
+ * scan, line-count cap, and header check must keep reading the ORIGINAL
+ * source, since the header check looks for text (`PURPOSE:`, `PIVOT:`,
+ * `SAFE-TO-DELETE:`) that lives inside comments.
+ */
+export function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+}
+
 describe('core import boundaries', () => {
   const files = walk('src/core')
 
@@ -39,8 +52,9 @@ describe('core import boundaries', () => {
     const offenders: string[] = []
     for (const f of files) {
       const src = readFileSync(f, 'utf8')
-      if (/Date\.now\(/.test(src)) offenders.push(`${f} :: Date.now`)
-      if (/Math\.random\(/.test(src)) offenders.push(`${f} :: Math.random`)
+      const stripped = stripComments(src)
+      if (/Date\.now\(/.test(stripped)) offenders.push(`${f} :: Date.now`)
+      if (/Math\.random\(/.test(stripped)) offenders.push(`${f} :: Math.random`)
     }
     expect(offenders).toEqual([])
   })
@@ -59,5 +73,20 @@ describe('core import boundaries', () => {
       return !(src.includes('PURPOSE:') && src.includes('PIVOT:') && src.includes('SAFE-TO-DELETE:'))
     })
     expect(missing).toEqual([])
+  })
+})
+
+describe('stripComments', () => {
+  it('does not flag Date.now() or Math.random() merely mentioned in a comment', () => {
+    const src = '// NEVER Date.now() or Math.random() here\nconst x = 1\n'
+    const stripped = stripComments(src)
+    expect(/Date\.now\(/.test(stripped)).toBe(false)
+    expect(/Math\.random\(/.test(stripped)).toBe(false)
+  })
+
+  it('still flags a real Date.now() call outside any comment', () => {
+    const src = 'const t = Date.now()\n'
+    const stripped = stripComments(src)
+    expect(/Date\.now\(/.test(stripped)).toBe(true)
   })
 })
