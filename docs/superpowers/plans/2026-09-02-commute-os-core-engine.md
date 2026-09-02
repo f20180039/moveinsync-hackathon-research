@@ -1367,8 +1367,11 @@ export type MetroCsvRow = {
 /**
  * Parsed with papaparse rather than split(',') — the current file is unquoted,
  * but a hand parser breaks silently the day a station name contains a comma.
- * papaparse yields `""` for an empty field, which is how the three terminals'
- * missing next_station_code arrives; it is mapped to null here.
+ *
+ * The three terminals carry the LITERAL STRING "NULL" in next_station_code, not
+ * an empty field (verified against the committed CSV). papaparse would also
+ * yield "" for a genuinely empty field, so both forms are mapped to null here —
+ * handling only one would silently emit an edge to a station named "NULL".
  */
 export function parseMetroCsv(csv: string): MetroCsvRow[] {
   const parsed = Papa.parse<Record<string, string>>(csv, {
