@@ -2832,10 +2832,23 @@ export const genderSafety: Policy = (c, w) => {
   const id = 'gender-safety'
   const name = 'Gender safety'
 
-  const isNight = c.trips.some((t) => t.isNightShift)
-  if (!isNight) return pass(id, name, 'Daytime trip — no night-shift restriction')
+  // Scope everything to the NIGHT-FLAGGED trips. Counting the whole candidate
+  // lets a female riding a DAY leg shield a lone female on the night leg — she
+  // is not in the vehicle during the risk window, so she cannot chaperone it.
+  const nightTrips = c.trips.filter((t) => t.isNightShift)
+  if (nightTrips.length === 0) return pass(id, name, 'Daytime trip — no night-shift restriction')
 
-  const people = employeesOf(c.trips, w.employees)
+  const people = employeesOf(nightTrips, w.employees)
+
+  // A safety rule that cannot identify its passengers must refuse, not assume.
+  // Every other policy fails closed on an unresolvable referent; this is the one
+  // where failing open is least acceptable.
+  if (people.length === 0) {
+    return verdict(id, name, 'block', 'skills',
+      `Safety policy: cannot resolve any passenger on a night-shift merge — ` +
+      `refusing rather than assuming it is safe`)
+  }
+
   const females = people.filter((e) => e.gender === 'F')
 
   if (females.length === 1) {

@@ -339,7 +339,7 @@ amount of kilometre saving can outrank leaving someone behind.**
 
 | id | Rule | Verdict |
 |---|---|---|
-| `gender-safety` | Night shift (21:00–06:00) and merged group has exactly **1** female → **block**. ≥2 females or 0 females → pass. Also: a lone female may not be the **last drop** on a night logout → block. | block |
+| `gender-safety` | Counted over the **night-flagged trips only**, never the whole candidate: exactly **1** female on the night legs → **block**; ≥2 or 0 → pass. Also: a lone female may not be the **last drop** on a night logout → block. And if a night candidate has trips whose employees cannot be resolved at all → **block** — a safety rule that cannot identify its passengers must refuse, not assume. *(v1.0 said "merged group", which counted day-leg passengers too: an unrelated female on a day leg silently shielded a lone female on the night leg.)* | block |
 | `detour-sla` | Added travel time for each already-assigned passenger ≤ `min(10 min, 30% of their original duration)`. `slack` = minutes remaining. | block |
 | `driver-hours` | `dutyMinutesToday + mergedDuration ≤ 720` (12 h). Warn above 660. | block / warn |
 | `ev-range` | If `fuel === 'EV'`: `mergedKm ≤ rangeKm × 0.8` (20% reserve). On block, reason names the CNG/ICE reassignment. | block |
