@@ -242,6 +242,7 @@ const FORBIDDEN = [
   /from\s+['"].*\/solvers\//,
   /from\s+['"].*\/ui\//,
   /from\s+['"].*\/ai\//,
+  /from\s+['"].*\/app\//,
 ]
 
 describe('core import boundaries', () => {

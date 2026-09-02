@@ -17,6 +17,7 @@ const FORBIDDEN = [
   /from\s+['"].*\/solvers\//,
   /from\s+['"].*\/ui\//,
   /from\s+['"].*\/ai\//,
+  /from\s+['"].*\/app\//,
 ]
 
 /**
@@ -27,6 +28,14 @@ const FORBIDDEN = [
  * scan, line-count cap, and header check must keep reading the ORIGINAL
  * source, since the header check looks for text (`PURPOSE:`, `PIVOT:`,
  * `SAFE-TO-DELETE:`) that lives inside comments.
+ *
+ * BLIND SPOT: this is a regex stripper, not a lexer — it does not
+ * understand string or template literals. A `//` or `/* ` inside a string
+ * literal would be treated as a comment start, silently excising the rest
+ * of that line (or more, for a block-comment-like sequence) from the
+ * determinism scan. Accepted rather than fixed: no file in `src/core`
+ * currently contains such a literal. Do not make this literal-aware —
+ * keep it a stripper, not a lexer.
  */
 export function stripComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
@@ -84,9 +93,11 @@ describe('stripComments', () => {
     expect(/Math\.random\(/.test(stripped)).toBe(false)
   })
 
-  it('still flags a real Date.now() call outside any comment', () => {
-    const src = 'const t = Date.now()\n'
-    const stripped = stripComments(src)
-    expect(/Date\.now\(/.test(stripped)).toBe(true)
+  it('a real Date.now() call survives stripping while a commented mention does not', () => {
+    const real = 'const t = Date.now()\n'
+    const commented = '// Date.now()\n'
+    expect(stripComments(real)).toContain('Date.now()')
+    expect(stripComments(commented)).not.toContain('Date.now')
+    expect(/Date\.now\(/.test(stripComments(real))).toBe(true)
   })
 })
