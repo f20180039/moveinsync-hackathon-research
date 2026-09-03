@@ -78,6 +78,29 @@ Approve applies the proposal to in-memory trip state; Revert un-pools
 (edge case 10). Both re-derive metrics from `scenario.ts`.
 
 ### Task 5: `ui/ScenarioBar.tsx`
+
+**BLOCKER for the differentiator — seed `PolicyCtx` before the first render.**
+Two of the ten policies are driven by **runtime session state, not by fixtures**:
+`zone-confidence` reads `ctx.zoneRejections` and `detour-fairness` reads
+`ctx.detourMinutesThisWeek`. The fixture generator emits world, trips and the
+route cache — nothing populates either map. So on a cold start every employee
+has zero prior detour, and **`detour-fairness` can never fire**: it would need a
+single candidate to impose 90+ minutes on one person, which no realistic merge
+does.
+
+That matters more than it sounds. `detour-fairness` is the policy identified as
+the standout differentiator — the one no cost-only optimiser has, and the beat
+where the system says *"this merge is cheapest, but Priya has taken the hit four
+days running."* Without seeded history it is dead code in the demo.
+
+Verified by running the real engine over 388 committed fixture pairs with an
+empty ctx: `gender-safety` blocked 42 times, `driver-hours` 16, `no-show-risk`
+warned 220 — and `detour-fairness` and `zone-confidence` fired **zero** times.
+
+Seed both when the app boots, from a committed JSON file or a small deterministic
+generator: give a handful of employees 60–88 minutes of prior weekly detour so a
+modest new detour crosses the 90-minute line, and give one zone 3+ rejections.
+This is session state, so it belongs here rather than in the world fixture.
 Clock (play/pause/scrub/1×/5×/20×) driving `core/clock.advance()` from
 `requestAnimationFrame` — the clock owns no timer, the UI does. Solver selector,
 Run button, and the no-show / traffic sliders that move the savings band.

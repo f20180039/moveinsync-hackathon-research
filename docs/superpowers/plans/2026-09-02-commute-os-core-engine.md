@@ -4097,7 +4097,7 @@ npm test                                       # all pass
 npm run fixtures && git diff --exit-code data/generated/   # byte-stable
 ```
 
-Expected totals: **11 tasks, 11 commits**, **175 tests** across
+Expected totals: **11 tasks**, and roughly **190 tests** across
 `boundaries`, `geo`, `ledger`, `metro`, `clock`, `routing`, `policy`,
 `policies/route-family`, `policies/fleet-safety`, `policies/soft-family`,
 `scenario` and `fixtures`.
