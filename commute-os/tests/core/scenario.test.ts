@@ -70,6 +70,25 @@ describe('computeMetrics', () => {
     expect(m.theoreticalFloorVehicles).toBeLessThan(m.vehiclesUsed)
   })
 
+  it('derives the floor unit from the largest vehicle in the fleet, not a hard-coded 4', () => {
+    // Mirrors the real fixture shape (4/6/12-seat vehicles). Once solvers pool
+    // passengers onto 12-seat shuttles, a floor pinned to 4 overstates the
+    // vehicles needed and can exceed a legitimately lower vehiclesUsed,
+    // inverting the headline "achieved vs floor" comparison.
+    const vehicles = [
+      { id: 'v-a', plate: 'KA01A0001', seats: 4, fuel: 'ICE' as const },
+      { id: 'v-b', plate: 'KA01A0002', seats: 6, fuel: 'ICE' as const },
+      { id: 'v-c', plate: 'KA01A0003', seats: 12, fuel: 'CNG' as const },
+    ]
+    const w = makeWorld({ vehicles })
+    const trips = Array.from({ length: 24 }, (_, i) =>
+      makeTrip({ id: `t${i}`, vehicleId: 'v-a', seatsUsed: 1 }))
+    const m = computeMetrics(trips, w, RP)
+    const maxSeats = Math.max(...vehicles.map((v) => v.seats))
+    // ceil(24/12) = 2, NOT ceil(24/4) = 6
+    expect(m.theoreticalFloorVehicles).toBe(Math.ceil(24 / maxSeats))
+  })
+
   it('SILENTLY EXCLUDES a trip whose vehicle does not resolve', () => {
     // Documenting a real hazard rather than leaving it to be rediscovered.
     // The guard is deliberate — a metrics call must not throw mid-render — but

@@ -9,9 +9,6 @@ import { classOf, cabCostInr, co2Kg } from './ledger'
 import type { RouteProvider } from './routing'
 import { compareTiers } from './policy'
 
-/** Seats assumed when reporting the fleet floor. A 4-seat cab is the unit. */
-const FLOOR_SEATS = 4
-
 const ZERO: Metrics = {
   cabKm: 0, shuttleKm: 0, metroPaxKm: 0, vehiclesUsed: 0,
   theoreticalFloorVehicles: 0, avgOccupancyPct: 0, costInr: 0, co2Kg: 0,
@@ -65,7 +62,14 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
   }
 
   m.vehiclesUsed = costed.length
-  m.theoreticalFloorVehicles = theoreticalFloor(costed, FLOOR_SEATS)
+  // LOOSE bound: it assumes an idealised fleet made entirely of the fleet's
+  // largest-capacity vehicle. That is the correct lower bound for "fewest
+  // dispatches given the best possible packing" once shuttles are in the mix
+  // — a floor pinned to a smaller cab-only unit would overstate the vehicles
+  // needed and could exceed a legitimately lower vehiclesUsed. Empty fleet ->
+  // 0, matching theoreticalFloor's own seats <= 0 fallback to passenger count.
+  const floorSeats = w.vehicles.length > 0 ? Math.max(...w.vehicles.map((v) => v.seats)) : 0
+  m.theoreticalFloorVehicles = theoreticalFloor(costed, floorSeats)
   m.avgOccupancyPct = seatsOffered === 0 ? 0 : (passengers / seatsOffered) * 100
   return m
 }

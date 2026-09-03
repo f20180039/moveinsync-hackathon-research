@@ -119,6 +119,16 @@ describe('generated fixtures produce coherent metrics', () => {
     expect(m.unassignedCount).toBe(0)
   })
 
+  it('the loose theoretical floor uses the largest vehicle in the fleet as its unit', () => {
+    // Derived from the fixture fleet, not pasted, so this keeps holding if the
+    // fleet changes. The real 40-vehicle fixture mixes 4/6/12-seat vehicles —
+    // pinning to a hard-coded 4-seat unit would overstate this to 50.
+    const maxSeats = Math.max(...world.vehicles.map((v) => v.seats))
+    const passengers = trips.reduce((a, t) => a + t.seatsUsed, 0)
+    const m = computeMetrics(trips, world, createRouteProvider(cache))
+    expect(m.theoreticalFloorVehicles).toBe(Math.ceil(passengers / maxSeats))
+  })
+
   it('isNightShift agrees with local (IST) time, in both directions', () => {
     const istHour = (ms: number) =>
       Number(new Date(ms).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }).slice(0, 2))
