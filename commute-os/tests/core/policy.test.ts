@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { TIER_ORDER, tierRank, worstTier, compareTiers, evaluate, pass, verdict } from '../../src/core/policy'
-import type { Candidate, Policy, PolicyCtx, World } from '../../src/core/types'
+import type { Candidate, Policy, PolicyCtx, PolicyStatus, World } from '../../src/core/types'
 
 const EMPTY_WORLD = {
   zones: [], offices: [], employees: [], vehicles: [], drivers: [],
@@ -45,6 +45,16 @@ describe('tier ordering', () => {
       verdict('b', 'b', 'soft', 'unfair_detour', 'meh'),
       verdict('c', 'c', 'medium', 'load', 'bad'),
     ])).toBe('medium')
+  })
+
+  it('ranks an unrecognised status WORST, not best (-1 would sort below pass)', () => {
+    const bogus = 'corrupted' as PolicyStatus
+    expect(tierRank(bogus)).toBeGreaterThan(tierRank('block'))
+
+    // A trace with one bogus verdict must not report tier 'pass' — that would
+    // let blocked:true and tier:'pass' coexist on the same PolicyTrace.
+    const worst = worstTier([pass('a', 'a', 'ok'), verdict('b', 'b', bogus, 'load', 'bad')])
+    expect(worst).not.toBe('pass')
   })
 })
 

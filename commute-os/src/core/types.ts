@@ -221,6 +221,8 @@ export type Metrics = {
   cabKm: number
   shuttleKm: number
   metroPaxKm: number
+  /** count of costed DISPATCHES (cab runs), not distinct vehicle assets — one
+   *  vehicle making 5 sequential runs counts as 5, comparable to the floor below */
   vehiclesUsed: number
   /** bin-packing floor: no routing can beat this */
   theoreticalFloorVehicles: number

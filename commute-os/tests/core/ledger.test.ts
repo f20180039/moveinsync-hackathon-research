@@ -23,7 +23,7 @@ describe('MODEL', () => {
   it('holds the design §6.4 carbon factors', () => {
     expect(MODEL.co2SedanPerKm).toBe(0.142)
     expect(MODEL.co2SuvPerKm).toBe(0.186)
-    expect(MODEL.co2ShuttlePerKm).toBe(0.68)
+    expect(MODEL.co2ShuttlePerKm).toBe(0.268)
     expect(MODEL.co2EvPerKm).toBe(0.1)
     expect(MODEL.co2MetroPerPassengerKm).toBe(0.014)
   })
@@ -78,7 +78,7 @@ describe('co2KgPerKm', () => {
   it('uses body class for combustion vehicles', () => {
     expect(co2KgPerKm('sedan', 'ICE')).toBe(0.142)
     expect(co2KgPerKm('suv', 'ICE')).toBe(0.186)
-    expect(co2KgPerKm('shuttle', 'CNG')).toBe(0.68)
+    expect(co2KgPerKm('shuttle', 'CNG')).toBe(0.268)
   })
 
   it('shows an EV is cleaner than petrol but NOT zero — the honesty check', () => {

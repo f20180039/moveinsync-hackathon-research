@@ -35,7 +35,7 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
   if (trips.length === 0) return { ...ZERO }
 
   const m: Metrics = { ...ZERO }
-  const vehiclesSeen = new Set<string>()
+  const costed: Trip[] = []
   let seatsOffered = 0
   let passengers = 0
 
@@ -43,7 +43,7 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
     const vehicle = w.vehicles.find((v) => v.id === t.vehicleId)
     const office = w.offices.find((o) => o.id === t.officeId)
     const gate = office?.gates.find((g) => g.id === t.gateId)
-    if (!vehicle || !gate) continue
+    if (!vehicle || !gate) { m.unassignedCount++; continue }
 
     const leg = rp.route(t.pickupAt, gate.at)
     const cls = classOf(vehicle)
@@ -54,15 +54,18 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
     m.costInr += cabCostInr(leg.km, leg.minutes, cls)
     m.co2Kg += co2Kg(leg.km, cls, vehicle.fuel)
 
-    if (!vehiclesSeen.has(vehicle.id)) {
-      vehiclesSeen.add(vehicle.id)
-      seatsOffered += vehicle.seats
-    }
+    // Per DISPATCH, not per distinct vehicle asset: the same 4-seat cab making
+    // 5 sequential runs offers 5 x 4 seats across the day, not 4 total. The
+    // design's own "174 cabs -> 138 -> floor 50" headline for ~200 trips is
+    // counting cab RUNS, and the floor (ceil(passengers/seats) over dispatches)
+    // is only comparable to vehiclesUsed if both count the same unit.
+    seatsOffered += vehicle.seats
     passengers += t.seatsUsed
+    costed.push(t)
   }
 
-  m.vehiclesUsed = vehiclesSeen.size
-  m.theoreticalFloorVehicles = theoreticalFloor(trips, FLOOR_SEATS)
+  m.vehiclesUsed = costed.length
+  m.theoreticalFloorVehicles = theoreticalFloor(costed, FLOOR_SEATS)
   m.avgOccupancyPct = seatsOffered === 0 ? 0 : (passengers / seatsOffered) * 100
   return m
 }
@@ -77,7 +80,12 @@ export function diffMetrics(baseline: Metrics, solved: Metrics): Metrics {
     shuttleKm: baseline.shuttleKm - solved.shuttleKm,
     metroPaxKm: solved.metroPaxKm - baseline.metroPaxKm,
     vehiclesUsed: baseline.vehiclesUsed - solved.vehiclesUsed,
-    theoreticalFloorVehicles: baseline.theoreticalFloorVehicles - solved.theoreticalFloorVehicles,
+    // NOT a subtraction: the floor is a property of DEMAND, not of either
+    // plan's quality. With passengers conserved it is identical in both, so
+    // baseline - solved is always 0 and reads as an achievement nobody
+    // delivered — and a genuinely lower floor (fewer passengers) would not be
+    // an improvement either. Pass it through from `solved` unchanged.
+    theoreticalFloorVehicles: solved.theoreticalFloorVehicles,
     avgOccupancyPct: solved.avgOccupancyPct - baseline.avgOccupancyPct,
     costInr: baseline.costInr - solved.costInr,
     co2Kg: baseline.co2Kg - solved.co2Kg,

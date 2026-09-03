@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { cacheKey } from '../src/core/routing'
+import { cacheKey, createRouteProvider, type RouteCache } from '../src/core/routing'
+import { computeMetrics } from '../src/core/scenario'
 import type { Trip, World } from '../src/core/types'
 
 const need = (p: string): unknown => {
@@ -11,7 +12,7 @@ const need = (p: string): unknown => {
 
 const world = need('data/generated/bengaluru.world.json') as World
 const trips = need('data/generated/trips.200.json') as Trip[]
-const cache = need('data/generated/routes.cache.json') as Record<string, unknown>
+const cache = need('data/generated/routes.cache.json') as RouteCache
 
 describe('generated world', () => {
   it('has the six Bengaluru zones', () => {
@@ -106,6 +107,33 @@ describe('generated trips', () => {
   })
 })
 
+describe('generated fixtures produce coherent metrics', () => {
+  it('baseline metrics are internally coherent — the floor cannot exceed usage', () => {
+    // This is the assertion whose absence let occupancy read 89.29% and a fleet
+    // of 40 sit under a floor of 50. It runs computeMetrics over the REAL
+    // committed fixtures, not a synthetic world.
+    const m = computeMetrics(trips, world, createRouteProvider(cache))
+    expect(m.theoreticalFloorVehicles).toBeLessThanOrEqual(m.vehiclesUsed)
+    expect(m.avgOccupancyPct).toBeGreaterThan(0)
+    expect(m.avgOccupancyPct).toBeLessThan(60) // the premise is half-empty cabs
+    expect(m.unassignedCount).toBe(0)
+  })
+
+  it('isNightShift agrees with local (IST) time, in both directions', () => {
+    const istHour = (ms: number) =>
+      Number(new Date(ms).toLocaleString('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }).slice(0, 2))
+    for (const t of trips) {
+      const h = istHour(t.windows[0]![0])
+      expect(h >= 21 || h < 6).toBe(t.isNightShift)
+    }
+    // and the night cohort must cover BOTH directions, or gender-safety's
+    // night-login rule has no fixture coverage at all
+    const night = trips.filter((t) => t.isNightShift)
+    expect(night.some((t) => t.direction === 'login')).toBe(true)
+    expect(night.some((t) => t.direction === 'logout')).toBe(true)
+  })
+})
+
 describe('generated route cache', () => {
   it('covers every trip pickup -> its office gate, in both directions', () => {
     // The old assertion was `keys.length >= trips.length`, which 828 unrelated
@@ -129,7 +157,7 @@ describe('determinism', () => {
     const sha = (f: string) =>
       createHash('sha256').update(readFileSync(`data/generated/${f}`)).digest('hex').slice(0, 16)
     expect(sha('bengaluru.world.json')).toBe('04eea3b5f09b9de8')
-    expect(sha('trips.200.json')).toBe('07d2b68ff54b9055')
+    expect(sha('trips.200.json')).toBe('b27dcceb40f842dc')
     expect(sha('routes.cache.json')).toBe('231e5caf8b6d522c')
   })
 })

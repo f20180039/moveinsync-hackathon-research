@@ -24,7 +24,7 @@ export const MODEL = Object.freeze({
 
   co2SedanPerKm: 0.142,
   co2SuvPerKm: 0.186,
-  co2ShuttlePerKm: 0.68,
+  co2ShuttlePerKm: 0.268,
   co2EvPerKm: 0.1,
   co2MetroPerPassengerKm: 0.014,
 
@@ -35,7 +35,7 @@ export const MODEL = Object.freeze({
 })
 
 export const MODEL_BASIS: Record<string, string> = {
-  cabRatePerKm: 'typical Bengaluru corporate sedan contract rate',
+  cabRatePerKm: 'vehicle-only running cost; driver billed separately via driverCostPerHour',
   cabBaseFarePerTrip: 'fixed per-dispatch component',
   suvRatePerKm: 'larger body, higher contract rate',
   shuttleRatePerKm: '12-seater; cheaper PER PASSENGER despite higher per-km',
@@ -44,7 +44,7 @@ export const MODEL_BASIS: Record<string, string> = {
   metroFarePerTrip: 'BMRCL mid-distance fare',
   co2SedanPerKm: 'petrol sedan ~6.1 L/100km x 2.31 kg CO2/L',
   co2SuvPerKm: 'petrol SUV ~8.0 L/100km x 2.31 kg CO2/L',
-  co2ShuttlePerKm: '12-seater diesel',
+  co2ShuttlePerKm: '12-seater diesel ~10 L/100km x 2.68 kg CO2/L',
   co2EvPerKm: '0.14 kWh/km x ~0.71 kg CO2/kWh India grid mix — a ~30% cut, NOT zero',
   co2MetroPerPassengerKm: 'electrified rail at high load factor',
   setupMinPerStop: 'door-to-vehicle time at a new pickup point (FleetPy std_bt)',

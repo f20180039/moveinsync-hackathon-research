@@ -40,13 +40,17 @@ describe('theoreticalFloor', () => {
 })
 
 describe('computeMetrics', () => {
-  it('counts one vehicle per distinct vehicleId', () => {
+  it('counts one dispatch per costed trip, NOT one per distinct vehicleId', () => {
+    // v-sedan runs twice (two sequential dispatches) and v-ev once: the pitch's
+    // own "174 cabs -> 138 -> floor 50" headline for ~200 trips is counting cab
+    // RUNS, so vehiclesUsed must be comparable to that — and to the floor,
+    // which is also computed per dispatch.
     const trips = [
       makeTrip({ id: 'a', vehicleId: 'v-sedan' }),
       makeTrip({ id: 'b', vehicleId: 'v-ev' }),
       makeTrip({ id: 'c', vehicleId: 'v-sedan' }),
     ]
-    expect(computeMetrics(trips, W, RP).vehiclesUsed).toBe(2)
+    expect(computeMetrics(trips, W, RP).vehiclesUsed).toBe(3)
   })
 
   it('reports the theoretical floor alongside actual usage', () => {
@@ -75,6 +79,8 @@ describe('computeMetrics', () => {
     expect(m.vehiclesUsed).toBe(0)
     expect(m.cabKm).toBe(0)
     expect(m.costInr).toBe(0)
+    // The drop is deliberate, but it must no longer be invisible.
+    expect(m.unassignedCount).toBe(1)
   })
 
   it('SILENTLY EXCLUDES a trip whose gate does not resolve, on a valid office', () => {
@@ -85,6 +91,8 @@ describe('computeMetrics', () => {
     expect(m.vehiclesUsed).toBe(0)
     expect(m.cabKm).toBe(0)
     expect(m.costInr).toBe(0)
+    // The drop is deliberate, but it must no longer be invisible.
+    expect(m.unassignedCount).toBe(1)
   })
 
   it('accumulates cab km from the route provider', () => {

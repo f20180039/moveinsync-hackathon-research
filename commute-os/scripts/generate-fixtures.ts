@@ -27,8 +27,8 @@ faker.seed(SEED)
 const pick = <T,>(xs: T[]): T => xs[Math.floor(rnd() * xs.length)]!
 const jitter = (v: number, spread: number): number => v + (rnd() - 0.5) * 2 * spread
 const MIN = 60_000
-/** Demo day starts 2026-09-05T00:00:00Z. */
-const DAY0 = Date.UTC(2026, 8, 5, 0, 0, 0)
+/** Demo day starts 2026-09-05T00:00 IST (= 18:30 UTC the previous day). */
+const DAY0 = Date.UTC(2026, 8, 4, 18, 30)
 const at = (h: number, m = 0): number => DAY0 + h * 60 * MIN + m * MIN
 
 // ── zones ───────────────────────────────────────────────────────────────────
@@ -136,7 +136,11 @@ const world: World = {
 const trips: Trip[] = Array.from({ length: 200 }, (_, i) => {
   const emp = employees[i]!
   const office = offices.find((o) => o.id === emp.officeId)!
-  const isNight = i % 9 === 0                       // ~23 night trips
+  // i % 11 is coprime with the direction stride (3), the gender stride (7), the
+  // zone stride (6) and the office stride (4), so the night cohort correlates
+  // with none of them. i % 9 was a multiple of 3, which made every night trip a
+  // logout and left the night-LOGIN branch below unreachable.
+  const isNight = i % 11 === 0
   const direction: Trip['direction'] = i % 3 === 0 ? 'logout' : 'login'
   const baseHour = isNight ? (direction === 'login' ? 22 : 5) : direction === 'login' ? 8 : 18
   const start = at(baseHour, (i * 7) % 55)

@@ -18,7 +18,11 @@ import type {
 export const TIER_ORDER = ['pass', 'soft', 'medium', 'block'] as const
 
 export function tierRank(s: PolicyStatus): number {
-  return TIER_ORDER.indexOf(s)
+  const i = TIER_ORDER.indexOf(s)
+  // An unrecognised status ranks WORST, not best. indexOf's -1 would sort a
+  // corrupted verdict as more acceptable than `pass`, and would let one trace
+  // report blocked:true with tier:'pass'. Fail closed instead.
+  return i === -1 ? TIER_ORDER.length : i
 }
 
 /** Negative if `a` is more acceptable than `b`. */
