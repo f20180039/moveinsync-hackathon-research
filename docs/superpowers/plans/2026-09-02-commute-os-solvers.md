@@ -236,6 +236,15 @@ policy-blocked proposal must still be emitted, not dropped).
 
 ### Task 5: `solvers/metro-feeder.ts` — semi-on-demand feeder (the swing)
 
+**Before writing this solver, fix `FLOOR_SEATS`.** `scenario.ts` hard-codes the
+fleet-floor unit at 4 seats. That is right while the fleet is cab-dominated, but
+this solver pools feeder legs onto **12-seat shuttles**, and `ceil(pax/4)` is
+larger than `ceil(pax/12)` — so the "theoretical floor" would claim more
+vehicles are needed than actually are, and can exceed the achieved
+`vehiclesUsed`, inverting the headline comparison. Compute the floor against the
+largest vehicle capacity actually in play, or per vehicle class, before this
+solver's golden metrics are trusted.
+
 **Files:** `src/solvers/metro-feeder.ts`, `tests/solvers/metro-feeder.test.ts`
 
 **Produces:** `FEEDER_RADIUS_KM` (6), `LAST_MILE_RADIUS_KM` (3),
