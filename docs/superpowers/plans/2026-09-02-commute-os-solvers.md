@@ -121,25 +121,45 @@ get it exactly right:
 **Files:** `src/solvers/pickup-order.ts`, `tests/solvers/pickup-order.test.ts`
 
 **Produces:** `MAX_EXACT_PICKUPS` (6), `permutations<T>(xs: T[]): T[][]`,
-`bestPickupOrder(pickups: LatLng[], office: LatLng, d: (a: LatLng, b: LatLng) => number): number[]`
+`bestPickupOrder(stops: LatLng[], office: LatLng, d: (a: LatLng, b: LatLng) => number, direction: Direction): { order: number[]; strategy: 'exact' | 'nearest-neighbour' }`
 
 Returns **indices**, not points, so the caller can map back to trips.
+
+**The objective is direction-dependent — do not omit the `direction`
+parameter.** The office is the route's LAST stop inbound and its FIRST stop
+outbound, so the two cost functions are:
+
+- `login`:  `Σ inner legs + d(stops[last], office)`
+- `logout`: `d(office, stops[first]) + Σ inner legs`
+
+Under a symmetric `d` these two have the same minimum *value* — reversing a
+permutation maps one objective onto the other — so a direction-blind
+implementation still returns a correct total km while returning the drop order
+**mirrored**. That is not harmless: outbound, the rider dropped first has the
+shortest ride, so a mirrored order hands the short ride to the wrong person,
+redistributes `perPassengerAddedMin`, and can push a specific rider past
+`detour-fairness` or out of their window. Under the asymmetric route cache the
+km diverges as well. Same root cause as the `buildCandidate` contract above.
 
 ```ts
 export const MAX_EXACT_PICKUPS = 6   // 720 perms; 12-seat shuttles must NOT use this
 
-export function bestPickupOrder(pickups, office, d): number[] {
+export function bestPickupOrder(pickups, office, d, direction) {
   const n = pickups.length
-  if (n <= 1) return pickups.map((_, i) => i)
-  if (n > MAX_EXACT_PICKUPS) return nearestNeighbourOrder(pickups, office, d)
+  if (n <= 1) return { order: pickups.map((_, i) => i), strategy: 'exact' }
+  if (n > MAX_EXACT_PICKUPS) {
+    return { order: nearestNeighbourOrder(pickups, office, d, direction), strategy: 'nearest-neighbour' }
+  }
   let best: number[] = [], bestKm = Infinity
   for (const perm of permutations(pickups.map((_, i) => i))) {
     let km = 0
     for (let i = 1; i < perm.length; i++) km += d(pickups[perm[i - 1]!]!, pickups[perm[i]!]!)
-    km += d(pickups[perm[perm.length - 1]!]!, office)
+    km += direction === 'logout'
+      ? d(office, pickups[perm[0]!]!)      // outbound: office is the FIRST stop
+      : d(pickups[perm[perm.length - 1]!]!, office)  // inbound: office is LAST
     if (km < bestKm) { bestKm = km; best = perm }
   }
-  return best
+  return { order: best, strategy: 'exact' }
 }
 ```
 
@@ -149,7 +169,8 @@ export function bestPickupOrder(pickups, office, d): number[] {
 |---|---|---|
 | 1 | n=1 | `[0]` |
 | 2 | n=2, one clearly nearer the office | the far one first |
-| 3 | n=3 collinear away from office | strictly descending distance-to-office |
+| 3 | n=3 collinear away from office, `login` | strictly descending distance-to-office |
+| 3b | the same three stops as `logout` | strictly ASCENDING distance-to-office — the exact mirror of case 3, and it must FAIL if `direction` is ignored |
 | 4 | n=4 | result is a permutation of 0..3, and no other permutation is cheaper (brute-force cross-check in the test) |
 | 5 | `permutations([1,2,3])` | 6 arrays, all distinct |
 | 6 | `permutations` of 4 items | 24 |
@@ -160,8 +181,11 @@ Case 4 is the important one: the test **independently** enumerates all 24
 orders and asserts `bestPickupOrder`'s answer ties the minimum. That is what
 makes "exact, not approximated" a verified claim rather than a slogan.
 
-**No wall-clock assertions.** Return `{ order, strategy }` where `strategy` is
-`'exact' | 'nearest-neighbour'`, and assert the strategy at n=6 vs n=7. Timing
+`nearestNeighbourOrder` is direction-aware for the same reason: inbound it
+grows the chain toward the office, outbound it grows outward FROM the office.
+
+**No wall-clock assertions.** `strategy` is `'exact' | 'nearest-neighbour'`,
+and the tests assert the strategy at n=6 vs n=7. Timing
 in a test is machine- and load-dependent, and what we actually care about is
 which code path ran.
 
@@ -226,8 +250,10 @@ Algorithm:
 2. Within a group, use `corridorCandidates` to shortlist pairs (not all-pairs).
 3. Score every chain-endpoint pair with `savings`, sort descending.
 4. Greedily merge while `evaluate(...).blocked === false` and capacity holds;
-   re-order each merged chain with `bestPickupOrder`; re-evaluate endpoints
-   after each merge so 3- and 4-seat fills form.
+   re-order each merged chain with `bestPickupOrder(stops, office, d, direction)`
+   — it returns `{ order, strategy }`, not a bare array, and the group's own
+   `direction` from step 1 is what you pass; re-evaluate endpoints after each
+   merge so 3- and 4-seat fills form.
 5. Emit a `Proposal` per merge **and per refusal**, each carrying its trace.
 
 **Test cases:**
@@ -265,8 +291,13 @@ policy-blocked proposal must still be emitted, not dropped).
 
 ### Task 5: `solvers/metro-feeder.ts` — semi-on-demand feeder (the swing)
 
-**Before writing this solver, fix `FLOOR_SEATS`.** `scenario.ts` hard-codes the
-fleet-floor unit at 4 seats. That is right while the fleet is cab-dominated, but
+**`FLOOR_SEATS` — ALREADY FIXED, do not redo it.** Landed in Task 1 as commit
+`327ac7f`: `computeMetrics` now derives the floor unit from the largest capacity
+in `w.vehicles` instead of a hard-coded 4, so the bound moved from 50 to 17 over
+the committed 200-trip fixture. Verify it still holds once this solver's
+shuttles are in play — the check is `theoreticalFloorVehicles <= vehiclesUsed`
+on the golden run — but do not change `scenario.ts` again. The original note,
+kept for the reasoning: `scenario.ts` hard-coded the fleet-floor unit at 4 seats. That is right while the fleet is cab-dominated, but
 this solver pools feeder legs onto **12-seat shuttles**, and `ceil(pax/4)` is
 larger than `ceil(pax/12)` — so the "theoretical floor" would claim more
 vehicles are needed than actually are, and can exceed the achieved
@@ -281,8 +312,19 @@ solver's golden metrics are trusted.
 
 Algorithm (spec §10.1):
 1. For each trip: `directKm/directMin` from the route provider.
-2. Boarding candidates = `nearestN(pickup, stations, 3, FEEDER_RADIUS_KM)`;
-   alighting = `nearestN(officeGate, stations, 3, LAST_MILE_RADIUS_KM)`.
+2. **Direction-aware station shortlisting.** A rider boards the metro on the
+   side they start from, so the two radii attach to the HOME side and the
+   OFFICE side, never to a fixed leg index:
+   - `login`:  boarding = `nearestN(pickup, stations, 3, FEEDER_RADIUS_KM)`,
+     alighting = `nearestN(officeGate, stations, 3, LAST_MILE_RADIUS_KM)`
+   - `logout`: boarding = `nearestN(officeGate, stations, 3, LAST_MILE_RADIUS_KM)`,
+     alighting = `nearestN(pickup, stations, 3, FEEDER_RADIUS_KM)`
+
+   Because `FEEDER_RADIUS_KM` (6) and `LAST_MILE_RADIUS_KM` (3) differ, getting
+   this backwards does not merely mirror the route — it shortlists the wrong
+   stations entirely and silently drops feasible outbound feeders. 67 of the 200
+   fixture trips are `logout`. Same root cause as the `buildCandidate` and
+   `bestPickupOrder` contracts above.
 3. For each (b, a): `metroLegMinutes(findMetroPath(b, a, mg), headway)`; total =
    feeder + metro + last mile. `cabKmSaved = directKm − feederKm − lastMileKm`.
 4. Accept if `total <= directMin + MAX_EXTRA_MIN` **and**
@@ -296,6 +338,7 @@ Algorithm (spec §10.1):
 | # | Case | Expect |
 |---|---|---|
 | 1 | trip with no station within 6 km | no feeder proposal |
+| 1b | a `logout` trip whose OFFICE is within 3 km of a station but whose home is 5 km from one | feeder proposed — must FAIL if the login radii are applied outbound |
 | 2 | Electronic City trip near ELCT | feeder proposed, `cabKmSaved >= 2` |
 | 3 | a trip whose metro detour exceeds +15 min | rejected on time, not on distance |
 | 4 | a trip already 1 km from its office | rejected on `MIN_KM_SAVED` |
@@ -316,7 +359,11 @@ cd commute-os && npm run typecheck && npm test
 ```
 
 Both solvers registered, ~60 new tests, boundary test extended, and the two
-golden fixtures asserting ≥30 km saved and a real vehicle reduction.
+golden fixtures pinned at ~80% of their MEASURED values with the measurement
+recorded in a comment. (An earlier draft of this line asserted "≥30 km saved";
+that figure was invented, and Task 4's own "golden thresholds are measured,
+never guessed" rule governs. A definition of done must not contradict the task
+it closes.)
 
 ## Explicitly NOT in Plan 2 (Tier B/C)
 
