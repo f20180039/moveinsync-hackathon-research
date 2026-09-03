@@ -77,6 +77,16 @@ describe('computeMetrics', () => {
     expect(m.costInr).toBe(0)
   })
 
+  it('SILENTLY EXCLUDES a trip whose gate does not resolve, on a valid office', () => {
+    // A bad gateId on a VALID office used to fall back to that office's first
+    // gate, producing a plausible-but-wrong distance instead of a zero — worse
+    // than the vehicle path, and inconsistent with it. Both must now skip.
+    const m = computeMetrics([makeTrip({ gateId: 'does-not-exist' })], W, RP)
+    expect(m.vehiclesUsed).toBe(0)
+    expect(m.cabKm).toBe(0)
+    expect(m.costInr).toBe(0)
+  })
+
   it('accumulates cab km from the route provider', () => {
     const m = computeMetrics([makeTrip()], W, RP)
     expect(m.cabKm).toBeCloseTo(7.4043, 3)

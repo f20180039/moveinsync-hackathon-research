@@ -42,7 +42,7 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
   for (const t of trips) {
     const vehicle = w.vehicles.find((v) => v.id === t.vehicleId)
     const office = w.offices.find((o) => o.id === t.officeId)
-    const gate = office?.gates.find((g) => g.id === t.gateId) ?? office?.gates[0]
+    const gate = office?.gates.find((g) => g.id === t.gateId)
     if (!vehicle || !gate) continue
 
     const leg = rp.route(t.pickupAt, gate.at)

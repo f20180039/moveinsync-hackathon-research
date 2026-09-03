@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { cacheKey } from '../src/core/routing'
 import type { Trip, World } from '../src/core/types'
 
 const need = (p: string): unknown => {
@@ -25,6 +27,8 @@ describe('generated world', () => {
       expect(o.gates.length).toBeGreaterThanOrEqual(2)
       expect(o.gates.length).toBeLessThanOrEqual(3)
     }
+    // the 3-gate office exists — gate-spread needs it to have anything to block
+    expect(world.offices.some((o) => o.gates.length === 3)).toBe(true)
   })
 
   it('has 200 employees, 40 vehicles and 25 drivers', () => {
@@ -46,6 +50,8 @@ describe('generated world', () => {
       expect(ev.rangeKm).toBeGreaterThan(0)
       expect(ev.socPct).toBeGreaterThan(0)
     }
+    // a low-charge EV exists — ev-range needs it; socPct > 0 alone would pass at 100%
+    expect(world.vehicles.some((v) => v.fuel === 'EV' && (v.socPct ?? 100) < 40)).toBe(true)
   })
 
   it('includes drivers deliberately near the 12-hour duty cap', () => {
@@ -101,21 +107,29 @@ describe('generated trips', () => {
 })
 
 describe('generated route cache', () => {
-  it('is non-empty', () => {
-    expect(Object.keys(cache).length).toBeGreaterThan(0)
-  })
-
-  it('covers every trip pickup -> its office gate', () => {
-    // asserted via the same cacheKey the provider uses
-    expect(Object.keys(cache).length).toBeGreaterThanOrEqual(trips.length)
+  it('covers every trip pickup -> its office gate, in both directions', () => {
+    // The old assertion was `keys.length >= trips.length`, which 828 unrelated
+    // zone/feeder keys satisfy on their own — it would have passed with every
+    // trip leg missing.
+    for (const t of trips) {
+      const office = world.offices.find((o) => o.id === t.officeId)!
+      const gate = office.gates.find((g) => g.id === t.gateId)!
+      expect(cache[cacheKey(t.pickupAt, gate.at)]).toBeDefined()
+      expect(cache[cacheKey(gate.at, t.pickupAt)]).toBeDefined()
+    }
   })
 })
 
 describe('determinism', () => {
-  it('is byte-stable — regenerating must not change the committed files', () => {
-    // Guard: this test documents the contract. Re-run `npm run fixtures` and
-    // `git diff --exit-code data/generated/` must be clean.
-    expect(trips[0]!.id).toBe('t000')
-    expect(trips[199]!.id).toBe('t199')
+  it('is byte-stable — the committed fixtures match their recorded hashes', () => {
+    // The previous test asserted trips[0].id === 't000', which is a loop-index
+    // fact true of any generator. This pins actual content, so a PRNG-stream
+    // shift or an unseeded source produces a red test rather than a silent
+    // change caught only by a manual git diff.
+    const sha = (f: string) =>
+      createHash('sha256').update(readFileSync(`data/generated/${f}`)).digest('hex').slice(0, 16)
+    expect(sha('bengaluru.world.json')).toBe('04eea3b5f09b9de8')
+    expect(sha('trips.200.json')).toBe('07d2b68ff54b9055')
+    expect(sha('routes.cache.json')).toBe('231e5caf8b6d522c')
   })
 })

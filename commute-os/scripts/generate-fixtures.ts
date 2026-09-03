@@ -80,7 +80,10 @@ const employees: Employee[] = Array.from({ length: 200 }, (_, i) => {
   // ~42% female, deterministic BY INDEX rather than random, so the night cohort
   // (i % 9 === 0, below) reliably contains lone-female trips for the safety
   // demo. Leaving this to the PRNG would make the demo's best beat a lottery.
-  const gender: Employee['gender'] = i % 12 < 5 ? 'F' : 'M'
+  // i % 7 is coprime with the zone (6), office (4) and night-cohort (9) strides,
+  // so gender does not correlate with any of them. The previous i % 12 shared a
+  // factor of 6 with the zone stride and left HSR Layout with zero females.
+  const gender: Employee['gender'] = i % 7 < 3 ? 'F' : 'M'
   const firstName = faker.person.firstName(gender === 'F' ? 'female' : 'male')
   return {
     id: `e${String(i).padStart(3, '0')}`,
@@ -133,7 +136,7 @@ const world: World = {
 const trips: Trip[] = Array.from({ length: 200 }, (_, i) => {
   const emp = employees[i]!
   const office = offices.find((o) => o.id === emp.officeId)!
-  const isNight = i % 9 === 0                       // ~22 night trips
+  const isNight = i % 9 === 0                       // ~23 night trips
   const direction: Trip['direction'] = i % 3 === 0 ? 'logout' : 'login'
   const baseHour = isNight ? (direction === 'login' ? 22 : 5) : direction === 'login' ? 8 : 18
   const start = at(baseHour, (i * 7) % 55)
