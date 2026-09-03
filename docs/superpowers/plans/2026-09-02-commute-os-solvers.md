@@ -62,14 +62,39 @@ Inherits Plan 1's constraints verbatim. Additionally:
 
 **`buildCandidate` contract** — this is the piece every policy depends on, so
 get it exactly right:
-1. Visit pickups in `order`, then the office gate(s).
+1. **Direction-aware sequence.** All trips in a candidate MUST share one
+   `direction` — throw if they do not; an inbound and an outbound rider in one
+   vehicle is nonsense. For `login`: visit the home-side stops in `order`, then
+   the office gate(s). For `logout`: visit the gate(s) FIRST, then the home-side
+   stops in `order` — the generator sets `pickupAt: emp.homeAt` for EVERY trip
+   regardless of direction, so on an outbound run `pickupAt` is a DROP point and
+   routing "homes then gate" is backwards. This is the same direction asymmetry
+   measured for corridor keying above (login-reversed shares 8 leading cells,
+   logout as-is shares 0); it applies here too. 34% of the committed fixture is
+   logout, and Task 4 runs over all of it.
 2. `km` = Σ leg km along that sequence.
 3. `minutes` = Σ leg minutes + `boardingMinutes(distinctStops, totalPax)` from
    `core/ledger` — the per-stop/per-passenger split (A9).
-4. `pickupTimes[tripId]` = cumulative arrival at that pickup, starting from the
-   earliest window start across the group.
-5. `perPassengerAddedMin[employeeId]` = (arrival at office in this candidate)
-   − (`soloMinutes` for that employee's trip). **Never negative** — clamp at 0.
+4. `pickupTimes[tripId]` = cumulative arrival at that trip's HOME-SIDE stop —
+   board time inbound, drop time outbound — starting from the earliest window
+   start across the group. The generator's logout windows are office-departure
+   slots, so that start correctly denotes gate departure on an outbound run. The
+   field keeps its Plan 1 name; its doc comment in `core/types.ts` says which
+   it means.
+5. `perPassengerAddedMin[employeeId]` = that rider's OWN in-vehicle duration in
+   this candidate, minus `soloMinutes` for their trip. Their in-vehicle duration
+   is (elapsed time at the stop where they leave the vehicle) − (elapsed time at
+   the stop where they board it): inbound they board at their home stop and
+   leave at their gate; outbound they board at their gate and leave at their home
+   stop. **Never negative — clamp at 0.**
+   Do NOT read this as "elapsed to office minus solo": every inbound rider
+   reaches the gate at the SAME elapsed time, so that reading makes the
+   differences depend only on differing `soloMinutes`, and since the
+   first-picked-up rider is typically the farthest it hands them the SMALLEST
+   detour — the exact inverse of test case 5 below. Accumulate elapsed minutes
+   RELATIVE to the start and add the epoch base once at the end; subtracting two
+   `start + small` values at epoch-ms magnitude (~1.76e12) loses the exact zero
+   that case 1 requires to floating-point cancellation.
 6. `gateIds` = distinct gates in visit order.
 7. `seatsUsed` = Σ trip seats.
 
@@ -78,6 +103,10 @@ get it exactly right:
 | # | Case | Expect |
 |---|---|---|
 | 1 | single trip, order [0] | `km` == solo route km; `perPassengerAddedMin` all 0 |
+| 1b | logout, single trip | `perPassengerAddedMin` exactly 0, not an epsilon |
+| 5b | logout, two trips | the **LAST-dropped** rider has the larger added minutes; must FAIL if the login ordering is applied |
+| 8 | logout `km` | equals the gate->drop->drop sum, and is NOT equal to the login-sequence sum for the same trips |
+| 9 | mixed directions in one `order` | throws, naming both directions |
 | 2 | two trips same gate | `gateIds.length` == 1 |
 | 3 | two trips different gates | `gateIds.length` == 2, in visit order |
 | 4 | two trips, boarding split | `minutes` includes `boardingMinutes(1 or 2, 2)`, not `2 × boardingMinutes(1,1)` |
