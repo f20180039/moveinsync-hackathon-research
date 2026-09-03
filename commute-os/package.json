@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=18.19.0" },
+  "engines": {
+    "node": ">=18.19.0"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -16,6 +18,7 @@
     "@turf/helpers": "^7.4.0",
     "graphology": "^0.26.0",
     "graphology-shortest-path": "^2.1.0",
+    "h3-js": "^4.5.0",
     "papaparse": "^5.7.0",
     "seedrandom": "^3.0.5"
   },
