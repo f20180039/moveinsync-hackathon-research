@@ -29,7 +29,13 @@ describe('theoreticalFloor', () => {
   })
 
   it('guards against a zero seat count instead of dividing by zero', () => {
-    expect(Number.isFinite(theoreticalFloor([makeTrip()], 0))).toBe(true)
+    // With no capacity, packing is impossible and the floor degenerates to one
+    // vehicle per passenger. Asserting only isFinite() would pass for any
+    // finite wrong answer, including 0.
+    expect(theoreticalFloor([makeTrip()], 0)).toBe(1)
+    expect(theoreticalFloor(
+      [makeTrip({ id: 'a' }), makeTrip({ id: 'b' }), makeTrip({ id: 'c' })], 0,
+    )).toBe(3)
   })
 })
 
@@ -73,9 +79,9 @@ describe('computeMetrics', () => {
 
   it('accumulates cab km from the route provider', () => {
     const m = computeMetrics([makeTrip()], W, RP)
-    expect(m.cabKm).toBeGreaterThan(0)
-    expect(m.costInr).toBeGreaterThan(0)
-    expect(m.co2Kg).toBeGreaterThan(0)
+    expect(m.cabKm).toBeCloseTo(7.4043, 3)
+    expect(m.costInr).toBeCloseTo(253.86, 1)
+    expect(m.co2Kg).toBeCloseTo(1.0514, 3)
   })
 
   it('separates shuttle km from cab km', () => {
@@ -103,6 +109,8 @@ describe('computeMetrics', () => {
   it('is deterministic — identical input gives identical output', () => {
     const trips = [makeTrip()]
     expect(computeMetrics(trips, W, RP)).toEqual(computeMetrics(trips, W, RP))
+    // a constant-ZERO stub is "deterministic" too — require a real result
+    expect(computeMetrics(trips, W, RP).cabKm).toBeGreaterThan(0)
   })
 })
 
@@ -151,7 +159,12 @@ describe('savingsBand', () => {
   })
 
   it('never reports a negative downside', () => {
+    // The clamp is unreachable for a non-negative expectation: risk is already
+    // bounded to [0,1], so expected*(1-risk) >= 0 and at risk=1 it is exactly 0
+    // without the clamp doing anything. Only a NEGATIVE expectation exercises it.
     expect(savingsBand(100, 1).p10Inr).toBeGreaterThanOrEqual(0)
+    expect(savingsBand(-100, 0.5).p10Inr).toBe(0)
+    expect(savingsBand(-100, 0).p10Inr).toBe(0)
   })
 })
 
