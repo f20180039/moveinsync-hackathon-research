@@ -339,13 +339,13 @@ amount of kilometre saving can outrank leaving someone behind.**
 
 | id | Rule | Verdict |
 |---|---|---|
-| `gender-safety` | Night shift (21:00–06:00) and merged group has exactly **1** female → **block**. ≥2 females or 0 females → pass. Also: a lone female may not be the **last drop** on a night logout → block. | block |
+| `gender-safety` | Counted over the **night-flagged trips only**, never the whole candidate: exactly **1** female on the night legs → **block**; ≥2 or 0 → pass. Also: a lone female may not be the **last drop** on a night logout → block. And if a night candidate has trips whose employees cannot be resolved at all → **block** — a safety rule that cannot identify its passengers must refuse, not assume. *(v1.0 said "merged group", which counted day-leg passengers too: an unrelated female on a day leg silently shielded a lone female on the night leg.)* | block |
 | `detour-sla` | Added travel time for each already-assigned passenger ≤ `min(10 min, 30% of their original duration)`. `slack` = minutes remaining. | block |
 | `driver-hours` | `dutyMinutesToday + mergedDuration ≤ 720` (12 h). Warn above 660. | block / warn |
 | `ev-range` | If `fuel === 'EV'`: `mergedKm ≤ rangeKm × 0.8` (20% reserve). On block, reason names the CNG/ICE reassignment. | block |
 | `seat-capacity` | `Σ seatsUsed ≤ vehicle.seats`. | block |
 | `gate-spread` | Multiple office gates allowed; +5 min per extra gate, max 2 distinct gates. >2 → block. Feeds its penalty into `detour-sla`. | block |
-| `time-window` | Pickup windows must overlap within 15 min. | block |
+| `time-window` | The pickup must start **inside one of** the trip's windows. Outside any window it is late relative to the most recently closed window → `block`/`delay`; before all windows by more than 15 min → `soft`/`lead_time`. **A pickup in a GAP between two windows is a violation, not a pass** — the v1.0 rule only tested "after all windows" and silently approved gap pickups. | block / soft |
 | `zone-confidence` | Zone rejected ≥3 times → warn, and the solver de-prioritises that zone. Never blocks. | warn |
 | `no-show-risk` | Computes expected vs p10 savings from `employee.noShowRate`. Never blocks. | warn |
 
@@ -558,8 +558,12 @@ Vitest. TDD — tests first for every `core` and `solvers` module.
   These are cheap, fast, and are the highest-value tests in the repo.
 - `ledger.ts` — cost and CO₂ arithmetic against hand-computed values
 - `scenario.ts` — diff correctness; p10/expected/p90 ordering
-- `pool-merger` — golden fixture: `200 trips → ≥30 km saved`, plus the CW
-  savings formula against a hand-worked 3-node example
+- `pool-merger` — golden fixture, **threshold measured, not guessed**: write the
+  assertion as `> 0` first, log the actual saving, then pin at ~80% of the
+  measured value with the number recorded in a comment. The "≥30 km" in v1.0 of
+  this spec was invented, never measured; a golden number nobody measured is
+  either a tautology or a trap that invites lowering the bar to match. Plus the
+  CW savings formula against a hand-worked 3-node example
 - `metro-feeder` — golden fixture on cab-km deleted; asserts the composition
   step actually pools feeder legs
 - import-boundary test asserting §4.1 dependency rules

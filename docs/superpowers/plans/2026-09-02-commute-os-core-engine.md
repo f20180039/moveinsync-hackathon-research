@@ -22,7 +22,12 @@ npm registry and exercised locally on 2026-09-02** (see `docs/REUSE-AUDIT.md`):
 for geodesy and polygon containment · `graphology` 0.26.0 +
 `graphology-shortest-path` 2.1.0 (MIT) for the metro Dijkstra · `papaparse`
 5.7.0 (MIT, 0 deps) for CSV · `seedrandom` 3.0.5 (MIT, 0 deps) and
-`@faker-js/faker` 10.6.0 (MIT) for deterministic fixtures. 16 packages, 5.6 MB.
+`@faker-js/faker` 10.6.0 (MIT) for deterministic fixtures.
+
+Footprint: the 7 runtime deps alone resolve to 16 packages / 5.6 MB; with the
+7 devDependencies (typescript, vitest, tsx, faker, @types/*) a full install is
+**~91 packages / ~79 MB** in `node_modules`. Both numbers are fine — only the
+runtime set ships.
 
 Next.js is added in Plan 3, `h3-js` in Plan 2 — deliberately not here.
 
@@ -58,6 +63,14 @@ implements §5, §6, §7, §11 and the Tier A items in §19.
   Randomness only in `scripts/generate-fixtures.ts`, via a seeded PRNG.
 - **`PolicyStatus` is four tiers** compared lexicographically:
   `block` > `medium` > `soft` > `pass`. Never summed into one number.
+- **`slack` is REMAINING HEADROOM, not cost incurred.** Positive means room to
+  spare, zero means exactly at the limit, negative means over it — so the sign
+  alone tells a caller whether a constraint is satisfied, and it must agree with
+  `status`. A `pass` verdict may never carry negative slack. Its `unit` names
+  what is being measured (`seats`, `min`, `gates`), not what it costs. Any
+  secondary cost a policy computes (e.g. minutes added per extra gate) belongs
+  in `reason` and is consumed by the policy that owns that dimension — never
+  smuggled into `slack` with an inverted sign.
 - **All money is integer paise-free rupees (₹, number)**; all distances
   kilometres (number); all durations **minutes** (number); all timestamps
   **epoch milliseconds** (number). No `Date` objects in `src/core`.
@@ -201,8 +214,8 @@ coverage/
 cd commute-os && npm install
 ```
 
-Expected: installs cleanly on Node 18.19.0 — 16 packages, ~5.6 MB — with no
-peer warnings mentioning React or Next.
+Expected: installs cleanly on Node 18.19.0 — ~91 packages / ~79 MB including
+devDependencies — with no peer warnings mentioning React or Next.
 
 Sanity-check the library whose numbers the geo tests depend on:
 
@@ -237,6 +250,7 @@ const FORBIDDEN = [
   /from\s+['"].*\/solvers\//,
   /from\s+['"].*\/ui\//,
   /from\s+['"].*\/ai\//,
+  /from\s+['"].*\/app\//,
 ]
 
 describe('core import boundaries', () => {
@@ -468,7 +482,12 @@ export type PolicyCtx = {
  */
 export type PolicyStatus = 'pass' | 'soft' | 'medium' | 'block'
 
-/** VROOM's vocabulary (docs/API.md:445) plus one of ours. */
+/**
+ * VROOM's vocabulary (docs/API.md:445) plus three of ours. The UI renders
+ * `cause` directly, so each policy must use the one that actually describes its
+ * refusal — a zone-confidence warning displaying "unfair_detour" is simply
+ * wrong information in front of an admin.
+ */
 export type ViolationCause =
   | 'delay'
   | 'lead_time'
@@ -480,7 +499,10 @@ export type ViolationCause =
   | 'max_travel_time'
   | 'max_distance'
   | 'max_load'
+  // ours — no VROOM equivalent
   | 'unfair_detour'
+  | 'low_confidence'
+  | 'no_show_risk'
 
 export type PolicyVerdict = {
   id: string
@@ -777,7 +799,8 @@ export function nearestN<T extends { at: LatLng }>(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/geo.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: **18** new tests PASS (25 total in the suite, with Task 1's 7),
+typecheck clean.
 
 All four distance expectations were produced by turf 7.4.0 locally:
 `3.644013`, `20.126280`, `16.453067`, `111.195080`.
@@ -1059,7 +1082,7 @@ export function boardingMinutes(stops: number, passengers: number): number {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/ledger.test.ts && npx tsc --noEmit`
-Expected: 16 tests PASS, typecheck clean.
+Expected: 17 tests PASS, typecheck clean.
 
 - [ ] **Step 5: Commit**
 
@@ -1360,8 +1383,11 @@ export type MetroCsvRow = {
 /**
  * Parsed with papaparse rather than split(',') — the current file is unquoted,
  * but a hand parser breaks silently the day a station name contains a comma.
- * papaparse yields `""` for an empty field, which is how the three terminals'
- * missing next_station_code arrives; it is mapped to null here.
+ *
+ * The three terminals carry the LITERAL STRING "NULL" in next_station_code, not
+ * an empty field (verified against the committed CSV). papaparse would also
+ * yield "" for a genuinely empty field, so both forms are mapped to null here —
+ * handling only one would silently emit an edge to a station named "NULL".
  */
 export function parseMetroCsv(csv: string): MetroCsvRow[] {
   const parsed = Papa.parse<Record<string, string>>(csv, {
@@ -1458,7 +1484,12 @@ export type MetroPath = { stationIds: string[]; km: number; interchanges: number
  * more than one line, so mergeEdge cannot lose a parallel edge.
  */
 export function toMetroGraph(edges: MetroEdge[]): MetroGraph {
-  const g: Graph = new Graph({ type: 'undirected', multi: false })
+  // DIRECTED, deliberately. An undirected graph would let Dijkstra traverse
+  // both ways from a single forward edge, silently laundering away the source
+  // CSV's directedness — and making the reverse-direction test vacuous, since
+  // it would pass even with reverse-edge synthesis removed. Directed keeps the
+  // synthesis load-bearing and the guard real.
+  const g: Graph = new Graph({ type: 'directed', multi: false })
   for (const e of edges) {
     g.mergeNode(e.from)
     g.mergeNode(e.to)
@@ -1517,7 +1548,7 @@ export function metroLegMinutes(path: MetroPath, headwayMin?: number): number {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/metro.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: 22 tests PASS, typecheck clean.
 
 Reference values, produced locally against the real CSV with an independent
 Dijkstra: **164 edges**, `RVR→BTML` = **3.16 km / 0 interchanges / 4 stations**,
@@ -1834,7 +1865,7 @@ export function createRouteProvider(cache: RouteCache, trafficMultiplier = 1): R
 - [ ] **Step 6: Run both test files to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/clock.test.ts tests/core/routing.test.ts && npx tsc --noEmit`
-Expected: 13 tests PASS, typecheck clean.
+Expected: 14 tests PASS, typecheck clean.
 
 - [ ] **Step 7: Commit**
 
@@ -2052,7 +2083,7 @@ export function evaluate(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policy.test.ts && npx tsc --noEmit`
-Expected: 12 tests PASS, typecheck clean.
+Expected: 10 tests PASS, typecheck clean.
 
 - [ ] **Step 5: Commit**
 
@@ -2248,6 +2279,9 @@ describe('timeWindow', () => {
     const v = timeWindow(c, W, CTX)
     expect(v.status).toBe('soft')
     expect(v.cause).toBe('lead_time')
+    // 60 min early, 15 tolerated => 45 over. Pins the formula, not just the status:
+    // forgetting to subtract LEAD_TIME_TOLERANCE_MIN would still give soft/lead_time.
+    expect(v.slack!.value).toBeCloseTo(-45, 6)
   })
 
   it('tolerates a small early arrival', () => {
@@ -2293,22 +2327,32 @@ describe('detourSla', () => {
 })
 
 describe('gateSpread', () => {
-  it('passes a single gate with no penalty', () => {
+  it('passes a single gate with a full gate of headroom', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: 0, unit: 'min' })
+    expect(v.slack).toEqual({ value: 1, unit: 'gates' })
   })
 
-  it('passes two gates and reports the added minutes', () => {
+  it('passes two gates at exactly zero headroom, reporting the cost in reason', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g2'] }), W, CTX)
     expect(v.status).toBe('pass')
-    expect(v.slack).toEqual({ value: -EXTRA_MIN_PER_GATE, unit: 'min' })
+    expect(v.slack).toEqual({ value: 0, unit: 'gates' })
+    // the minutes cost lives in reason, not in slack — slack is headroom
+    expect(v.reason).toContain(`${EXTRA_MIN_PER_GATE} min`)
   })
 
-  it('blocks three gates with cause=max_tasks', () => {
+  it('never reports negative slack on a passing verdict', () => {
+    for (const gateIds of [['g1'], ['g1', 'g2'], ['g1', 'g1', 'g1']]) {
+      const v = gateSpread(makeCandidate({ gateIds }), W, CTX)
+      if (v.status === 'pass' && v.slack) expect(v.slack.value).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('blocks three gates with cause=max_tasks and one gate over', () => {
     const v = gateSpread(makeCandidate({ gateIds: ['g1', 'g2', 'g3'] }), W, CTX)
     expect(v.status).toBe('block')
     expect(v.cause).toBe('max_tasks')
+    expect(v.slack).toEqual({ value: -1, unit: 'gates' })
     expect(MAX_GATES).toBe(2)
   })
 
@@ -2395,10 +2439,21 @@ export const timeWindow: Policy = (c) => {
     if (at === undefined || t.windows.length === 0) continue
     if (insideAnyWindow(t, at)) continue
 
-    if (at > latestEnd(t)) {
-      const lateMin = (at - latestEnd(t)) / MS_PER_MIN
+    // Outside every window. Which kind of violation depends on WHERE:
+    // if any window has already closed, the pickup is late relative to the most
+    // recently closed one; otherwise it is before all windows and merely early.
+    //
+    // This must NOT be written as `at > latestEnd(t)`. A pickup in a GAP between
+    // two windows is after neither the latest end nor before the earliest start,
+    // so that formulation falls through to pass() and silently approves a pickup
+    // that satisfies no window at all.
+    const closedEnds = t.windows.map((wnd) => wnd[1]).filter((end) => end < at)
+
+    if (closedEnds.length > 0) {
+      const lastClosed = Math.max(...closedEnds)
+      const lateMin = (at - lastClosed) / MS_PER_MIN
       if (lateMin > worstLateMin) { worstLateMin = lateMin; lateTripId = t.id }
-    } else if (at < earliestStart(t)) {
+    } else {
       const earlyMin = (earliestStart(t) - at) / MS_PER_MIN
       if (earlyMin > worstEarlyMin) { worstEarlyMin = earlyMin; earlyTripId = t.id }
     }
@@ -2478,22 +2533,32 @@ export const gateSpread: Policy = (c) => {
   const id = 'gate-spread'
   const name = 'Gate spread'
   const distinct = [...new Set(c.gateIds)]
+  // `|| 0` normalises the single-gate case: -0 is what `-extraMin` yields when
+  // extraMin is 0, and Vitest's toEqual uses Object.is, which distinguishes
+  // -0 from +0 — so without this the plan's own test fails its own code.
   const extraMin = Math.max(0, distinct.length - 1) * EXTRA_MIN_PER_GATE
+
+  // slack is HEADROOM IN GATES, per the plan's slack invariant — positive means
+  // room to spare, negative means over the limit. The +5 min/extra-gate cost is
+  // reported in `reason` and consumed by detour-sla, which owns the time
+  // dimension; encoding it here as negative slack on a PASSING verdict would
+  // contradict the invariant and mislead anything ranking verdicts by sign.
+  const spareGates = MAX_GATES - distinct.length
 
   return distinct.length <= MAX_GATES
     ? pass(id, name,
-        `${distinct.length} gate${distinct.length === 1 ? '' : 's'}, +${extraMin} min`,
-        { value: -extraMin, unit: 'min' })
+        `${distinct.length} gate${distinct.length === 1 ? '' : 's'}, +${extraMin} min detour cost`,
+        { value: spareGates, unit: 'gates' })
     : verdict(id, name, 'block', 'max_tasks',
-        `${distinct.length} distinct gates exceeds the limit of ${MAX_GATES}`,
-        { value: -extraMin, unit: 'min' })
+        `${distinct.length} distinct gates exceeds the limit of ${MAX_GATES} (+${extraMin} min)`,
+        { value: spareGates, unit: 'gates' })
 }
 ```
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies/route-family.test.ts && npx tsc --noEmit`
-Expected: 20 tests PASS, typecheck clean.
+Expected: 19 tests PASS, typecheck clean.
 
 - [ ] **Step 6: Commit**
 
@@ -2767,10 +2832,23 @@ export const genderSafety: Policy = (c, w) => {
   const id = 'gender-safety'
   const name = 'Gender safety'
 
-  const isNight = c.trips.some((t) => t.isNightShift)
-  if (!isNight) return pass(id, name, 'Daytime trip — no night-shift restriction')
+  // Scope everything to the NIGHT-FLAGGED trips. Counting the whole candidate
+  // lets a female riding a DAY leg shield a lone female on the night leg — she
+  // is not in the vehicle during the risk window, so she cannot chaperone it.
+  const nightTrips = c.trips.filter((t) => t.isNightShift)
+  if (nightTrips.length === 0) return pass(id, name, 'Daytime trip — no night-shift restriction')
 
-  const people = employeesOf(c.trips, w.employees)
+  const people = employeesOf(nightTrips, w.employees)
+
+  // A safety rule that cannot identify its passengers must refuse, not assume.
+  // Every other policy fails closed on an unresolvable referent; this is the one
+  // where failing open is least acceptable.
+  if (people.length === 0) {
+    return verdict(id, name, 'block', 'skills',
+      `Safety policy: cannot resolve any passenger on a night-shift merge — ` +
+      `refusing rather than assuming it is safe`)
+  }
+
   const females = people.filter((e) => e.gender === 'F')
 
   if (females.length === 1) {
@@ -2801,7 +2879,10 @@ export const genderSafety: Policy = (c, w) => {
 - [ ] **Step 6: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies/fleet-safety.test.ts && npx tsc --noEmit`
-Expected: 18 tests PASS, typecheck clean.
+Expected: the 17 tests in this file PASS, typecheck clean. **Report the
+actual suite total rather than matching a number here** — the counts in this
+plan have been wrong four times, and a test must never be added or deleted to
+make one match.
 
 - [ ] **Step 7: Commit**
 
@@ -2986,7 +3067,7 @@ export const zoneConfidence: Policy = (c, _w, ctx) => {
   return worst < REJECTION_THRESHOLD
     ? pass(id, name, `Zone confidence normal (${worst} prior rejections)`,
         { value: REJECTION_THRESHOLD - worst, unit: 'rejections' })
-    : verdict(id, name, 'soft', 'unfair_detour',
+    : verdict(id, name, 'soft', 'low_confidence',
         `Admin rejected ${worst} suggestions in this zone — de-prioritising`,
         { value: REJECTION_THRESHOLD - worst, unit: 'rejections' })
 }
@@ -3025,7 +3106,7 @@ export const noShowRisk: Policy = (c, w, ctx) => {
   return risk < RISK_SOFT_THRESHOLD
     ? pass(id, name, `${pct.toFixed(0)}% chance of at least one no-show`,
         { value: (RISK_SOFT_THRESHOLD - risk) * 100, unit: '%' })
-    : verdict(id, name, 'soft', 'unfair_detour',
+    : verdict(id, name, 'soft', 'no_show_risk',
         `${pct.toFixed(0)}% chance of at least one no-show — savings may not fully realise`,
         { value: (RISK_SOFT_THRESHOLD - risk) * 100, unit: '%' })
 }
@@ -3125,7 +3206,10 @@ export {
 - [ ] **Step 7: Run the tests to verify they pass**
 
 Run: `cd commute-os && npx vitest run tests/core/policies && npx tsc --noEmit`
-Expected: all policy tests PASS (route-family 20, fleet-safety 18, soft-family 16), typecheck clean.
+Expected: every policy test file PASSES, typecheck clean. **Report the actual
+per-file and suite totals.** Do not reconcile against a figure in this plan:
+`route-family.test.ts` has already grown past its original count via Task 7's
+fix rounds, so any aggregate written here is stale by construction.
 
 - [ ] **Step 8: Commit**
 
@@ -3215,12 +3299,34 @@ describe('computeMetrics', () => {
   })
 
   it('reports the theoretical floor alongside actual usage', () => {
+    // The shared fixture defines only 4 vehicles (v-sedan, v-ev, v-ev-low,
+    // v-shuttle). computeMetrics SKIPS any trip whose vehicle does not resolve,
+    // so referencing v0..v7 against the default world silently drops all 8 trips
+    // and yields vehiclesUsed 0 — the world has to be widened for this case.
+    const vehicles = Array.from({ length: 8 }, (_, i) => ({
+      id: `v${i}`, plate: `KA01XX${1000 + i}`, seats: 4, fuel: 'ICE' as const,
+    }))
+    const w = makeWorld({ vehicles })
     const trips = Array.from({ length: 8 }, (_, i) =>
       makeTrip({ id: `t${i}`, vehicleId: `v${i}`, seatsUsed: 1 }))
-    const m = computeMetrics(trips, W, RP)
+    const m = computeMetrics(trips, w, RP)
     expect(m.vehiclesUsed).toBe(8)
     expect(m.theoreticalFloorVehicles).toBe(2) // ceil(8/4)
     expect(m.theoreticalFloorVehicles).toBeLessThan(m.vehiclesUsed)
+  })
+
+  it('SILENTLY EXCLUDES a trip whose vehicle does not resolve', () => {
+    // Documenting a real hazard rather than leaving it to be rediscovered.
+    // computeMetrics guards with `if (!vehicle || !gate) continue`, so a bad
+    // reference produces a plausible-looking ZERO instead of an error — in the
+    // one module that produces every number the UI displays. The guard is
+    // deliberate (a metrics call must not throw mid-render) but it must be
+    // known: anything upstream is responsible for referential integrity, which
+    // is what the fixture test in the next task enforces.
+    const m = computeMetrics([makeTrip({ vehicleId: 'does-not-exist' })], W, RP)
+    expect(m.vehiclesUsed).toBe(0)
+    expect(m.cabKm).toBe(0)
+    expect(m.costInr).toBe(0)
   })
 
   it('accumulates cab km from the route provider', () => {
@@ -3991,7 +4097,7 @@ npm test                                       # all pass
 npm run fixtures && git diff --exit-code data/generated/   # byte-stable
 ```
 
-Expected totals: **11 tasks, 11 commits**, roughly 168 tests across
+Expected totals: **11 tasks**, and roughly **190 tests** across
 `boundaries`, `geo`, `ledger`, `metro`, `clock`, `routing`, `policy`,
 `policies/route-family`, `policies/fleet-safety`, `policies/soft-family`,
 `scenario` and `fixtures`.

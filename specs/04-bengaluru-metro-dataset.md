@@ -90,9 +90,14 @@ Good enough for a synthetic demo, and far better than hand-typed guesses.
 
 ### 3.1 The graph is **directed**, one way only
 
-Exactly **three** rows have `next_station_code = NULL`: `Challaghatta` (Purple
-seq 37), `Silk Institute` (Green seq 32), `Delta Electronics Bommasandra`
-(Yellow seq 16) — one terminal per line.
+Exactly **three** rows have no onward station: `Challaghatta` (Purple seq 37),
+`Silk Institute` (Green seq 32), `Delta Electronics Bommasandra` (Yellow
+seq 16) — one terminal per line.
+
+**They hold the literal string `NULL`, not an empty field.** Verified against
+the committed CSV. A parser that only checks for `""` will treat `"NULL"` as a
+real station code and emit an edge to a station that does not exist. Handle
+both forms.
 
 So the edge list encodes **one direction per line only**. A naive graph build
 lets you travel Whitefield → Challaghatta but not back.
