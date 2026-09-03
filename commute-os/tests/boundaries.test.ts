@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname, basename, normalize, posix, sep } from 'node:path'
+import { builtinModules } from 'node:module'
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -18,6 +19,9 @@ const FORBIDDEN = [
   /from\s+['"].*\/ui\//,
   /from\s+['"].*\/ai\//,
   /from\s+['"].*\/app\//,
+  // src/core must never pull in a solver-tier library, even transitively —
+  // h3-js is for the solvers' hex-binning, not the core domain.
+  /from\s+['"]h3-js['"]/,
 ]
 
 /**
@@ -77,6 +81,98 @@ describe('core import boundaries', () => {
   })
 
   it('every core file carries the 3-line header', () => {
+    const missing = files.filter((f) => {
+      const src = readFileSync(f, 'utf8')
+      return !(src.includes('PURPOSE:') && src.includes('PIVOT:') && src.includes('SAFE-TO-DELETE:'))
+    })
+    expect(missing).toEqual([])
+  })
+})
+
+/**
+ * Every `import`/`export ... from '...'` specifier in a source file,
+ * including bare side-effect imports and dynamic `import(...)` calls.
+ * Not a full parser — good enough for the module-specifier strings this
+ * codebase actually writes.
+ */
+function importSpecifiers(src: string): string[] {
+  const specs: string[] = []
+  const patterns = [/from\s+['"]([^'"]+)['"]/g, /import\(\s*['"]([^'"]+)['"]\s*\)/g]
+  for (const rx of patterns) {
+    for (const m of src.matchAll(rx)) specs.push(m[1]!)
+  }
+  return specs
+}
+
+/**
+ * The single documented exception to "solvers import only from core, h3-js,
+ * and node builtins": `metro-feeder` may import `pool-merger`, a sibling
+ * solver module a later task creates. Written to match on the SPECIFIER, not
+ * the file existing yet, so this test does not have to be revisited when
+ * pool-merger.ts lands.
+ */
+function isMetroFeederPoolMergerException(filePath: string, spec: string): boolean {
+  return basename(filePath, '.ts') === 'metro-feeder' && basename(spec) === 'pool-merger'
+}
+
+function isAllowedSolverImport(filePath: string, spec: string): boolean {
+  if (spec === 'h3-js') return true
+  const bare = spec.startsWith('node:') ? spec.slice('node:'.length) : spec
+  if (builtinModules.includes(bare)) return true
+
+  if (spec.startsWith('.')) {
+    if (isMetroFeederPoolMergerException(filePath, spec)) return true
+    // resolve the relative specifier against the importing file's directory
+    // and normalize to '/' so "starts with src/core/" is a reliable check
+    // regardless of the host path separator.
+    const resolved = normalize(join(dirname(filePath), spec)).split(sep).join(posix.sep)
+    return resolved === 'src/core' || resolved.startsWith('src/core/')
+  }
+
+  return false
+}
+
+describe('solvers import boundaries', () => {
+  const files = walk('src/solvers')
+
+  it('finds solver source files', () => {
+    expect(files.length).toBeGreaterThan(0)
+  })
+
+  it(
+    'src/solvers imports only from src/core, h3-js, and node builtins ' +
+      '(plus the documented metro-feeder -> pool-merger exception)',
+    () => {
+      const offenders: string[] = []
+      for (const f of files) {
+        const src = readFileSync(f, 'utf8')
+        for (const spec of importSpecifiers(src)) {
+          if (!isAllowedSolverImport(f, spec)) offenders.push(`${f} :: ${spec}`)
+        }
+      }
+      expect(offenders).toEqual([])
+    },
+  )
+
+  it('src/solvers is deterministic — no Date.now or bare Math.random', () => {
+    const offenders: string[] = []
+    for (const f of files) {
+      const stripped = stripComments(readFileSync(f, 'utf8'))
+      if (/Date\.now\(/.test(stripped)) offenders.push(`${f} :: Date.now`)
+      if (/Math\.random\(/.test(stripped)) offenders.push(`${f} :: Math.random`)
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('no solvers file exceeds 250 lines', () => {
+    const tooLong = files
+      .map((f) => [f, readFileSync(f, 'utf8').split('\n').length] as const)
+      .filter(([, n]) => n > 250)
+      .map(([f, n]) => `${f} (${n})`)
+    expect(tooLong).toEqual([])
+  })
+
+  it('every solvers file carries the 3-line header', () => {
     const missing = files.filter((f) => {
       const src = readFileSync(f, 'utf8')
       return !(src.includes('PURPOSE:') && src.includes('PIVOT:') && src.includes('SAFE-TO-DELETE:'))
