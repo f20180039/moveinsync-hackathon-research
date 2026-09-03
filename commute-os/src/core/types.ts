@@ -148,7 +148,11 @@ export type Candidate = {
   /** distinct gates touched, in visit order */
   gateIds: string[]
   seatsUsed: number
-  /** epoch ms at which each trip is actually picked up */
+  /**
+   * epoch ms at which this trip's HOME-side stop is served: board time
+   * for a login, drop time for a logout. Field name is load-bearing
+   * across Plan 1 and kept even though its meaning is direction-dependent.
+   */
   pickupTimes: Record<string, number>
 }
 
