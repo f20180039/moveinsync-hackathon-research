@@ -48,6 +48,33 @@ of the proposal's claims — including its cost-at-scale argument — depend on 
 Anything beyond the above is not yet decided. Do not infer a feature set — check
 `PROPOSAL.md`, and prefer asking over assuming.
 
+## Toolchain
+
+Pinned per-project, because this machine hosts other projects on older
+runtimes and their defaults must not change.
+
+**Node — pinned to 22 via `.nvmrc`.** The global default is deliberately still
+18 for other work. Run `nvm use` on entering the repo. Vite 7 requires Node
+20.19+ or 22.12+, so 18 fails outright rather than degrading. Two guards
+enforce this: `.npmrc` sets `engine-strict=true` (gates `npm install`), and
+`scripts/require-node.mjs` gates `npm run dev` — wire it as the frontend's
+`predev` script, since `engine-strict` does nothing for `run`.
+
+**Java — use JDK 21 LTS at `/opt/homebrew/opt/openjdk@21`.** It is keg-only, so
+it shadows nothing. This matters: Homebrew's `maven` pulls **JDK 26** as a
+dependency and Maven will use it by default, ahead of the JDK 22 on `PATH`.
+Lombok and Spring plugins routinely break on a JDK that new, and the failure is
+cryptic. Set `JAVA_HOME` before building:
+
+```sh
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21
+mvn -v   # confirm it reports 21, not 26
+```
+
+**DuckDB — CLI 1.5.5 installed, matching the JDBC driver.** The `httpfs`
+extension is already cached in `~/.duckdb/extensions/`, so an S3 read will not
+try to download it mid-demo.
+
 ## Secrets
 
 The Sarvam API key and the Slack webhook URL live in environment variables and
