@@ -129,7 +129,16 @@ Not optional, and none of it needs the dataset. Every one of these is something 
 
   The shell alternative is `set -a && source .env && set +a`, which needs no dependency but has to be remembered every new terminal. Do the code version and keep the shell one for one-off scripts.
 - [ ] `service/.venv/bin/python -c "import duckdb; duckdb.sql('INSTALL httpfs; LOAD httpfs;')"` — caches the extension so an S3 read cannot try to download it mid-demo.
-- [ ] `cd console && nvm use && npm install` — the console's dependency tree, tonight.
+- [ ] **Scaffold the console — it does not exist yet.** The plan's Task 7 lists files under `console/` as if the project were already there; it is not. This is a network-dependent step and must not happen at 10:05:
+
+  ```sh
+  nvm use
+  npm create vite@latest console -- --template react-ts
+  cd console && npm install && npm install -D vitest @testing-library/react \
+      @testing-library/jest-dom @testing-library/user-event jsdom
+  ```
+
+  Then wire `console/package.json` (`"engines": {"node": ">=22.12"}`, a `predev` script running `node ../scripts/require-node.mjs`, and a `test` script running `vitest run`) and `vite.config.ts` (the react plugin, `server.proxy` mapping `/api` to `http://localhost:8080`, and `test: { environment: 'jsdom', globals: true }`). Confirm `npm run dev` serves and `npm test` runs with zero tests before you stop.
 - [ ] **Create the Slack incoming webhook** and `curl` one message to it. Minutes, no approval. This is the primary delivery channel and Tier 1 needs it.
 - [ ] **Verify 2–3 team emails in SES sandbox — and note this one has human latency.** Each address gets a confirmation email that *the recipient has to click*. That is not a config step you can do at 14:00 tomorrow and have finished at 14:05; if a teammate does not check their inbox, the address stays unverified. Send the verification requests tonight and chase the clicks.
 
