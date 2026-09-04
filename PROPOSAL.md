@@ -262,6 +262,44 @@ Sequenced so the demo exists early and only widens.
 
 ---
 
+## 7a. Decisions taken after the first review
+
+- **Six metrics, not three**, in a strict build order. The registry holds all
+  six from the start; the first three get rules and golden tests before the
+  hour-seven checkpoint, the rest land after it.
+  1. On-time arrival — *trend + SLA target*. The statement's own worked example.
+  2. SLA breach rate — *target*.
+  3. Vendor on-time share — *peer comparison*. Drives the "two vendors own the
+     gap" line that makes the brief a decision rather than a readout.
+  4. Cost per trip — *trend + peer*.
+  5. Night-trip compliance — *target*.
+  6. Employee experience — *trend*, from multilingual feedback.
+  Between them these cover all three reference-point types the mandatory bar
+  asks for, and all three personas. **Metric 6 depends on the vernacular
+  feedback pipeline, which was previously droppable** — it is now on the
+  critical path, so it must degrade: absent or untranslated feedback reports
+  low confidence rather than failing the sweep.
+
+- **React 19**, isolated per-project. Node is pinned to 22 via `.nvmrc` with the
+  global default left at 18, so there is no collision with other React 18 work.
+
+- **Deploy to Render and Vercel, demo from the laptop.**
+  **Vercel cannot host Spring Boot — it has no Java runtime.** It takes the
+  React console. Render takes the service via Docker on 750 free
+  instance-hours, but its free tier spins down after 15 minutes idle and a JVM
+  cold start is 30–90 seconds: fine for a link, fatal if a judge clicks it live.
+  So the deployed URLs exist to make the deployability story demonstrable, while
+  the scored demo runs locally and depends on neither venue WiFi nor a warm JVM.
+  Warm the Render URL a few minutes before presenting. Trip logs are read-only,
+  so bake them into the image — no persistent disk, and no AWS spend.
+
+- **Deck: drafted here from the proposal and the real build output, presented by
+  a teammate.** The risk this leaves open is that nobody is holding the
+  narrative during the build, so the teammate presenting should read
+  `PROPOSAL.md` early rather than meeting the story at the end.
+
+- **Repo owned by @f20180039.** Private; collaborators still to be added.
+
 ## 8. PENDING — needs a decision or an owner
 
 **These are the open items. Nothing below has been decided.**
@@ -273,11 +311,9 @@ Sequenced so the demo exists early and only widens.
       above all else.
 - [ ] **React for the console — any objection?** Java is settled. Nothing in the
       rubric asks for Angular, but say so if you want full stack alignment.
-- [ ] **Which three metrics ship first.** Proposed: on-time arrival, SLA breach
-      rate, vendor on-time share. If the provided dataset is thin on any of
-      them we swap *before* writing rules, not after. **Needs an owner.**
-- [ ] **Who owns the deck.** It is a scored deliverable and it always ends up
-      written at 3am by whoever is least busy. **Name someone now.**
+- [ ] **Add teammates as repo collaborators.** Making the repo private revoked
+      their access. `PROPOSAL.md` is self-contained, so it can be shared
+      directly in the meantime.
 - [ ] **Who holds the API keys.** The Sarvam key and the Slack webhook URL both
       live in environment variables, with only an `.env.example` in the repo.
       **A Slack webhook URL is a credential** — anyone holding it can post to
