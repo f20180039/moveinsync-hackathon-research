@@ -48,7 +48,7 @@ These are the proposal's "do these tonight" items. Two are reported done; confir
 - [ ] Repo collaborators added (owner `@f20180039`), AWS budgets set in the console — both outstanding, neither blocks code.
 - [ ] `docker --version` runs and the daemon is up — **Task 16 is blocked without it.** Not needed before Task 16.
 - [ ] A Render account exists and can see this repo — **Task 16 Step 9 is blocked without it.** The repo is private, so Render needs the GitHub authorisation granted.
-- [ ] A Vercel account exists (`npx vercel login`) — **Task 19 Step 6 is blocked without it.**
+- [ ] The Render account can create a **static site** as well as a web service (both are free tier) — **Task 19 is blocked without it.** No Vercel account is needed: both surfaces are on Render.
 
 The last three are the only preflight items added by the deployment tasks. None of
 them blocks Phase 1, so they can be sorted out while the protected slice is being
@@ -219,8 +219,7 @@ console/
 data/fixture/*.csv                            committed; seed 20260904
 Dockerfile                                   repo root: the build context needs service/ AND data/
 .dockerignore
-render.yaml                                  Render blueprint; every secret is sync: false
-console/vercel.json                          SPA rewrite + Vite build
+render.yaml                                  Render blueprint: BOTH services; every secret sync: false
 console/.env.production.example              documents VITE_API_BASE; never the real value
 ```
 
@@ -6472,6 +6471,10 @@ deploy first attempted at hour sixteen fails at hour sixteen. Deploying here als
 surfaces the console's API-base problem — the Vite dev proxy does not exist in
 production — while there is still time to fix it.
 
+**Both surfaces go on Render**, not the spec's Render/Vercel split — see Task 19's
+opening note for the reasoning and what it costs. This task's blueprint describes
+the service; Task 19 appends the console to the same file.
+
 **What this task does not change.** The scored demo still runs on the laptop.
 Render's free tier spins down after 15 minutes idle and a JVM cold start is 30–90
 seconds, so the deployed URL is the deployability *evidence*, not the demo. Spec
@@ -6600,8 +6603,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 /**
  * One place, configurable per environment. The bare @CrossOrigin annotations this
  * replaces allowed every origin — acceptable for a stateless no-auth service on a
- * laptop, sloppy on a public URL, and impossible to point at the Vercel origin
- * without a redeploy.
+ * laptop, sloppy on a public URL, and impossible to point at the deployed
+ * console's origin without a redeploy.
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
@@ -6648,7 +6651,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = "signaldesk.cors.origins=https://signal-desk.vercel.app")
+@TestPropertySource(properties = "signaldesk.cors.origins=https://signal-desk-console.onrender.com")
 class CorsConfigTest {
 
     @Autowired
@@ -6657,11 +6660,11 @@ class CorsConfigTest {
     @Test
     void allowsTheConfiguredConsoleOrigin() throws Exception {
         mvc.perform(options("/api/runs/latest/findings")
-                        .header("Origin", "https://signal-desk.vercel.app")
+                        .header("Origin", "https://signal-desk-console.onrender.com")
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin",
-                        "https://signal-desk.vercel.app"));
+                        "https://signal-desk-console.onrender.com"));
     }
 
     @Test
@@ -6801,7 +6804,7 @@ services:
       - key: AWS_REGION
         value: ap-south-1
       - key: SIGNALDESK_CORS_ORIGINS
-        sync: false      # set to the Vercel URL in Task 19
+        sync: false      # set to the console's Render URL in Task 19
 ```
 
 `autoDeploy: false` is deliberate: a push mid-build must not replace a warmed
@@ -7522,29 +7525,42 @@ git commit -m "feat(console): feed-health strip and brief preview with a real di
 
 ---
 
-### Task 19: Deploy the console to Vercel and prove the deployed pair (~0 h 40)
+### Task 19: Deploy the console to Render as a static site and prove the deployed pair (~0 h 40)
 
 **Files:**
-- Create: `console/vercel.json`
+- Modify: `render.yaml` (add the static site alongside the Docker service from Task 16)
 - Create: `console/.env.production.example`
 - Create: `console/src/api/__tests__/client.test.ts`
+- Modify: `console/src/api/client.ts` (trim a trailing slash from the base — see Step 1)
 - Modify: `console/src/App.tsx` (surface which API the console is talking to)
 - Modify: `README.md` (record both deployed URLs)
 
 **Interfaces:**
-- Consumes: the Render base URL from Task 16, `VITE_API_BASE`.
-- Produces: a deployed console URL, which goes into Render's
-  `SIGNALDESK_CORS_ORIGINS` — the two deploys are mutually dependent, so the
-  order below matters.
+- Consumes: the Render service URL from Task 16, `VITE_API_BASE`.
+- Produces: a deployed console URL, which goes into the service's
+  `SIGNALDESK_CORS_ORIGINS` — the two services are mutually dependent, so the
+  order of the steps below matters.
 
-**Vercel cannot host the service** — it has no Java runtime. It takes the React
-console only. That split is not a workaround; it is the answer to "where does this
-run", and it is worth saying plainly on stage rather than being asked.
+**Both surfaces live on Render — this is a deliberate departure from spec §11.**
+The spec puts the console on Vercel because Vercel has no Java runtime and cannot
+take the service. That reasoning is still sound, but it is not the only option:
+Render also serves static sites free, so one provider can host both. The human
+partner chose Render for both. What that buys:
+
+- one dashboard, one blueprint, one set of credentials — during a timed build,
+  fewer places to be wrong
+- both services described in the same `render.yaml`, so the deployment story is
+  one file a judge can read
+- no second CLI login (`npx vercel`) in the critical path
+
+What it costs: Render's free static tier is a CDN like any other, so nothing
+technical. The deck must say **Render** for both — spec §11's Vercel wording is
+superseded and repeating it on stage would be wrong.
 
 `client.ts` was written deployment-ready in Task 17 (`import.meta.env.VITE_API_BASE
-?? ''`), so no production code changes to reach the API. What is missing is the
-build configuration, the SPA rewrite, the CORS handshake, and proof that the pair
-actually talks.
+?? ''`), so almost no production code changes are needed to reach the API. What is
+missing is the build configuration, the SPA rewrite, the CORS handshake, and proof
+that the pair actually talks.
 
 - [ ] **Step 1: Write the failing client test**
 
@@ -7589,6 +7605,21 @@ describe('api client base URL', () => {
     )
   })
 
+  it('tolerates a trailing slash on the configured base', async () => {
+    // Pasting a URL out of a dashboard is how this happens, and a doubled slash
+    // is a 404 that looks like a routing bug.
+    const fetchSpy = vi.fn(async () => ({ ok: true, status: 200, json: async () => [] }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    const client = await loadClientWith('https://signal-desk-service.onrender.com/')
+    await client.fetchLatestFindings()
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://signal-desk-service.onrender.com/api/runs/latest/findings',
+      undefined,
+    )
+  })
+
   it('throws with the status and path when the service answers badly', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503, json: async () => ({}) })))
 
@@ -7615,54 +7646,63 @@ describe('api client base URL', () => {
 })
 ```
 
-The 503 test is the one that earns its place: a spun-down Render instance is the
-single most likely production failure, and an error that names neither the status
-nor the path is undiagnosable from a phone at a venue.
+Two of these earn their place beyond coverage. The 503 test: a spun-down Render
+instance is the single most likely production failure, and an error naming neither
+the status nor the path is undiagnosable from a phone at a venue. The
+trailing-slash test: it **fails** against Task 17's `client.ts` as written, and
+that is a real defect, not a hypothetical.
 
-- [ ] **Step 2: Run it to verify it fails**
+- [ ] **Step 2: Run it and confirm which tests fail**
 
 Run: `cd console && npm test -- client`
-Expected: FAIL — the base-URL prefix test fails if `client.ts` ignores
-`VITE_API_BASE`, and the 503 test fails if the thrown message omits the status.
+Expected: the trailing-slash test FAILS with a doubled slash in the asserted path.
+The other four should PASS against Task 17's `client.ts`.
 
-Both should in fact **pass** against the `client.ts` written in Task 17. If they
-do, say so and move on — a test that passes on first run is fine when it is
-pinning behaviour that already exists deliberately. What is not fine is deleting
-it because it passed.
+Four tests passing on first run is the correct outcome — they pin behaviour that
+already exists deliberately. Do not delete a test because it passed.
 
-- [ ] **Step 3: Write the Vercel configuration**
+- [ ] **Step 3: Fix the trailing-slash defect**
 
-`console/vercel.json`:
+In `console/src/api/client.ts`:
 
-```json
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
+```ts
+const base = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
 ```
 
-The rewrite is what stops a refresh on any client-side route returning Vercel's
-404 instead of the app.
+Run: `cd console && npm test -- client`
+Expected: PASS, 5 tests.
+
+- [ ] **Step 4: Commit the lockfile if it is not already tracked**
+
+Render's build runs `npm ci`, which **fails outright without a lockfile** — and
+that is the correct behaviour, since `npm install` on a build server can silently
+resolve different versions than the ones tested.
+
+```bash
+git ls-files console/package-lock.json
+```
+
+Expected: the path is printed. If it is empty, `git add console/package-lock.json`
+and include it in this task's commit.
+
+- [ ] **Step 5: Document the build-time variable**
 
 `console/.env.production.example` (committed, placeholder only):
 
 ```
-# The Render service URL from Task 16. Set the real value in Vercel's project
-# settings, not here — this file exists to document the variable's name.
+# The Render service URL from Task 16. Set the real value as an envVar on the
+# Render static site, not here — this file documents the variable's name.
 VITE_API_BASE=https://REPLACE-ME.onrender.com
 ```
 
 **Do not commit a `.env.production`.** `VITE_API_BASE` is not a secret, but Vite
-inlines every `VITE_`-prefixed variable into the built bundle, so the habit of
-keeping real values out of the repo matters more here, not less: the next variable
-someone adds might be one that does matter.
+inlines every `VITE_`-prefixed variable into the built bundle, so keeping real
+values out of the repo matters more here, not less: the next variable someone adds
+might be one that does matter.
 
-- [ ] **Step 4: Show the operator which API the console is talking to**
+- [ ] **Step 6: Show the operator which API the console is talking to**
 
-A console that silently points at the wrong service is a confusing five minutes on
+A console silently pointing at the wrong service is a confusing five minutes on
 stage. Add one line to `App.tsx`'s header:
 
 ```tsx
@@ -7671,9 +7711,44 @@ stage. Add one line to `App.tsx`'s header:
         </span>
 ```
 
-- [ ] **Step 5: Build for production locally, before involving Vercel**
+- [ ] **Step 7: Add the static site to the blueprint**
 
-Run:
+Append to `render.yaml`, under the existing `services:` list from Task 16:
+
+```yaml
+  - type: web
+    name: signal-desk-console
+    runtime: static
+    rootDir: console
+    plan: free
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: false
+    envVars:
+      # Vite 7 requires Node 20.19+ or 22.12+. Render's default is older, and
+      # rootDir: console means the repo-root .nvmrc is not what it reads — so the
+      # version is pinned explicitly here.
+      - key: NODE_VERSION
+        value: 22.12.0
+      # Inlined into the bundle at BUILD time, not read at runtime. Set it to the
+      # service URL from Task 16.
+      - key: VITE_API_BASE
+        sync: false
+    routes:
+      # Without this, a refresh on any client-side route returns Render's 404
+      # instead of the app.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+```
+
+Note what `rootDir: console` changes: the build runs inside `console/`, so
+`staticPublishPath` is relative to it, and the repo-root `.npmrc`
+(`engine-strict=true`) is **not** read. `NODE_VERSION` is doing the job
+`engine-strict` does locally.
+
+- [ ] **Step 8: Build for production locally, before involving Render**
+
 ```bash
 cd console
 nvm use
@@ -7683,33 +7758,30 @@ sleep 3
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4173/
 ```
 
-Expected: `tsc -b` clean, a `dist/` directory, and HTTP 200. Then open
+Expected: `tsc -b` clean, a `dist/` directory, HTTP 200. Then open
 `http://localhost:4173` in a browser.
 
-**It will fail to load findings, and that is the expected result at this step** —
-the Render service has not been told to allow this origin yet. Confirm the failure
-in the browser console is a **CORS** error and not a 404 or a DNS failure. A CORS
-error here proves the base URL is right and only the allowlist is missing; the
-other two mean Step 3 or Task 16 is wrong.
+**It will fail to load findings, and that is the expected result here** — the
+service has not been told to allow this origin yet. Confirm the browser console
+shows a **CORS** error, not a 404 and not a DNS failure. A CORS error proves the
+base URL is right and only the allowlist is missing; the other two mean Step 7 or
+Task 16 is wrong.
 
-- [ ] **Step 6: Deploy to Vercel**
+- [ ] **Step 9: Deploy it**
 
-```bash
-cd console
-npx vercel --yes                     # first run links the project
-npx vercel env add VITE_API_BASE production   # paste the Render URL
-npx vercel --prod
-```
+Render picks up the new service from the blueprint (dashboard → the blueprint →
+sync / apply). Set `VITE_API_BASE` on the console service to the Task 16 service
+URL, then deploy.
 
-Expected: a `https://<project>.vercel.app` URL. **Record it.**
+Expected: a `https://signal-desk-console.onrender.com` URL. **Record it.**
 
-- [ ] **Step 7: Close the CORS loop on the service**
+- [ ] **Step 10: Close the CORS loop on the service**
 
-In Render's dashboard, set `SIGNALDESK_CORS_ORIGINS` to the Vercel URL plus
-localhost, then redeploy:
+Set `SIGNALDESK_CORS_ORIGINS` on the **service** to the console URL plus
+localhost, and redeploy it:
 
 ```
-https://<project>.vercel.app,http://localhost:5173
+https://signal-desk-console.onrender.com,http://localhost:5173
 ```
 
 Spring's relaxed binding maps that variable onto `signaldesk.cors.origins`.
@@ -7717,61 +7789,56 @@ Verify from the command line before opening a browser:
 
 ```bash
 curl -s -i -X OPTIONS "https://<your-service>.onrender.com/api/runs/latest/findings" \
-  -H "Origin: https://<project>.vercel.app" \
+  -H "Origin: https://signal-desk-console.onrender.com" \
   -H "Access-Control-Request-Method: GET" | grep -i 'access-control-allow-origin'
 ```
 
-Expected: the header echoes the Vercel origin. If it is absent, the environment
+Expected: the header echoes the console origin. If it is absent, the environment
 variable did not take — check for a stray `@CrossOrigin` (Task 16 Step 4) before
 suspecting Render.
 
-- [ ] **Step 8: Prove the deployed pair end to end**
+- [ ] **Step 11: Prove the deployed pair end to end**
 
-Open the Vercel URL in a browser and, without touching the laptop service:
+Open the console URL in a browser and, **with the laptop service stopped** so
+there is no chance of reading a local API:
 
 - [ ] The findings list renders, ranked, already populated
-- [ ] The header shows the Render URL, not "local (dev proxy)"
+- [ ] The header shows the Render service URL, not "local (dev proxy)"
 - [ ] Expanding a row shows references, the rule that fired, and `evidenceSql`
 - [ ] The feed-health strip shows a non-zero quarantined count
 - [ ] "Sweep now" returns a new runId and the list refreshes
 - [ ] The brief preview renders, and **do not press send** — one real Slack
       message per intentional demo, not one per smoke test
 
-If the first load times out, that is the free tier's cold start. Reload after 60
-seconds before investigating anything.
+If the first load times out, that is the free tier's cold start on the service
+(30–90s). Reload after 60 seconds before investigating anything.
 
-- [ ] **Step 9: Record both URLs where they will be found**
+- [ ] **Step 12: Record both URLs where they will be found**
 
-Add to `README.md`, under a new "Deployed" heading: the Vercel console URL, the
-Render service URL, `GET /api/health` as the liveness check, and one sentence
-stating that **the scored demo runs on the laptop** and why (cold start, venue
-network). Task 24's deck reuses this wording.
+Add to `README.md`, under a new "Deployed" heading: both Render URLs, `GET
+/api/health` as the liveness check, one sentence on why **both** are on Render
+rather than the spec's Vercel split, and one sentence stating that the scored demo
+runs on the laptop and why (cold start, venue network). Task 24's deck reuses this
+wording — and must not say Vercel.
 
-- [ ] **Step 10: Run both suites**
+- [ ] **Step 13: Run both suites**
 
-Run: `cd console && npm test` — expected PASS, 20 tests.
+Run: `cd console && npm test` — expected PASS, 21 tests.
 Run: `./scripts/mvn.sh -q test` — expected PASS.
 
-- [ ] **Step 11: Break-it-to-prove-it**
+- [ ] **Step 14: Break-it-to-prove-it**
 
-Set `VITE_API_BASE` to a URL with a trailing slash
-(`https://x.onrender.com/`) and rerun the client tests. Expected: the prefix test
-FAILS with a doubled slash in the path — which is a real deployment footgun. Fix
-it properly by trimming a trailing slash in `client.ts`, keep the test, and note
-that this is a genuine defect the break-it step found rather than a hypothetical:
+Delete the `routes` block from `render.yaml`, redeploy, and load a deep link.
+Expected: Render's 404 instead of the app. Restore.
 
-```ts
-const base = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
-```
+Then revert the Step 3 trailing-slash fix and rerun the client tests. Expected:
+the trailing-slash test FAILS. Restore.
 
-Then delete the `rewrites` block from `vercel.json`, redeploy a preview, and load
-a deep link. Expected: Vercel's 404. Restore.
-
-- [ ] **Step 12: Commit**
+- [ ] **Step 15: Commit**
 
 ```bash
-git add console README.md
-git commit -m "feat(deploy): Vercel console, configurable API base, deployed pair verified end to end"
+git add render.yaml console README.md
+git commit -m "feat(deploy): console as a Render static site, API base configurable, deployed pair verified"
 ```
 
 ---
@@ -9657,18 +9724,20 @@ Phase 2.
 
 - [ ] **Step 5: Warm the deployed URLs and confirm the secret hygiene (~10 min)**
 
-Both venues were deployed and verified in Tasks 16 and 19, so this step is
-verification and warming, not a first attempt.
+Both services were deployed and verified in Tasks 16 and 19 — **both on Render**,
+not the spec's Render/Vercel split — so this step is verification and warming, not
+a first attempt. The deck must say Render for both.
 
 **Hit the Render URL to warm the JVM** a few minutes before presenting — cold
 start is 30–90 seconds and the free tier spins down after 15 minutes idle. Then
-load the Vercel console once and confirm it still reaches the service (a Render
-redeploy resets nothing, but an expired `SIGNALDESK_CORS_ORIGINS` value would):
+load the console once and confirm it still reaches the service (a redeploy resets
+nothing, but a stale `SIGNALDESK_CORS_ORIGINS` value would):
 
 ```bash
-curl -s -o /dev/null -w 'render %{http_code} in %{time_total}s\n' \
+curl -s -o /dev/null -w 'service %{http_code} in %{time_total}s\n' \
   https://<your-service>.onrender.com/api/health
-curl -s -o /dev/null -w 'vercel %{http_code}\n' https://<project>.vercel.app/
+curl -s -o /dev/null -w 'console %{http_code}\n' \
+  https://signal-desk-console.onrender.com/
 ```
 
 The scored demo still runs on the laptop, and the deck should say so in one
@@ -9708,10 +9777,13 @@ thin for 20% of the score and it defers the riskiest infrastructure to the worst
 possible moment. Tasks 16 and 19 now own it: a root `Dockerfile` (the build
 context needs both `service/` and `data/`), a real `/api/health` that reports
 degraded when no metrics are active, `${PORT:8080}` because Render injects the
-port, configurable CORS replacing the bare `@CrossOrigin` annotations, a Render
-blueprint with every secret `sync: false`, a Vercel SPA rewrite, and an
-end-to-end check of the deployed pair. Two of those — the fixed port and the
-permissive CORS — were latent defects that only a real deploy would have found.
+port, configurable CORS replacing the bare `@CrossOrigin` annotations, one Render
+blueprint describing **both** services with every secret `sync: false`, an SPA
+rewrite route, and an end-to-end check of the deployed pair. Three of those were
+latent defects a real deploy would have found and a laptop demo never would: the
+hardcoded `server.port`, the permissive `@CrossOrigin`, and a base URL that breaks
+on a trailing slash. Spec §11's Vercel split is superseded at the human partner's
+direction — both surfaces are on Render, and the deck must say so.
 
 **Two gaps found and closed while reviewing.** §6.3's calibration was originally
 folded into Task 7 and would have run against provisional data; it is now Task
