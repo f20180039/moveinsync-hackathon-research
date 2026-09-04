@@ -170,9 +170,19 @@ The contracts in Task 1 exist so four people work in parallel without blocking. 
 | **Lead (data)** | Tasks 2–4: ingest, registry, verdict engine. The critical path — nothing downstream is real until `Finding` objects flow. |
 | **SDE 1 (frontend)** | Task 7 onward, built against **hardcoded fake `Finding` dicts from minute one.** Do not wait for real data. |
 | **SDE 2 (model)** | Tasks 5–6: composer, validator, delivery, tools — also against fakes. |
-| **SDE 3 / whoever is free** | Task 9 (AWS) from ~13:00, then the deck and demo script. |
+| **SDE 3 / whoever is free** | **Owns the deck and the architecture diagram from 13:00** — both are named deliverables and neither had an owner. Then Task 8b (latency) and R3 (tenant SLA demo), which are short and self-contained. |
 
 The person on the deck starts at 15:00 at the latest, whatever is unfinished.
+
+**Every Tier 2 item needs a name against it by 13:05.** An independent review of
+this plan found that the two items with no clean owner — the AWS deploy and the
+shift-readiness view — were the real schedule risk, not the raw minute count.
+Three people × 180 minutes is 540 person-minutes against ~200 of planned work, so
+the arithmetic fits twice over; **unowned work is what does not get done.**
+
+**And revise the Tier 1 target to 13:30.** The critical path (Tasks 2→5) is ~185
+minutes, not the ~2h50 stated earlier. Task 2 is already done, which buys some of
+that back.
 
 ---
 

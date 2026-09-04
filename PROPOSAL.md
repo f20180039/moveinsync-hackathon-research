@@ -148,7 +148,11 @@ retrofitted technical argument.
 | Handles messy/missing data gracefully | Rejects quarantine, per-feed confidence, null-safe arithmetic — against the dataset's *own* documented quirks |
 | Proactive triggers rather than on-demand | The sweep fires on a clock tick; a 60× replay clock makes it visible on stage |
 
-**Not hit: insight & anomaly detection.** The sixth solution form. See §8.
+**All six are planned.** *Insight & anomaly detection* — the form we originally
+missed — is closed by a control-chart deviation on the alerts feed (Sev-1 rate 2σ
+above its own four-week mean), which sits in Tier 2 rather than Tier 3. Call it
+what it is on stage: a control-chart deviation on a four-week baseline, not
+machine learning.
 
 ### Bonus
 
@@ -211,8 +215,8 @@ Tiered against ~6 hours, not sequenced against a full day. Full detail in
 |---|---|---|
 | **Prep** (done, 4 Sep) | Contracts, venv, console scaffold, dataset downloaded and mapped, Sarvam/Slack/SES/AWS verified | ✅ |
 | **1** | Ingest + normalisation, registry, verdict engine, sweep, template brief, real Slack send, console | **13:00** |
-| **2** | Cause decomposition, AWS deploy, four tools + interrogation, replay controls, remaining metrics | 16:00 freeze |
-| **3** | Anomaly detection, counterfactual, second-persona export | only if 2 completes by 15:00 |
+| **2** | Action lines, cause decomposition, four tools + interrogation, latency, anomaly detection, replay controls, architecture diagram | 16:00 freeze |
+| **3** | Reserve items by points-per-minute — sustainability, tenant SLA demo, capacity utilisation | only if 2 completes by 15:00 |
 
 **Tier 1 alone satisfies every mandatory requirement.** That is the point of
 tiering: at any moment after 13:00 there is a complete, demonstrable product and
