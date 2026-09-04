@@ -50,6 +50,8 @@ person who can act, and then defends its answer if challenged.
 LAYER 1 — INGEST                    schema-tolerant, loud about what it can't read
   ├─ Trip logs .......... cab / nodal / shuttle CSV; mismatched columns merged
   │                       read_csv_auto(union_by_name = true)
+  │                       source is pluggable: local files for the demo,
+  │                       S3 via httpfs in production — same engine either way
   ├─ Quarantine ......... unparseable rows + reason, so bad data is a visible
   │                       number, not silent loss   store_rejects -> reject_errors
   ├─ Gap register ....... GPS holes, unmatched vendor records, roster gaps
@@ -89,6 +91,62 @@ LAYER 4 — SURFACES                  two personas, one artifact
 
 Everything is deterministic and unit-testable except the two blocks marked
 `[MODEL]`, which produce language only.
+
+### Why this data layer, and not a managed AWS one
+
+The question a judge will ask is "why an embedded database?". The answer is
+measured, not aesthetic.
+
+**Latency is the deciding factor, and it is scored.** Athena has a **~2 second
+floor per query**. The interrogation panel issues *several* tool calls per user
+question — read a metric, slice it by vendor, compare against trend — so a 2s
+floor becomes 6–10 seconds before the model writes its first word. DuckDB runs
+in-process, sub-millisecond at this data size. Criterion 2 names latency
+explicitly.
+
+**The messy-data feature depends on it.** `read_csv_auto(union_by_name = true,
+store_rejects = true)` is what turns "handles messy or missing data gracefully"
+into a visible screen. Athena needs a schema declared up front and malformed
+rows silently become NULLs; Aurora needs a `CREATE TABLE` and a bespoke loader
+per file shape. Either way we lose the feature, not merely the convenience.
+
+**Setup time we do not get back.** DuckDB is a Maven dependency. Athena needs an
+S3 bucket, a Glue table, an IAM policy and a results bucket; Aurora needs a VPC,
+subnet group and security group. That is 30–60 minutes producing nothing
+demoable.
+
+**The venue network.** DuckDB queries run with the WiFi off. Managed services do
+not.
+
+| Alternative | Free? | Why not here |
+|---|---|---|
+| Aurora PostgreSQL Serverless | Yes — now in AWS Free Tier ($100 credits + $100 earnable) | Strongest AWS-native option and Postgres would cope at this scale, but it is OLTP, needs provisioning, and gives no tolerant-CSV ingestion |
+| Amazon Athena | **No free tier** — 10 MB minimum charge per query | The natural serverless-analytics answer, ruled out by the 2s floor and schema-up-front. Our pattern is many small queries, which is Athena's worst pricing shape |
+| Redshift Serverless | $300 credit, 90 days | A data warehouse for a few thousand rows. Over-scaled, slow to start |
+| DynamoDB | Generous free tier | Key-value. Every aggregation hand-rolled in Java. Wrong tool |
+
+New AWS accounts get up to $200 in credits across 90+ services, so **cost is not
+the deciding factor for any of these.** Setup time and query latency are.
+
+### The honest weakness, and what we do about it
+
+An embedded in-process engine is a **weak multi-tenancy story**, and the bonus
+criterion names multi-tenancy. Two things address it without changing engines:
+
+1. **The query layer sits behind a repository interface.** Swapping DuckDB for
+   Athena or Aurora is an adapter, not a rewrite. Say this on stage and it is
+   demonstrable in the code.
+2. **The trip logs live in S3, read directly by DuckDB** via its `httpfs`
+   extension. Sponsor infrastructure is visibly in use (S3, plus ECS / App
+   Runner / Lambda for the service), queries stay sub-millisecond, and the
+   deployability answer becomes concrete: *same engine, data in S3, one reader
+   per tenant request — or swap the adapter if you want it fully managed.*
+
+**Demo from local files, keep S3 as the documented production path.** `httpfs`
+autoloads by fetching from DuckDB's extension repository on first use, so an S3
+query on a bad venue network fails at exactly the wrong moment. If we do want to
+show the S3 path live, `INSTALL httpfs;` must be run once beforehand so the
+extension is cached locally.
 
 ### The one architectural decision that matters
 
@@ -167,6 +225,12 @@ Sequenced so the demo exists early and only widens.
    there, note the credit balance and confirm the key authenticates over
    `Authorization: Bearer`, since that is the path the OpenAI Java SDK takes.
 
+4. **Only if we plan to show the S3 path live: run `INSTALL httpfs;` once.**
+   The extension autoloads by downloading from DuckDB's extension repository on
+   first use, so a cold S3 query on a poor venue network fails at the worst
+   possible moment. Running it once beforehand caches it locally. **The demo
+   itself should read local files anyway** — no network, nothing to fail.
+
 ---
 
 ## 7. Settled decisions
@@ -188,7 +252,13 @@ Sequenced so the demo exists early and only widens.
   domain, not a consolation.
 - **Embedded DuckDB, no backing services** — official JDBC driver from DuckDB
   Labs (MIT, Maven Central) with platform natives bundled in the jar, so no
-  cross-compilation step and no database to stand up.
+  cross-compilation step and no database to stand up. Chosen on latency and
+  tolerant ingestion, not convenience; §3 carries the comparison against Athena,
+  Aurora and Redshift, and the answer to the multi-tenancy objection.
+- **Trip logs in S3, behind a repository interface** — DuckDB reads them
+  directly, so sponsor infrastructure is in use and the production story is an
+  adapter swap rather than a rewrite. The live demo still runs from local files;
+  see the `httpfs` caveat in §6.
 
 ---
 
