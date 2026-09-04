@@ -1,6 +1,11 @@
 # Signal Desk — design spec
 
-**Version:** 1.0 · **Date:** 2026-09-04
+**Version:** 1.1 · **Date:** 2026-09-04
+**⚠ Read §15 first.** Amendment 1.1 changes the stack, the deployment target and
+the scope. Where §15 and the body below disagree, **§15 wins** — the body's Java
+signatures and Render/Vercel deployment are superseded and have been left in place
+rather than rewritten, because §15 states every delta and the implementation plan
+carries the actual code.
 **Authority:** [`docs/MoveInSync-problem-statement.pdf`](../../MoveInSync-problem-statement.pdf).
 Where this spec and the statement disagree, the statement wins.
 **Approved shape:** [`PROPOSAL.md`](../../../PROPOSAL.md) (approach A, signed off).
@@ -539,5 +544,113 @@ Maven pulls JDK 26 and uses it by default; Lombok and Spring plugins break on it
 
 ## 14. Changelog
 
+- **1.1** (2026-09-04) — backend changed to Python, deployment retargeted to AWS,
+  three capabilities added (replay clock, cost meter, root-cause decomposition),
+  and the time budget corrected against the real event schedule. See §15.
 - **1.0** (2026-09-04) — first version. Written after approach A was approved
   and the six-metric, React 19, Render/Vercel and deck decisions were taken.
+
+---
+
+## 15. Amendment 1.1 — stack, budget, deployment, scope
+
+This amendment is authoritative over the body above.
+
+### 15.1 The time budget, which was wrong
+
+A second, independently written proposal supplied the real event schedule for
+**5 September 2026**:
+
+| Time | Event |
+|---|---|
+| 10:00 | Hackathon begins — clock starts |
+| 13:00–15:00 | Working lunch (keep building) |
+| **16:00** | **Feature freeze (self-imposed)** |
+| 17:00–18:00 | Early submission window — scored brownie points |
+| 18:00–19:30 | Semifinal, presenting to partner companies |
+| 19:30–21:30 | Final jury round |
+
+**Usable build time is ~6 hours, plus ~1 hour for deck and rehearsal.**
+`PROPOSAL.md` assumed ~14 h and the first implementation plan estimated ~18 h 55.
+Both were wrong, and no ordering of an 18-hour plan ships in six.
+
+Two consequences, and they are the reason this amendment exists:
+
+1. **Scope is now tiered, not sequenced.** A flat task list with a checkpoint
+   assumes you know the budget. A tier list degrades gracefully when you do not.
+   The plan is restructured accordingly.
+2. **The night of 4 September is prep, and prep is where the expensive,
+   dataset-independent work goes.** The committed fixture already exists for
+   exactly this reason: ingest is schema-tolerant and metric definitions are
+   declarative, so 10:00 tomorrow is a *config change*, not a rewrite.
+
+### 15.2 Stack
+
+| Layer | 1.0 | **1.1** |
+|---|---|---|
+| Service | Java 21 · Spring Boot 3.5 | **Python 3.12 · FastAPI · uvicorn** |
+| Data | DuckDB via JDBC | **DuckDB via the `duckdb` Python package** |
+| Model client | OpenAI **Java** SDK, base-URL override | **OpenAI *Python* SDK**, `base_url` override |
+| Console | React 19 · Vite 7 · TypeScript | **unchanged** |
+| Tests | JUnit 5 · AssertJ | **pytest** · Vitest + Testing Library |
+
+Everything in §1.1 survives unchanged: **the model never computes a number and
+never writes raw SQL.** That invariant is what makes the stack swappable at all,
+and it is the reason this amendment is short rather than a rewrite.
+
+The Java implementation is retired to the annotated tag
+`prep/java-spring-prototype`. `data/fixture/*.csv` is kept — CSV is
+stack-independent, and those six files carry the seven planted faults of §3.2 and
+the V07 three-week regression the demo narrative is built on. Regenerating them
+requires JDK 21 and a checkout from the tag; the generator's two load-bearing
+pieces (`onTimeProbability`'s planted regression, `FaultInjector`'s rates) are to
+be **ported** to Python, not reinvented.
+
+### 15.3 Deployment — AWS, replacing Render and Vercel
+
+§11 is superseded entirely. Budget: ~$100 of credits, expected to cover two days.
+
+| Piece | Where | Why |
+|---|---|---|
+| Trip logs | **S3** | DuckDB reads them directly via `httpfs`. This was already 1.0's documented production path; it is now the real one, and it puts sponsor infrastructure visibly in use. |
+| Service | **App Runner** (container) or **Lambda + API Gateway** (via an ASGI adapter) | Both are inside the credit budget. App Runner is the shorter path from a working `Dockerfile`; Lambda is cheaper at idle. Decide on the day against whichever is already working. |
+| Console | **S3 + CloudFront** | Static hosting, pennies, and it removes the cross-provider CORS handshake that Render/Vercel required. |
+| Email | **SES, sandbox** | Unchanged from 1.0. Sandbox delivers only to verified addresses; production SES is unreachable in the timeframe. |
+| Demo | **the laptop** | Unchanged, and still the right call. Venue network and cold starts are risks a scored demo must not carry. |
+
+`INSTALL httpfs;` must still be run once beforehand so an S3 read cannot try to
+download the extension mid-demo.
+
+### 15.4 Added to Tier A — three capabilities, all adopted deliberately
+
+**1. Replay clock at 60×.** §7.1 already drives a *simulated* clock so runs are
+reproducible. This extends it: replay the dataset day-by-day at 60× so findings
+fire **live on stage**. It converts "the loop starts without a prompt" from a
+claim into something a judge watches happen, which is the single highest-value
+demo addition available and is nearly free on top of the injected clock.
+
+**2. Live inference cost meter.** Tokens and ₹ per interaction, shown in the
+console and extrapolated to 5,000 employees. Criterion 2 ("agentic design & cost
+at scale", 20 points) asks for this by name, and 1.0 only argued it in prose. The
+architecture makes the number *good*: one model call per brief rather than one per
+row, so tokens stay flat as row counts grow.
+
+**3. Root-cause gap decomposition.** Given a metric's shortfall, attribute it
+across the slice dimensions — "OTA is 7 points below trend; two vendors own 5.2 of
+those points". 1.0 sliced metrics but never decomposed a gap, so the brief could
+say *what* but not *why*. Built on the existing `Dimension` enumeration and
+reference resolver; the arithmetic is deterministic and unit-tested, so §1.1 holds.
+
+**Still out of scope**, and now explicitly re-confirmed: predictive/forecast risk
+scoring. It cannot be done credibly in the budget and it invites a question the
+build cannot answer. §2.2 stands.
+
+### 15.5 What did not change
+
+§1.1's invariant, §3's dataset and planted faults, §4's tolerant ingest and gap
+register, §5's six metrics and reference kinds, §6's four tiers and signed `gap`,
+§7's sense→reason→compose→act loop, §8.2's four tools and the absence of a
+`run_sql` tool, §8.3's translation path, §9.1's HTTP contract, §10's testing
+requirements, §12's assumptions and §13's risks. The eight deviations recorded in
+the implementation plan also stand, including the `gap = delta × reference` sign
+resolution and the `hardTarget` reading.
