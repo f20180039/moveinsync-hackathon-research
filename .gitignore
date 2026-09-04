@@ -15,3 +15,6 @@ __pycache__/
 
 # Agent scratch workspace (SDD ledger, briefs, review packages). Never content.
 .superpowers/
+
+# The provided dataset (~555MB). Never committed; pulled via scripts/fetch-dataset.sh
+data/real/

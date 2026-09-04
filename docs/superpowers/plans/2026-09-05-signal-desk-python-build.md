@@ -12,6 +12,8 @@
 
 **Authority above both:** [`docs/MoveInSync-problem-statement.pdf`](../../MoveInSync-problem-statement.pdf).
 
+**⚠ READ [`docs/real-dataset-mapping.md`](../../real-dataset-mapping.md) FIRST.** The dataset arrived early on 2026-09-04 and is downloaded to `data/real/`. It has **five feeds, not six**, timestamps in **epoch seconds not milliseconds**, `trip_id` in **three different formats**, and **no free-text feedback at all**. Where that file and this plan disagree, that file wins — it is derived from the actual data.
+
 **Supersedes:** [`2026-09-04-signal-desk-build.md`](2026-09-04-signal-desk-build.md) — the 24-task Java plan. Do not execute it. Read it only for the reasoning behind the carried-over decisions below.
 
 ---
@@ -410,6 +412,12 @@ class Window:
     def week_ending(end_ms: int) -> "Window":
         return Window(end_ms - WEEK_MS, end_ms)
 
+    # The real dataset covers MAY-JULY 2026. Point the simulated clock at the end
+    # of July, not the fixture's September window -- a sweep over an empty window
+    # emits one DATA_GAP finding and nothing else, which looks like an engine bug.
+    # 2026-08-01T00:00:00Z in epoch ms:
+    REAL_DATA_END_MS = 1_785_542_400_000
+
     def shifted_back(self, n: int) -> "Window":
         length = self.end_ms - self.start_ms
         new_end = self.end_ms - n * length
@@ -741,7 +749,18 @@ import duckdb
 
 from .schemas import FeedHealth
 
-FEEDS = ("trips", "gps_pings", "delays", "costs", "feedback", "roster")
+# The five REAL feeds. There is no gps_pings file and no delays file -- delay is
+# a COLUMN on the trip row. See docs/real-dataset-mapping.md §1.
+# Note the space in the trip filenames: "Ride_data _trip-may_2026.csv".
+FEEDS = ("trips", "emp_legs", "feedback", "bill", "alerts")
+
+GLOBS = {
+    "trips":    "Ride_data*trip-*.csv",   # three monthly files, union_by_name
+    "emp_legs": "emp_Data.csv",
+    "feedback": "trip_feedback.csv",
+    "bill":     "bill_data.csv",
+    "alerts":   "alerts_data.csv",
+}
 
 # Critical columns per feed. night_escort is deliberately ABSENT from trips:
 # a dataset without it must degrade night_compliance, not the on-time figures
@@ -865,10 +884,109 @@ def _null_critical(con, feed: str) -> int:
     return con.sql(f"SELECT count(*) FROM {feed} WHERE {predicate}").fetchone()[0]
 ```
 
+- [ ] **Step 3b: Normalise at the ingest boundary — do this before anything else**
+
+Three things in the real data will silently produce zero rows or wrong numbers if
+they reach the registry unchanged. Fix all three **once**, here, so no downstream
+layer has to know:
+
+```python
+# One view per feed, over the materialised table, presenting the names and units
+# the registry expects. Everything below is a documented quirk from
+# data/real/Dictionary/README.md -- not defensive guessing.
+NORMALISE = {
+    "trips": """
+        CREATE OR REPLACE VIEW trips AS SELECT
+          business_unit,
+          office                AS site_id,
+          product_type          AS mode,
+          shift_type,
+          -- trip_id is "1,097,076" here, "1123974" in bill, int64 in emp_legs.
+          -- Every join returns ZERO ROWS unless all three are normalised.
+          CAST(REPLACE(CAST(trip_id AS VARCHAR), ',', '') AS BIGINT) AS trip_id,
+          trip_direction,
+          vendor_id,
+          actual_escort,
+          -- Epoch SECONDS in the source. Multiply to ms so the schemas, the
+          -- windows and the verdict engine keep working in the unit they were
+          -- written for. See mapping doc §2.
+          CAST(REPLACE(CAST(planned_start_epoch AS VARCHAR), ',', '') AS BIGINT) * 1000 AS scheduled_at,
+          CAST(REPLACE(CAST(actual_end_epoch   AS VARCHAR), ',', '') AS BIGINT) * 1000 AS actual_at,
+          delay_reason,
+          CAST(REPLACE(CAST(delay_minutes AS VARCHAR), ',', '') AS BIGINT) AS delay_minutes,
+          is_driver_nc, is_cab_nc,
+          planned_km, traveled_km, actual_cab_capacity,
+          plannedemployee_cnt, actualemployee_cnt, noshow_cnt,
+          actual_cab_fuel_type, trip_nodal
+        FROM trips_raw
+    """,
+    "bill": """
+        CREATE OR REPLACE VIEW bill AS SELECT
+          business_unit, office AS site_id,
+          vendor AS vendor_id,          -- called `vendor` here, `vendor_id` in trips
+          CAST(REPLACE(CAST(trip_id AS VARCHAR), ',', '') AS BIGINT) AS trip_id,
+          contract, slab_name,
+          total_trip_km,
+          CAST(REPLACE(CAST(trip_cost AS VARCHAR), ',', '') AS BIGINT) AS trip_cost
+        FROM bill_raw
+    """,
+    "feedback": """
+        CREATE OR REPLACE VIEW feedback AS SELECT
+          business_unit,
+          CAST(REPLACE(CAST(trip_id AS VARCHAR), ',', '') AS BIGINT) AS trip_id,
+          trip_type AS trip_direction,  -- different name in this file
+          CAST(REPLACE(CAST(stwid AS VARCHAR), ',', '') AS BIGINT) AS stwid,
+          route_rating, driver_rating, cab_rating, safety_rating, marshal_rating
+        FROM feedback_raw
+    """,
+    # emp_legs already has clean int64 keys -- the ONE file that does.
+    # Negative planned_km/traveled_km are physically impossible (down to -6.63);
+    # NULL them so the gap register counts them and confidence falls, rather
+    # than letting them poison an average.
+    "emp_legs": """
+        CREATE OR REPLACE VIEW emp_legs AS SELECT
+          business_unit, office AS site_id, product_type AS mode, shift_type,
+          trip_id, stwid, gender, signintype, boarding_status,
+          not_boarding_reason, is_no_show,
+          CAST(planned_pickup_epoch AS BIGINT) * 1000 AS planned_pickup_at,
+          CAST(actual_pickup_epoch  AS BIGINT) * 1000 AS actual_pickup_at,
+          CASE WHEN planned_km  < 0 THEN NULL ELSE planned_km  END AS planned_km,
+          CASE WHEN traveled_km < 0 THEN NULL ELSE traveled_km END AS traveled_km
+        FROM emp_legs_raw
+        WHERE stwid <> 0             -- 0 is a placeholder, not a rider
+    """,
+    "alerts": """
+        CREATE OR REPLACE VIEW alerts AS SELECT
+          business_unit,
+          CAST(REPLACE(CAST(trip_id AS VARCHAR), ',', '') AS BIGINT) AS trip_id,
+          CAST(REPLACE(CAST(stwid   AS VARCHAR), ',', '') AS BIGINT) AS stwid,
+          event_id, event_type, state_text, source,
+          -- severity carries a stray literal "False" outside the enum
+          CASE WHEN severity IN ('Sev-1','Sev-2','Sev-3') THEN severity END AS severity
+        FROM alerts_raw
+    """,
+}
+```
+
+Load each CSV to `<feed>_raw`, then create the normalised view. Tests to add:
+
+```
+trip_id normalises to the same integer from all three source formats
+epochs come out in milliseconds, not seconds
+a negative planned_km becomes null rather than a negative average
+the stray "False" severity becomes null, not a fourth severity level
+stwid = 0 rows are excluded
+joining trips to bill on the normalised key returns more than zero rows
+```
+
+**That last test is the one that matters.** Un-normalised, every join silently
+returns nothing and every metric reports a `DATA_GAP` — which looks exactly like
+an engine bug and is not one.
+
 - [ ] **Step 4: Run the tests**
 
 Run: `cd service && .venv/bin/python -m pytest tests/test_ingest.py -q`
-Expected: PASS, 6 tests.
+Expected: PASS.
 
 The rejects-table column names vary across DuckDB versions. If the projection fails, run a rejecting load then `DESCRIBE reject_errors_trips` and correct it. Do not fall back to `SELECT *` with positional indexes.
 
@@ -1974,6 +2092,39 @@ Then `InterrogationPanel.tsx` + `ToolTrace.tsx`: a question box, the answer, and
 ### Task 11: Vernacular feedback and the experience metric (~45 min)
 
 **Files:** `service/signaldesk/normalise.py`, `service/tests/test_normalise.py`
+
+**⚠ CUT THIS TASK'S TRANSLATION. The real dataset has no free-text feedback.**
+
+`trip_feedback` carries five numeric ratings (0-5) — `route_rating`,
+`driver_rating`, `cab_rating`, `safety_rating`, `marshal_rating` — and **no
+comment column and no language column.** The Sarvam translation capability is
+verified working, but there is nothing in this dataset to translate. The
+lexicon, `normalise()`, the parquet cache and the whole
+`comment → comment_en → sentiment` path are dead code against real data.
+
+**Do not keep it running on synthetic comments beside the real data.** Mixing
+fabricated rows into a real dataset for a demo is the one genuinely dishonest
+option on the table, and "where did that Hindi comment come from" is a question
+with no good answer.
+
+`experience` becomes ratings-based, which is better founded anyway:
+
+```sql
+-- The dictionary flags that 0 may mean "unrated" rather than "terrible".
+-- Check the distribution before averaging; excluding 0s is likely right.
+SELECT avg((route_rating + driver_rating + cab_rating + safety_rating) / 4.0)
+FROM feedback f JOIN trips t ON t.trip_id = f.trip_id
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ? AND f.route_rating > 0
+  {{SLICE}}
+```
+
+**This frees ~45 minutes**, which is roughly what Step 3b's normalisation costs.
+Net neutral on the clock. Spend the saved time on the alerts feed instead — see
+mapping doc §8; `sev1_alert_rate` and `no_show_rate` are stronger than anything
+this task was going to produce.
+
+*The original task text follows, retained only because the translation path may
+matter if a later dataset carries comments:*
 
 The one thing a general-purpose competitor cannot easily copy, and it **must degrade rather than fail**.
 
