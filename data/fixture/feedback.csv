@@ -1,0 +1,2758 @@
+trip_id,employee_id,rating,comment,language
+T000008,E01464,4,"Driver samayaniki vachadu, baagundi",te
+T000009,E00931,5,"Cab samayakke bantu, chennagitru",kn
+T000010,E03810,3,"Driver was punctual and polite",en
+T000011,E03549,5,"Driver was punctual and polite",en
+T000015,E03962,4,"Vandi sariyana neratthil vanthathu",ta
+T000019,E02785,3,"Driver was punctual and polite",en
+T000020,E01757,4,"Driver was punctual and polite",en
+T000021,E02533,3,"Driver was punctual and polite",en
+T000032,E00407,3,"Driver was punctual and polite",en
+T000044,E03543,3,"Cab samayakke bantu, chennagitru",kn
+T000049,E02671,3,"Driver samayaniki vachadu, baagundi",te
+T000051,E03269,3,"Driver was punctual and polite",en
+T000054,E00436,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T000055,E01321,3,"Driver was punctual and polite",en
+T000058,E03855,3,"Driver was punctual and polite",en
+T000060,E00768,3,"Cab samayakke bantu, chennagitru",kn
+T000062,E00250,5,"Driver was punctual and polite",en
+T000063,E02032,2,"Waited forty minutes with no update",en
+T000068,E00925,5,"Driver was punctual and polite",en
+T000069,E00626,3,"Driver was punctual and polite",en
+T000073,E02262,5,"Driver samayaniki vachadu, baagundi",te
+T000074,E01946,3,"Driver was punctual and polite",en
+T000077,E02674,5,"Driver was punctual and polite",en
+T000079,E01238,5,"Driver samayaniki vachadu, baagundi",te
+T000080,E01466,5,"Vandi sariyana neratthil vanthathu",ta
+T000081,E00958,3,"Driver was punctual and polite",en
+T000090,E03482,4,"Driver was punctual and polite",en
+T000091,E00793,4,"Driver was punctual and polite",en
+T000094,E01804,4,"Driver was punctual and polite",en
+T000100,E01078,3,"Driver was punctual and polite",en
+T000109,E01057,4,"Vandi sariyana neratthil vanthathu",ta
+T000110,E03725,3,"Driver was punctual and polite",en
+T000120,E00413,3,"Vandi sariyana neratthil vanthathu",ta
+T000128,E03819,3,"Driver samayaniki vachadu, baagundi",te
+T000129,E00091,3,"Driver was punctual and polite",en
+T000132,E03620,3,"Driver was punctual and polite",en
+T000133,E00536,4,"Cab samayakke bantu, chennagitru",kn
+T000134,E00209,3,"Driver was punctual and polite",en
+T000135,E01631,4,"Cab samayakke bantu, chennagitru",kn
+T000138,E01377,5,"Cab samayakke bantu, chennagitru",kn
+T000141,E03415,4,"Driver samayaniki vachadu, baagundi",te
+T000147,E01780,5,"Driver was punctual and polite",en
+T000148,E00791,4,"Driver was punctual and polite",en
+T000149,E03571,3,"Vandi sariyana neratthil vanthathu",ta
+T000152,E02544,5,"Cab samay par aaya, driver acha tha",hi
+T000154,E00357,5,"Driver was punctual and polite",en
+T000170,E03143,4,"Cab samay par aaya, driver acha tha",hi
+T000173,E00319,3,"Driver was punctual and polite",en
+T000174,E02576,4,"Driver was punctual and polite",en
+T000179,E02198,5,"Vandi sariyana neratthil vanthathu",ta
+T000184,E02787,3,"Driver was punctual and polite",en
+T000185,E02888,5,"Driver was punctual and polite",en
+T000186,E00042,5,"Vandi sariyana neratthil vanthathu",ta
+T000187,E03409,3,"Driver was punctual and polite",en
+T000188,E00506,3,"Driver was punctual and polite",en
+T000195,E01997,3,"Driver was punctual and polite",en
+T000197,E01455,1,"Cab chala late ayindi, sammachaaram ledu",te
+T000199,E03852,4,"Cab samay par aaya, driver acha tha",hi
+T000201,E02967,5,"Cab samayakke bantu, chennagitru",kn
+T000206,E00959,3,"Driver was punctual and polite",en
+T000208,E01485,3,"Driver was punctual and polite",en
+T000212,E01169,4,"Driver was punctual and polite",en
+T000216,E03888,3,"Cab samayakke bantu, chennagitru",kn
+T000217,E02190,2,"Waited forty minutes with no update",en
+T000220,E03388,4,"Driver was punctual and polite",en
+T000221,E03820,5,"Driver was punctual and polite",en
+T000225,E00611,3,"Vandi sariyana neratthil vanthathu",ta
+T000227,E03869,2,"Waited forty minutes with no update",en
+T000228,E01046,5,"Cab samayakke bantu, chennagitru",kn
+T000233,E03363,4,"Driver was punctual and polite",en
+T000234,E00894,5,"Cab samayakke bantu, chennagitru",kn
+T000239,E00529,3,"Driver was punctual and polite",en
+T000240,E00908,5,"Driver was punctual and polite",en
+T000241,E00608,5,"Driver was punctual and polite",en
+T000248,E02584,5,"Driver was punctual and polite",en
+T000252,E01428,3,"Cab samayakke bantu, chennagitru",kn
+T000258,E01203,2,"Cab chala late ayindi, sammachaaram ledu",te
+T000264,E00505,3,"Driver was punctual and polite",en
+T000265,E03194,3,"Vandi sariyana neratthil vanthathu",ta
+T000268,E02903,3,"Driver was punctual and polite",en
+T000269,E01964,5,"Driver samayaniki vachadu, baagundi",te
+T000272,E02748,3,"Driver samayaniki vachadu, baagundi",te
+T000273,E03995,3,"Driver was punctual and polite",en
+T000276,E00168,3,"Vandi sariyana neratthil vanthathu",ta
+T000277,E02026,3,"Driver was punctual and polite",en
+T000281,E03362,3,"Driver was punctual and polite",en
+T000285,E00836,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T000286,E03486,3,"Driver was punctual and polite",en
+T000289,E00857,3,"Driver was punctual and polite",en
+T000290,E03147,3,"Cab samayakke bantu, chennagitru",kn
+T000291,E00175,3,"Driver samayaniki vachadu, baagundi",te
+T000292,E02106,3,"Driver was punctual and polite",en
+T000296,E02006,4,"Driver was punctual and polite",en
+T000300,E02550,3,"Driver was punctual and polite",en
+T000301,E02579,3,"Driver was punctual and polite",en
+T000302,E02237,3,"Driver was punctual and polite",en
+T000305,E03181,5,"Cab samay par aaya, driver acha tha",hi
+T000306,E01171,5,"Cab samayakke bantu, chennagitru",kn
+T000309,E00902,3,"Driver was punctual and polite",en
+T000315,E02770,1,"Waited forty minutes with no update",en
+T000319,E03309,4,"Cab samayakke bantu, chennagitru",kn
+T000322,E02682,5,"Driver was punctual and polite",en
+T000329,E03276,4,"Cab samay par aaya, driver acha tha",hi
+T000333,E02019,3,"Driver was punctual and polite",en
+T000338,E00134,5,"Driver was punctual and polite",en
+T000339,E02889,4,"Driver was punctual and polite",en
+T000340,E02264,4,"Driver was punctual and polite",en
+T000342,E02132,3,"Driver was punctual and polite",en
+T000346,E00490,4,"Cab samayakke bantu, chennagitru",kn
+T000348,E00920,3,"Driver was punctual and polite",en
+T000351,E00628,4,"Driver was punctual and polite",en
+T000352,E02436,4,"Driver was punctual and polite",en
+T000353,E00306,5,"Vandi sariyana neratthil vanthathu",ta
+T000355,E03292,3,"Driver was punctual and polite",en
+T000360,E00700,4,"Driver was punctual and polite",en
+T000362,E01077,3,"Driver samayaniki vachadu, baagundi",te
+T996479,E01400,3,"Driver was punctual and polite",en
+T000366,E01897,5,"Driver was punctual and polite",en
+T000376,E02227,3,"Driver was punctual and polite",en
+T000377,E01788,3,"Driver was punctual and polite",en
+T000379,E01938,4,"Driver was punctual and polite",en
+T000380,E02413,5,"Driver was punctual and polite",en
+T000381,E00790,5,"Cab samay par aaya, driver acha tha",hi
+T000383,E00578,4,"Driver samayaniki vachadu, baagundi",te
+T000386,E03088,3,"Cab samay par aaya, driver acha tha",hi
+T000391,E01881,4,"Driver was punctual and polite",en
+T000394,E01276,2,"Waited forty minutes with no update",en
+T000396,E02326,4,"Driver was punctual and polite",en
+T000400,E00050,3,"Driver was punctual and polite",en
+T998454,E02284,4,"Vandi sariyana neratthil vanthathu",ta
+T000405,E01865,5,"Driver was punctual and polite",en
+T000406,E02515,5,"Driver was punctual and polite",en
+T000408,E00122,4,"Driver was punctual and polite",en
+T000410,E02748,5,"Driver was punctual and polite",en
+T000411,E01601,4,"Driver was punctual and polite",en
+T000412,E00671,5,"Cab samayakke bantu, chennagitru",kn
+T000414,E02668,5,"Cab samayakke bantu, chennagitru",kn
+T000415,E03171,5,"Driver was punctual and polite",en
+T000417,E02484,3,"Driver was punctual and polite",en
+T000419,E03436,3,"Driver was punctual and polite",en
+T000420,E00078,5,"Driver was punctual and polite",en
+T000421,E02101,5,"Driver was punctual and polite",en
+T997484,E00766,3,"Driver was punctual and polite",en
+T000426,E02157,5,"Driver was punctual and polite",en
+T000427,E01124,3,"Driver was punctual and polite",en
+T000428,E01281,5,"Cab samay par aaya, driver acha tha",hi
+T000429,E02199,4,"Driver was punctual and polite",en
+T000431,E03882,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T000436,E03485,5,"Driver was punctual and polite",en
+T000440,E01780,5,"Driver was punctual and polite",en
+T000449,E02661,3,"Driver was punctual and polite",en
+T000454,E01433,4,"Vandi sariyana neratthil vanthathu",ta
+T000459,E02162,5,"Driver was punctual and polite",en
+T000460,E03179,4,"Vandi sariyana neratthil vanthathu",ta
+T000469,E01715,4,"Driver was punctual and polite",en
+T000470,E03339,4,"Driver was punctual and polite",en
+T993437,E00596,5,"Cab samayakke bantu, chennagitru",kn
+T000479,E01575,3,"Driver was punctual and polite",en
+T000480,E03598,4,"Driver was punctual and polite",en
+T000482,E00135,3,"Driver was punctual and polite",en
+T000486,E02970,4,"Driver samayaniki vachadu, baagundi",te
+T000488,E02200,3,"Driver was punctual and polite",en
+T000490,E01380,3,"Cab samayakke bantu, chennagitru",kn
+T000492,E02019,3,"Driver was punctual and polite",en
+T000500,E01375,4,"Driver samayaniki vachadu, baagundi",te
+T000503,E00456,5,"Cab samay par aaya, driver acha tha",hi
+T000505,E01628,3,"Driver was punctual and polite",en
+T000507,E00387,5,"Cab samayakke bantu, chennagitru",kn
+T000508,E02999,5,"Driver samayaniki vachadu, baagundi",te
+T000509,E03992,3,"Driver samayaniki vachadu, baagundi",te
+T000511,E01875,4,"Driver samayaniki vachadu, baagundi",te
+T000513,E02090,4,"Vandi sariyana neratthil vanthathu",ta
+T000516,E01379,5,"Cab samay par aaya, driver acha tha",hi
+T000517,E00825,5,"Cab samayakke bantu, chennagitru",kn
+T000518,E02905,3,"Cab samayakke bantu, chennagitru",kn
+T000522,E02794,5,"Cab samay par aaya, driver acha tha",hi
+T000528,E01151,5,"Driver samayaniki vachadu, baagundi",te
+T000529,E00639,4,"Cab samayakke bantu, chennagitru",kn
+T000533,E03614,4,"Cab samay par aaya, driver acha tha",hi
+T000536,E03944,3,"Driver was punctual and polite",en
+T000538,E02082,5,"Driver was punctual and polite",en
+T000539,E01285,5,"Cab samay par aaya, driver acha tha",hi
+T000541,E01828,4,"Driver was punctual and polite",en
+T000542,E01196,5,"Driver was punctual and polite",en
+T000546,E02704,4,"Driver was punctual and polite",en
+T000547,E03129,3,"Driver was punctual and polite",en
+T000548,E00146,3,"Driver was punctual and polite",en
+T000549,E01020,3,"Driver was punctual and polite",en
+T000552,E01421,4,"Driver was punctual and polite",en
+T000557,E02041,4,"Driver was punctual and polite",en
+T000558,E02578,4,"Driver was punctual and polite",en
+T000560,E03495,4,"Driver samayaniki vachadu, baagundi",te
+T000563,E00148,3,"Cab samayakke bantu, chennagitru",kn
+T000566,E02862,4,"Driver was punctual and polite",en
+T000569,E03486,4,"Driver was punctual and polite",en
+T000573,E01047,4,"Driver was punctual and polite",en
+T000576,E02849,3,"Driver samayaniki vachadu, baagundi",te
+T000577,E03931,3,"Driver was punctual and polite",en
+T000578,E01218,4,"Driver was punctual and polite",en
+T000583,E01215,2,"Waited forty minutes with no update",en
+T000585,E02714,5,"Driver was punctual and polite",en
+T000589,E00455,4,"Driver was punctual and polite",en
+T000593,E01983,4,"Driver was punctual and polite",en
+T000594,E02034,4,"Driver samayaniki vachadu, baagundi",te
+T000596,E01634,3,"Driver was punctual and polite",en
+T000597,E03809,5,"Vandi sariyana neratthil vanthathu",ta
+T000598,E01154,5,"Driver samayaniki vachadu, baagundi",te
+T000602,E00163,5,"Driver was punctual and polite",en
+T000611,E02565,3,"Driver was punctual and polite",en
+T000612,E00561,5,"Driver was punctual and polite",en
+T000614,E02427,5,"Driver was punctual and polite",en
+T000615,E02343,3,"Cab samay par aaya, driver acha tha",hi
+T000617,E02170,4,"Cab samayakke bantu, chennagitru",kn
+T000619,E00516,5,"Driver was punctual and polite",en
+T000620,E02683,5,"Driver was punctual and polite",en
+T000622,E03220,4,"Driver was punctual and polite",en
+T000625,E03957,3,"Driver was punctual and polite",en
+T000626,E03583,3,"Driver was punctual and polite",en
+T000628,E02471,4,"Driver samayaniki vachadu, baagundi",te
+T000632,E02787,3,"Driver was punctual and polite",en
+T000633,E03505,5,"Driver was punctual and polite",en
+T000636,E00053,3,"Driver was punctual and polite",en
+T000643,E03693,4,"Driver samayaniki vachadu, baagundi",te
+T000644,E00170,3,"Driver was punctual and polite",en
+T000645,E01356,4,"Driver samayaniki vachadu, baagundi",te
+T000650,E03207,3,"Driver samayaniki vachadu, baagundi",te
+T000652,E03721,5,"Driver was punctual and polite",en
+T000654,E02048,4,"Driver was punctual and polite",en
+T000655,E03024,3,"Driver was punctual and polite",en
+T000656,E01849,5,"Cab samayakke bantu, chennagitru",kn
+T992601,E02359,4,"Cab samayakke bantu, chennagitru",kn
+T000672,E02565,5,"Driver was punctual and polite",en
+T000675,E02423,5,"Driver was punctual and polite",en
+T000676,E03564,3,"Driver was punctual and polite",en
+T000678,E02352,3,"Driver was punctual and polite",en
+T000686,E00310,3,"Cab samay par aaya, driver acha tha",hi
+T993610,E01139,3,"Cab samay par aaya, driver acha tha",hi
+T000689,E02737,4,"Cab samayakke bantu, chennagitru",kn
+T000691,E01285,3,"Driver was punctual and polite",en
+T000692,E01530,3,"Driver was punctual and polite",en
+T000697,E02821,4,"Driver was punctual and polite",en
+T000698,E00421,3,"Driver was punctual and polite",en
+T993135,E02443,5,"Driver was punctual and polite",en
+T000702,E00452,4,"Driver was punctual and polite",en
+T000705,E02844,4,"Cab samayakke bantu, chennagitru",kn
+T000706,E03318,5,"Vandi sariyana neratthil vanthathu",ta
+T000717,E03034,5,"Vandi sariyana neratthil vanthathu",ta
+T000721,E02099,4,"Driver was punctual and polite",en
+T000722,E00210,3,"Cab samayakke bantu, chennagitru",kn
+T000727,E00276,5,"Cab samayakke bantu, chennagitru",kn
+T000729,E00700,3,"Cab samay par aaya, driver acha tha",hi
+T000731,E02522,3,"Vandi sariyana neratthil vanthathu",ta
+T000732,E00431,5,"Driver was punctual and polite",en
+T000735,E00574,4,"Cab samayakke bantu, chennagitru",kn
+T000739,E00828,5,"Vandi sariyana neratthil vanthathu",ta
+T000740,E01276,3,"Cab samay par aaya, driver acha tha",hi
+T000748,E03710,4,"Driver samayaniki vachadu, baagundi",te
+T000754,E02132,5,"Driver was punctual and polite",en
+T000755,E01029,5,"Driver was punctual and polite",en
+T000760,E01782,4,"Driver was punctual and polite",en
+T000764,E02605,3,"Driver was punctual and polite",en
+T000768,E02971,3,"Driver was punctual and polite",en
+T000769,E02458,4,"Driver was punctual and polite",en
+T000774,E01862,3,"Driver samayaniki vachadu, baagundi",te
+T000776,E00175,3,"Driver was punctual and polite",en
+T000781,E03563,3,"Cab samayakke bantu, chennagitru",kn
+T000783,E00641,4,"Driver was punctual and polite",en
+T000785,E03536,4,"Cab samay par aaya, driver acha tha",hi
+T000786,E00876,5,"Driver was punctual and polite",en
+T991029,E01053,4,"Driver was punctual and polite",en
+T000795,E03320,3,"Cab samayakke bantu, chennagitru",kn
+T000799,E02644,5,"Driver was punctual and polite",en
+T000801,E03663,3,"Driver was punctual and polite",en
+T000802,E01053,5,"Driver was punctual and polite",en
+T000805,E01276,3,"Driver was punctual and polite",en
+T000808,E03843,1,"Waited forty minutes with no update",en
+T000811,E01480,4,"Driver was punctual and polite",en
+T000812,E00019,5,"Driver was punctual and polite",en
+T000815,E00351,2,"Waited forty minutes with no update",en
+T000822,E02437,4,"Cab samay par aaya, driver acha tha",hi
+T000827,E02006,3,"Driver samayaniki vachadu, baagundi",te
+T000834,E01278,5,"Driver was punctual and polite",en
+T000835,E03851,5,"Cab samayakke bantu, chennagitru",kn
+T000836,E01534,3,"Driver was punctual and polite",en
+T000837,E02489,5,"Driver was punctual and polite",en
+T000839,E00988,5,"Driver was punctual and polite",en
+T000843,E02720,4,"Driver was punctual and polite",en
+T000844,E03216,3,"Vandi sariyana neratthil vanthathu",ta
+T000846,E03205,2,"Cab chala late ayindi, sammachaaram ledu",te
+T000847,E03212,2,"Waited forty minutes with no update",en
+T000854,E00339,5,"Driver was punctual and polite",en
+T000857,E02920,4,"Driver was punctual and polite",en
+T000859,E00413,5,"Driver was punctual and polite",en
+T000860,E02786,3,"Driver was punctual and polite",en
+T000862,E03057,4,"Vandi sariyana neratthil vanthathu",ta
+T000863,E00601,4,"Driver was punctual and polite",en
+T000864,E02939,1,"Waited forty minutes with no update",en
+T000866,E00650,5,"Driver was punctual and polite",en
+T000869,E00347,5,"Driver was punctual and polite",en
+T000870,E00386,3,"Cab samay par aaya, driver acha tha",hi
+T000872,E03674,3,"Driver was punctual and polite",en
+T000874,E02435,3,"Cab samay par aaya, driver acha tha",hi
+T000875,E01490,5,"Driver was punctual and polite",en
+T000878,E00561,5,"Cab samayakke bantu, chennagitru",kn
+T000881,E01324,5,"Driver was punctual and polite",en
+T000882,E01919,3,"Cab samay par aaya, driver acha tha",hi
+T000883,E02457,5,"Cab samayakke bantu, chennagitru",kn
+T000886,E03532,3,"Driver was punctual and polite",en
+T000887,E02208,3,"Driver was punctual and polite",en
+T000890,E00902,5,"Driver was punctual and polite",en
+T000894,E03564,5,"Driver was punctual and polite",en
+T000895,E02748,5,"Driver was punctual and polite",en
+T000897,E01677,5,"Vandi sariyana neratthil vanthathu",ta
+T000900,E03514,5,"Driver samayaniki vachadu, baagundi",te
+T000903,E00345,4,"Vandi sariyana neratthil vanthathu",ta
+T000905,E03992,5,"Cab samay par aaya, driver acha tha",hi
+T000906,E02221,3,"Driver was punctual and polite",en
+T000909,E03630,5,"Cab samayakke bantu, chennagitru",kn
+T995012,E02372,4,"Cab samay par aaya, driver acha tha",hi
+T000916,E02503,4,"Cab samayakke bantu, chennagitru",kn
+T000919,E02402,5,"Cab samayakke bantu, chennagitru",kn
+T000921,E02774,1,"Waited forty minutes with no update",en
+T000922,E03202,3,"Driver was punctual and polite",en
+T000923,E01747,4,"Cab samayakke bantu, chennagitru",kn
+T000925,E00502,4,"Driver was punctual and polite",en
+T000926,E02164,4,"Driver was punctual and polite",en
+T000928,E02158,4,"Driver was punctual and polite",en
+T000929,E01945,5,"Driver was punctual and polite",en
+T993079,E03422,5,"Driver was punctual and polite",en
+T000933,E01461,5,"Driver was punctual and polite",en
+T000936,E03399,4,"Driver samayaniki vachadu, baagundi",te
+T991689,E00399,4,"Vandi sariyana neratthil vanthathu",ta
+T000939,E02787,3,"Driver was punctual and polite",en
+T000941,E02059,4,"Driver samayaniki vachadu, baagundi",te
+T000946,E01604,3,"Driver was punctual and polite",en
+T000949,E01714,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T000950,E01920,5,"Driver samayaniki vachadu, baagundi",te
+T997406,E02034,4,"Driver was punctual and polite",en
+T000955,E02996,5,"Cab samay par aaya, driver acha tha",hi
+T000957,E03460,4,"Driver was punctual and polite",en
+T000959,E01955,5,"Driver was punctual and polite",en
+T000960,E02119,3,"Driver was punctual and polite",en
+T000965,E00757,4,"Driver was punctual and polite",en
+T000971,E01849,4,"Driver was punctual and polite",en
+T000972,E01848,4,"Driver was punctual and polite",en
+T000973,E00329,5,"Cab samay par aaya, driver acha tha",hi
+T000974,E00629,3,"Cab samayakke bantu, chennagitru",kn
+T000976,E01287,4,"Vandi sariyana neratthil vanthathu",ta
+T000981,E00077,3,"Vandi sariyana neratthil vanthathu",ta
+T000983,E00866,4,"Driver was punctual and polite",en
+T000985,E02697,3,"Driver was punctual and polite",en
+T000988,E02434,4,"Cab samay par aaya, driver acha tha",hi
+T000993,E00315,5,"Cab samayakke bantu, chennagitru",kn
+T000996,E00736,5,"Driver samayaniki vachadu, baagundi",te
+T000999,E02962,3,"Driver was punctual and polite",en
+T001000,E01746,5,"Driver samayaniki vachadu, baagundi",te
+T001002,E02076,4,"Driver was punctual and polite",en
+T001005,E01207,5,"Driver was punctual and polite",en
+T001009,E02245,3,"Driver was punctual and polite",en
+T001010,E00501,5,"Driver was punctual and polite",en
+T001012,E02032,5,"Driver was punctual and polite",en
+T001014,E01499,3,"Driver was punctual and polite",en
+T001017,E03759,4,"Vandi sariyana neratthil vanthathu",ta
+T001019,E03193,5,"Driver was punctual and polite",en
+T001023,E03893,4,"Cab samay par aaya, driver acha tha",hi
+T001025,E01091,4,"Driver was punctual and polite",en
+T001026,E01555,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T001027,E00376,4,"Driver was punctual and polite",en
+T001029,E01890,3,"Vandi sariyana neratthil vanthathu",ta
+T001035,E01216,3,"Driver was punctual and polite",en
+T001037,E02944,4,"Vandi sariyana neratthil vanthathu",ta
+T001044,E01845,5,"Driver was punctual and polite",en
+T001047,E00962,4,"Driver was punctual and polite",en
+T001050,E00367,4,"Driver was punctual and polite",en
+T001054,E03850,4,"Driver was punctual and polite",en
+T001068,E03737,3,"Driver was punctual and polite",en
+T001072,E02350,4,"Driver was punctual and polite",en
+T001073,E02246,5,"Driver was punctual and polite",en
+T001077,E03764,4,"Driver was punctual and polite",en
+T001078,E00016,5,"Driver samayaniki vachadu, baagundi",te
+T001081,E00331,3,"Driver was punctual and polite",en
+T001082,E03206,4,"Driver was punctual and polite",en
+T001084,E03435,5,"Driver was punctual and polite",en
+T001085,E02366,3,"Driver was punctual and polite",en
+T001096,E01447,3,"Driver was punctual and polite",en
+T001099,E02551,3,"Driver was punctual and polite",en
+T001104,E01652,1,"Waited forty minutes with no update",en
+T001106,E02664,4,"Vandi sariyana neratthil vanthathu",ta
+T001114,E01643,4,"Driver was punctual and polite",en
+T001115,E00626,4,"Driver was punctual and polite",en
+T001116,E03672,4,"Vandi sariyana neratthil vanthathu",ta
+T001117,E03887,1,"Waited forty minutes with no update",en
+T001124,E02397,5,"Driver was punctual and polite",en
+T001125,E03870,5,"Driver was punctual and polite",en
+T001126,E02330,3,"Driver was punctual and polite",en
+T001129,E01230,3,"Vandi sariyana neratthil vanthathu",ta
+T001131,E00691,3,"Cab samay par aaya, driver acha tha",hi
+T001135,E02816,4,"Vandi sariyana neratthil vanthathu",ta
+T001137,E03196,3,"Driver was punctual and polite",en
+T001140,E00447,3,"Vandi sariyana neratthil vanthathu",ta
+T001142,E00058,5,"Driver was punctual and polite",en
+T001143,E01197,3,"Cab samay par aaya, driver acha tha",hi
+T001147,E03697,4,"Cab samay par aaya, driver acha tha",hi
+T001148,E03195,5,"Driver was punctual and polite",en
+T001153,E02524,3,"Driver was punctual and polite",en
+T001163,E02367,3,"Driver was punctual and polite",en
+T001165,E03695,4,"Cab samayakke bantu, chennagitru",kn
+T001167,E00066,3,"Driver was punctual and polite",en
+T001171,E01241,5,"Cab samayakke bantu, chennagitru",kn
+T001173,E00487,5,"Cab samay par aaya, driver acha tha",hi
+T001177,E01670,5,"Vandi sariyana neratthil vanthathu",ta
+T001186,E02089,5,"Driver was punctual and polite",en
+T001187,E00512,3,"Driver was punctual and polite",en
+T001192,E00721,4,"Vandi sariyana neratthil vanthathu",ta
+T001198,E01806,4,"Cab samay par aaya, driver acha tha",hi
+T001203,E01578,5,"Cab samayakke bantu, chennagitru",kn
+T001205,E03378,4,"Driver was punctual and polite",en
+T001206,E03120,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T001210,E03062,3,"Driver was punctual and polite",en
+T001213,E00475,3,"Driver was punctual and polite",en
+T001214,E00365,5,"Driver was punctual and polite",en
+T001219,E00652,5,"Cab samayakke bantu, chennagitru",kn
+T001220,E02535,5,"Driver was punctual and polite",en
+T001222,E02088,4,"Cab samay par aaya, driver acha tha",hi
+T001224,E03375,3,"Driver samayaniki vachadu, baagundi",te
+T001225,E02564,5,"Driver was punctual and polite",en
+T001238,E02992,3,"Vandi sariyana neratthil vanthathu",ta
+T001239,E01383,5,"Driver was punctual and polite",en
+T001241,E03999,3,"Driver was punctual and polite",en
+T999209,E01648,3,"Driver was punctual and polite",en
+T001244,E02419,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T001246,E01555,5,"Cab samay par aaya, driver acha tha",hi
+T001249,E00737,4,"Driver was punctual and polite",en
+T001250,E03947,3,"Driver samayaniki vachadu, baagundi",te
+T001252,E01071,5,"Cab samayakke bantu, chennagitru",kn
+T001253,E00773,3,"Driver was punctual and polite",en
+T001254,E02358,4,"Driver was punctual and polite",en
+T001255,E01621,3,"Driver was punctual and polite",en
+T001261,E03886,4,"Cab samay par aaya, driver acha tha",hi
+T001265,E03422,3,"Driver was punctual and polite",en
+T001267,E00588,3,"Driver was punctual and polite",en
+T001268,E01817,3,"Driver was punctual and polite",en
+T001270,E03974,4,"Driver was punctual and polite",en
+T001275,E02214,3,"Driver was punctual and polite",en
+T001281,E01136,3,"Driver was punctual and polite",en
+T001283,E00369,4,"Driver was punctual and polite",en
+T001285,E03565,5,"Driver was punctual and polite",en
+T001287,E02250,4,"Cab samay par aaya, driver acha tha",hi
+T001288,E00863,4,"Driver was punctual and polite",en
+T001294,E03803,3,"Cab samay par aaya, driver acha tha",hi
+T001295,E00598,3,"Vandi sariyana neratthil vanthathu",ta
+T001299,E03108,5,"Driver was punctual and polite",en
+T001300,E03557,3,"Driver was punctual and polite",en
+T001302,E01196,4,"Driver was punctual and polite",en
+T001303,E02032,5,"Driver was punctual and polite",en
+T001306,E01182,3,"Vandi sariyana neratthil vanthathu",ta
+T001313,E01540,5,"Driver was punctual and polite",en
+T001317,E03691,5,"Cab samayakke bantu, chennagitru",kn
+T001318,E00788,3,"Driver was punctual and polite",en
+T001320,E02957,5,"Driver was punctual and polite",en
+T001321,E03357,5,"Cab samayakke bantu, chennagitru",kn
+T001322,E00915,4,"Driver was punctual and polite",en
+T001323,E03834,3,"Cab samay par aaya, driver acha tha",hi
+T001327,E00721,3,"Cab samayakke bantu, chennagitru",kn
+T001330,E02514,3,"Cab samayakke bantu, chennagitru",kn
+T001337,E01601,5,"Driver was punctual and polite",en
+T001340,E02663,4,"Vandi sariyana neratthil vanthathu",ta
+T001341,E01228,5,"Driver was punctual and polite",en
+T001342,E00606,5,"Driver was punctual and polite",en
+T001344,E02367,4,"Driver was punctual and polite",en
+T001345,E01418,4,"Driver samayaniki vachadu, baagundi",te
+T001348,E03801,3,"Cab samay par aaya, driver acha tha",hi
+T001351,E01668,5,"Vandi sariyana neratthil vanthathu",ta
+T001352,E02797,4,"Driver samayaniki vachadu, baagundi",te
+T001356,E01090,3,"Driver samayaniki vachadu, baagundi",te
+T001364,E03485,5,"Driver was punctual and polite",en
+T001367,E03926,4,"Driver was punctual and polite",en
+T001369,E03112,4,"Driver was punctual and polite",en
+T001372,E00127,3,"Cab samayakke bantu, chennagitru",kn
+T001374,E03745,3,"Driver was punctual and polite",en
+T001375,E00316,4,"Driver was punctual and polite",en
+T001377,E00646,5,"Driver was punctual and polite",en
+T001381,E02814,3,"Cab samay par aaya, driver acha tha",hi
+T001383,E01905,4,"Driver was punctual and polite",en
+T001385,E02663,3,"Driver samayaniki vachadu, baagundi",te
+T001387,E03060,2,"Waited forty minutes with no update",en
+T001390,E01413,3,"Driver was punctual and polite",en
+T001391,E03054,4,"Driver was punctual and polite",en
+T001393,E02898,5,"Driver was punctual and polite",en
+T001394,E01565,5,"Vandi sariyana neratthil vanthathu",ta
+T001395,E03466,5,"Cab samay par aaya, driver acha tha",hi
+T001398,E00304,5,"Driver was punctual and polite",en
+T001400,E03083,4,"Cab samayakke bantu, chennagitru",kn
+T001403,E01519,3,"Driver was punctual and polite",en
+T001407,E03766,5,"Vandi sariyana neratthil vanthathu",ta
+T001408,E02234,4,"Driver samayaniki vachadu, baagundi",te
+T997596,E02854,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T001412,E03941,4,"Driver was punctual and polite",en
+T001413,E03720,5,"Driver was punctual and polite",en
+T001416,E01491,3,"Vandi sariyana neratthil vanthathu",ta
+T001418,E02661,3,"Driver samayaniki vachadu, baagundi",te
+T001422,E03137,4,"Driver was punctual and polite",en
+T001424,E01600,4,"Driver was punctual and polite",en
+T001433,E00467,4,"Driver was punctual and polite",en
+T001438,E03293,4,"Driver samayaniki vachadu, baagundi",te
+T001439,E00121,5,"Driver was punctual and polite",en
+T001440,E01058,3,"Cab samayakke bantu, chennagitru",kn
+T001441,E01922,3,"Driver samayaniki vachadu, baagundi",te
+T001444,E02088,4,"Cab samay par aaya, driver acha tha",hi
+T001445,E01360,4,"Driver was punctual and polite",en
+T001446,E03543,3,"Driver was punctual and polite",en
+T001450,E00354,5,"Driver was punctual and polite",en
+T001455,E01752,3,"Driver samayaniki vachadu, baagundi",te
+T001459,E01067,4,"Driver samayaniki vachadu, baagundi",te
+T001461,E01087,5,"Driver was punctual and polite",en
+T001462,E01146,4,"Vandi sariyana neratthil vanthathu",ta
+T001463,E00285,1,"Waited forty minutes with no update",en
+T001467,E00741,3,"Driver was punctual and polite",en
+T001469,E01360,5,"Driver samayaniki vachadu, baagundi",te
+T001470,E02772,3,"Driver was punctual and polite",en
+T001471,E01499,4,"Driver samayaniki vachadu, baagundi",te
+T001472,E00510,5,"Cab samay par aaya, driver acha tha",hi
+T001477,E03388,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T001489,E03710,4,"Driver samayaniki vachadu, baagundi",te
+T001495,E00931,5,"Driver was punctual and polite",en
+T001498,E03698,4,"Cab samayakke bantu, chennagitru",kn
+T001508,E01747,4,"Driver was punctual and polite",en
+T001511,E02360,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T001520,E01989,4,"Driver was punctual and polite",en
+T001522,E00439,5,"Driver was punctual and polite",en
+T001525,E01051,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T001528,E02759,3,"Driver was punctual and polite",en
+T001532,E01437,3,"Driver was punctual and polite",en
+T001534,E00071,5,"Driver was punctual and polite",en
+T001535,E00455,4,"Driver was punctual and polite",en
+T001540,E01889,5,"Driver was punctual and polite",en
+T001549,E02525,5,"Driver was punctual and polite",en
+T001551,E02323,4,"Vandi sariyana neratthil vanthathu",ta
+T001552,E03403,5,"Driver was punctual and polite",en
+T001555,E02659,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T001557,E02144,3,"Vandi sariyana neratthil vanthathu",ta
+T001559,E03040,4,"Cab samay par aaya, driver acha tha",hi
+T001561,E01001,5,"Driver was punctual and polite",en
+T001565,E03885,3,"Cab samayakke bantu, chennagitru",kn
+T001566,E03197,3,"Cab samayakke bantu, chennagitru",kn
+T001568,E00358,5,"Driver was punctual and polite",en
+T001569,E00895,5,"Driver was punctual and polite",en
+T001570,E02049,5,"Cab samayakke bantu, chennagitru",kn
+T001571,E01298,4,"Driver was punctual and polite",en
+T001573,E00330,3,"Driver samayaniki vachadu, baagundi",te
+T001574,E03556,5,"Driver was punctual and polite",en
+T001575,E03268,5,"Vandi sariyana neratthil vanthathu",ta
+T001576,E01755,5,"Cab samay par aaya, driver acha tha",hi
+T001579,E03152,5,"Driver was punctual and polite",en
+T001581,E00538,3,"Cab samay par aaya, driver acha tha",hi
+T001585,E03072,3,"Driver was punctual and polite",en
+T001586,E01975,4,"Cab samay par aaya, driver acha tha",hi
+T001588,E01534,5,"Cab samayakke bantu, chennagitru",kn
+T001591,E02520,3,"Cab samayakke bantu, chennagitru",kn
+T001592,E01521,4,"Driver was punctual and polite",en
+T001595,E02963,4,"Driver was punctual and polite",en
+T001596,E01408,3,"Driver was punctual and polite",en
+T001598,E01714,5,"Driver was punctual and polite",en
+T001599,E00260,5,"Driver was punctual and polite",en
+T001603,E02010,5,"Vandi sariyana neratthil vanthathu",ta
+T001604,E01063,5,"Cab samay par aaya, driver acha tha",hi
+T001606,E00126,5,"Driver samayaniki vachadu, baagundi",te
+T001614,E00159,2,"Waited forty minutes with no update",en
+T001616,E02126,3,"Driver was punctual and polite",en
+T001617,E00738,4,"Cab samayakke bantu, chennagitru",kn
+T001620,E01898,4,"Driver samayaniki vachadu, baagundi",te
+T001625,E00699,3,"Driver was punctual and polite",en
+T001628,E02091,3,"Driver was punctual and polite",en
+T001629,E03011,4,"Cab samayakke bantu, chennagitru",kn
+T001635,E00334,4,"Driver was punctual and polite",en
+T001636,E00774,3,"Driver was punctual and polite",en
+T001642,E01927,5,"Vandi sariyana neratthil vanthathu",ta
+T001645,E01788,4,"Driver was punctual and polite",en
+T001646,E03570,3,"Driver was punctual and polite",en
+T001648,E02667,3,"Driver samayaniki vachadu, baagundi",te
+T001650,E01224,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T001651,E00546,2,"Vandi romba late, thagaval illai",ta
+T001652,E00357,5,"Driver was punctual and polite",en
+T001653,E02755,5,"Vandi sariyana neratthil vanthathu",ta
+T994874,E03225,4,"Cab samay par aaya, driver acha tha",hi
+T001661,E03395,3,"Driver was punctual and polite",en
+T001662,E00555,5,"Driver was punctual and polite",en
+T001667,E03152,5,"Driver was punctual and polite",en
+T001669,E02734,3,"Cab samay par aaya, driver acha tha",hi
+T001670,E00968,5,"Driver was punctual and polite",en
+T001680,E00538,4,"Driver was punctual and polite",en
+T001681,E00247,3,"Cab samay par aaya, driver acha tha",hi
+T001682,E03830,3,"Cab samay par aaya, driver acha tha",hi
+T001683,E00566,3,"Driver was punctual and polite",en
+T001687,E01512,3,"Driver was punctual and polite",en
+T001689,E02170,4,"Cab samay par aaya, driver acha tha",hi
+T001690,E01769,4,"Driver was punctual and polite",en
+T001691,E00067,5,"Driver samayaniki vachadu, baagundi",te
+T001692,E00325,3,"Cab samay par aaya, driver acha tha",hi
+T001696,E03631,5,"Vandi sariyana neratthil vanthathu",ta
+T001698,E03248,1,"Vandi romba late, thagaval illai",ta
+T001700,E00478,4,"Driver was punctual and polite",en
+T001702,E02818,4,"Driver was punctual and polite",en
+T001705,E01434,4,"Driver was punctual and polite",en
+T001707,E01141,3,"Driver was punctual and polite",en
+T001712,E00552,5,"Cab samayakke bantu, chennagitru",kn
+T001713,E00358,3,"Driver was punctual and polite",en
+T001716,E03158,3,"Driver was punctual and polite",en
+T001722,E02410,4,"Driver was punctual and polite",en
+T001727,E01036,5,"Vandi sariyana neratthil vanthathu",ta
+T001730,E02150,5,"Cab samayakke bantu, chennagitru",kn
+T001736,E02034,3,"Vandi sariyana neratthil vanthathu",ta
+T998674,E01893,1,"Cab chala late ayindi, sammachaaram ledu",te
+T001739,E00037,4,"Driver was punctual and polite",en
+T001741,E03045,3,"Driver was punctual and polite",en
+T001743,E03302,5,"Cab samayakke bantu, chennagitru",kn
+T001749,E02044,4,"Driver was punctual and polite",en
+T001750,E02682,3,"Driver was punctual and polite",en
+T001751,E02771,3,"Driver was punctual and polite",en
+T001761,E01627,5,"Vandi sariyana neratthil vanthathu",ta
+T001762,E03925,4,"Driver was punctual and polite",en
+T001770,E00602,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T001772,E00674,5,"Driver was punctual and polite",en
+T001773,E00769,4,"Driver was punctual and polite",en
+T990943,E01789,3,"Driver samayaniki vachadu, baagundi",te
+T001782,E02706,4,"Driver was punctual and polite",en
+T001784,E03489,4,"Vandi sariyana neratthil vanthathu",ta
+T001786,E00869,4,"Driver samayaniki vachadu, baagundi",te
+T001792,E02279,3,"Driver samayaniki vachadu, baagundi",te
+T001793,E01618,3,"Driver was punctual and polite",en
+T001795,E03596,3,"Driver was punctual and polite",en
+T001796,E00297,4,"Driver was punctual and polite",en
+T001798,E00325,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T001801,E00435,4,"Driver was punctual and polite",en
+T001805,E01334,5,"Driver was punctual and polite",en
+T001807,E00357,4,"Driver was punctual and polite",en
+T001810,E03893,5,"Driver was punctual and polite",en
+T001811,E01592,4,"Driver was punctual and polite",en
+T001814,E01004,2,"Waited forty minutes with no update",en
+T001815,E02675,3,"Driver was punctual and polite",en
+T001816,E00593,5,"Driver was punctual and polite",en
+T001817,E00622,3,"Cab samayakke bantu, chennagitru",kn
+T001818,E03065,5,"Driver was punctual and polite",en
+T001819,E02812,5,"Driver was punctual and polite",en
+T001821,E01161,4,"Cab samayakke bantu, chennagitru",kn
+T001825,E01774,3,"Driver was punctual and polite",en
+T001826,E00836,4,"Driver samayaniki vachadu, baagundi",te
+T001829,E01797,4,"Driver was punctual and polite",en
+T001837,E01426,5,"Driver was punctual and polite",en
+T001842,E00071,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T001844,E00624,4,"Cab samay par aaya, driver acha tha",hi
+T001846,E03253,4,"Driver samayaniki vachadu, baagundi",te
+T996943,E00972,5,"Driver was punctual and polite",en
+T001848,E02736,2,"Waited forty minutes with no update",en
+T001862,E03472,5,"Driver was punctual and polite",en
+T001867,E03322,4,"Driver was punctual and polite",en
+T001871,E01765,5,"Cab samayakke bantu, chennagitru",kn
+T001872,E03014,4,"Driver was punctual and polite",en
+T001878,E03901,4,"Driver was punctual and polite",en
+T001881,E02091,5,"Cab samay par aaya, driver acha tha",hi
+T001882,E02396,4,"Driver was punctual and polite",en
+T001885,E02559,3,"Cab samayakke bantu, chennagitru",kn
+T001898,E02838,3,"Driver was punctual and polite",en
+T001900,E03014,3,"Driver was punctual and polite",en
+T001902,E01530,3,"Driver was punctual and polite",en
+T001906,E01993,4,"Driver was punctual and polite",en
+T001913,E00582,5,"Driver samayaniki vachadu, baagundi",te
+T001916,E03340,3,"Driver was punctual and polite",en
+T001920,E00397,5,"Driver was punctual and polite",en
+T001921,E01018,5,"Driver was punctual and polite",en
+T001924,E00794,5,"Driver was punctual and polite",en
+T001928,E00466,5,"Driver was punctual and polite",en
+T001929,E00792,3,"Driver was punctual and polite",en
+T001931,E02956,3,"Driver was punctual and polite",en
+T001934,E00481,4,"Driver was punctual and polite",en
+T001940,E00630,4,"Driver was punctual and polite",en
+T001941,E00740,4,"Driver was punctual and polite",en
+T001950,E01941,5,"Driver was punctual and polite",en
+T001952,E01533,4,"Cab samay par aaya, driver acha tha",hi
+T001954,E03980,5,"Driver was punctual and polite",en
+T001955,E01551,5,"Driver was punctual and polite",en
+T001957,E00479,4,"Driver was punctual and polite",en
+T001958,E03712,4,"Driver samayaniki vachadu, baagundi",te
+T001959,E02809,3,"Driver was punctual and polite",en
+T001962,E03792,4,"Driver was punctual and polite",en
+T001964,E02308,5,"Driver was punctual and polite",en
+T001967,E01737,3,"Driver samayaniki vachadu, baagundi",te
+T001969,E01274,4,"Driver was punctual and polite",en
+T001976,E00653,3,"Driver was punctual and polite",en
+T001979,E02145,4,"Cab samayakke bantu, chennagitru",kn
+T001983,E02293,3,"Driver was punctual and polite",en
+T001985,E02017,5,"Driver was punctual and polite",en
+T001987,E03555,4,"Driver samayaniki vachadu, baagundi",te
+T001989,E03763,4,"Driver was punctual and polite",en
+T001992,E01990,3,"Driver was punctual and polite",en
+T001997,E00818,5,"Cab samayakke bantu, chennagitru",kn
+T002001,E00152,5,"Driver was punctual and polite",en
+T002002,E01329,4,"Cab samay par aaya, driver acha tha",hi
+T002003,E03648,4,"Driver was punctual and polite",en
+T002009,E01287,5,"Driver was punctual and polite",en
+T002010,E02659,4,"Driver samayaniki vachadu, baagundi",te
+T994046,E03521,5,"Driver was punctual and polite",en
+T002015,E01880,3,"Driver was punctual and polite",en
+T002019,E02424,2,"Vandi romba late, thagaval illai",ta
+T002024,E01392,5,"Driver was punctual and polite",en
+T002025,E03620,4,"Driver was punctual and polite",en
+T002026,E00773,3,"Driver was punctual and polite",en
+T002030,E02297,4,"Driver was punctual and polite",en
+T002031,E02931,3,"Driver was punctual and polite",en
+T002033,E02004,5,"Cab samay par aaya, driver acha tha",hi
+T002035,E03712,4,"Driver was punctual and polite",en
+T002036,E03846,4,"Vandi sariyana neratthil vanthathu",ta
+T002037,E00917,5,"Driver was punctual and polite",en
+T002039,E02785,3,"Driver samayaniki vachadu, baagundi",te
+T002043,E03481,4,"Driver was punctual and polite",en
+T002044,E02337,3,"Driver samayaniki vachadu, baagundi",te
+T002046,E01066,3,"Cab samay par aaya, driver acha tha",hi
+T002050,E01310,2,"Waited forty minutes with no update",en
+T002051,E00741,5,"Driver was punctual and polite",en
+T002052,E00323,5,"Driver was punctual and polite",en
+T002055,E02011,3,"Cab samayakke bantu, chennagitru",kn
+T002056,E00520,1,"Waited forty minutes with no update",en
+T002057,E01895,3,"Driver was punctual and polite",en
+T002058,E02626,4,"Driver was punctual and polite",en
+T002062,E00240,3,"Cab samayakke bantu, chennagitru",kn
+T002064,E00838,3,"Cab samay par aaya, driver acha tha",hi
+T002067,E02759,4,"Driver samayaniki vachadu, baagundi",te
+T998947,E01473,3,"Driver was punctual and polite",en
+T002069,E00082,5,"Driver samayaniki vachadu, baagundi",te
+T002073,E01196,3,"Driver was punctual and polite",en
+T002077,E00099,4,"Driver was punctual and polite",en
+T002088,E00746,1,"Waited forty minutes with no update",en
+T002092,E02293,5,"Driver samayaniki vachadu, baagundi",te
+T002093,E02433,5,"Driver was punctual and polite",en
+T002094,E02215,3,"Driver samayaniki vachadu, baagundi",te
+T002095,E00334,5,"Vandi sariyana neratthil vanthathu",ta
+T002099,E03888,5,"Driver was punctual and polite",en
+T002101,E01448,1,"Waited forty minutes with no update",en
+T002104,E01207,4,"Driver was punctual and polite",en
+T002105,E02269,4,"Driver was punctual and polite",en
+T002106,E00708,4,"Driver was punctual and polite",en
+T002107,E02829,3,"Cab samayakke bantu, chennagitru",kn
+T002109,E02011,4,"Cab samayakke bantu, chennagitru",kn
+T002111,E00718,5,"Driver was punctual and polite",en
+T002112,E00795,3,"Cab samay par aaya, driver acha tha",hi
+T002114,E02164,5,"Driver was punctual and polite",en
+T002115,E03000,2,"Waited forty minutes with no update",en
+T002119,E01883,4,"Vandi sariyana neratthil vanthathu",ta
+T002120,E01013,4,"Cab samayakke bantu, chennagitru",kn
+T002124,E01752,1,"Waited forty minutes with no update",en
+T002127,E02477,4,"Driver was punctual and polite",en
+T002130,E00846,5,"Cab samayakke bantu, chennagitru",kn
+T002132,E03822,3,"Driver was punctual and polite",en
+T002133,E01583,5,"Driver was punctual and polite",en
+T002136,E02228,5,"Driver samayaniki vachadu, baagundi",te
+T002141,E01900,3,"Driver was punctual and polite",en
+T002143,E01521,5,"Driver was punctual and polite",en
+T002144,E03017,3,"Driver was punctual and polite",en
+T002145,E00220,5,"Driver was punctual and polite",en
+T002152,E01522,4,"Driver was punctual and polite",en
+T002156,E01089,4,"Driver was punctual and polite",en
+T002157,E00929,3,"Driver was punctual and polite",en
+T002159,E01763,4,"Cab samay par aaya, driver acha tha",hi
+T002160,E03348,1,"Waited forty minutes with no update",en
+T002161,E02701,4,"Driver was punctual and polite",en
+T002163,E03429,3,"Cab samayakke bantu, chennagitru",kn
+T002168,E00195,4,"Driver was punctual and polite",en
+T002170,E03449,5,"Driver was punctual and polite",en
+T002171,E01529,5,"Driver was punctual and polite",en
+T002172,E03154,4,"Driver was punctual and polite",en
+T002173,E01222,4,"Driver was punctual and polite",en
+T002176,E00185,1,"Waited forty minutes with no update",en
+T002178,E02365,3,"Driver was punctual and polite",en
+T002180,E00520,2,"Waited forty minutes with no update",en
+T002182,E02280,3,"Cab samayakke bantu, chennagitru",kn
+T002183,E00111,4,"Driver was punctual and polite",en
+T002187,E00180,3,"Driver was punctual and polite",en
+T002189,E00146,4,"Cab samayakke bantu, chennagitru",kn
+T002191,E03122,3,"Driver was punctual and polite",en
+T995912,E03818,4,"Driver was punctual and polite",en
+T002203,E02561,5,"Cab samayakke bantu, chennagitru",kn
+T002204,E00440,3,"Vandi sariyana neratthil vanthathu",ta
+T002207,E02118,5,"Driver was punctual and polite",en
+T002208,E01655,5,"Driver was punctual and polite",en
+T002209,E00851,4,"Driver was punctual and polite",en
+T002210,E00259,3,"Driver samayaniki vachadu, baagundi",te
+T995371,E01086,3,"Driver samayaniki vachadu, baagundi",te
+T002217,E00326,5,"Driver was punctual and polite",en
+T002218,E01842,3,"Driver was punctual and polite",en
+T002219,E03577,3,"Driver was punctual and polite",en
+T002222,E01448,5,"Driver was punctual and polite",en
+T002226,E02969,5,"Driver was punctual and polite",en
+T002228,E00377,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T002229,E01755,5,"Driver was punctual and polite",en
+T002230,E01180,3,"Cab samayakke bantu, chennagitru",kn
+T002236,E00464,4,"Driver was punctual and polite",en
+T002242,E00417,4,"Driver was punctual and polite",en
+T002250,E03781,5,"Driver was punctual and polite",en
+T002252,E00124,3,"Cab samay par aaya, driver acha tha",hi
+T002264,E00663,4,"Driver samayaniki vachadu, baagundi",te
+T002272,E01804,4,"Driver samayaniki vachadu, baagundi",te
+T002274,E03984,4,"Vandi sariyana neratthil vanthathu",ta
+T002276,E01414,5,"Driver was punctual and polite",en
+T002278,E03299,3,"Driver was punctual and polite",en
+T002280,E01082,5,"Driver was punctual and polite",en
+T002287,E01661,3,"Driver was punctual and polite",en
+T002288,E00331,3,"Driver was punctual and polite",en
+T002289,E01012,4,"Driver was punctual and polite",en
+T997334,E01360,4,"Driver was punctual and polite",en
+T002292,E01741,4,"Driver was punctual and polite",en
+T002297,E00285,3,"Driver was punctual and polite",en
+T002302,E03765,4,"Driver was punctual and polite",en
+T002303,E00393,3,"Vandi sariyana neratthil vanthathu",ta
+T002305,E02815,4,"Vandi sariyana neratthil vanthathu",ta
+T002306,E03606,3,"Driver was punctual and polite",en
+T002307,E00172,4,"Driver was punctual and polite",en
+T002310,E03436,5,"Vandi sariyana neratthil vanthathu",ta
+T002312,E00086,5,"Driver was punctual and polite",en
+T002318,E01155,5,"Vandi sariyana neratthil vanthathu",ta
+T002321,E02781,4,"Driver was punctual and polite",en
+T002326,E01866,3,"Vandi sariyana neratthil vanthathu",ta
+T002329,E03682,5,"Driver was punctual and polite",en
+T002330,E00664,5,"Driver was punctual and polite",en
+T002332,E02340,4,"Cab samayakke bantu, chennagitru",kn
+T002334,E01788,3,"Driver was punctual and polite",en
+T002337,E03721,4,"Driver was punctual and polite",en
+T002338,E03742,3,"Driver was punctual and polite",en
+T002340,E01661,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T002344,E00704,3,"Driver was punctual and polite",en
+T002347,E01486,3,"Cab samay par aaya, driver acha tha",hi
+T002351,E03038,2,"Waited forty minutes with no update",en
+T002352,E01477,2,"Waited forty minutes with no update",en
+T002363,E01077,3,"Cab samay par aaya, driver acha tha",hi
+T002368,E02381,3,"Driver was punctual and polite",en
+T002370,E00837,5,"Driver was punctual and polite",en
+T002372,E03848,4,"Driver was punctual and polite",en
+T002373,E01584,5,"Vandi sariyana neratthil vanthathu",ta
+T002374,E00506,5,"Driver samayaniki vachadu, baagundi",te
+T002376,E02800,3,"Cab samay par aaya, driver acha tha",hi
+T002377,E01049,4,"Driver was punctual and polite",en
+T995567,E00610,3,"Driver was punctual and polite",en
+T002380,E02517,4,"Driver was punctual and polite",en
+T002382,E03756,2,"Waited forty minutes with no update",en
+T002385,E02226,3,"Driver was punctual and polite",en
+T002389,E02572,4,"Driver was punctual and polite",en
+T002390,E02269,5,"Driver was punctual and polite",en
+T002391,E01269,3,"Vandi sariyana neratthil vanthathu",ta
+T002394,E03543,4,"Driver samayaniki vachadu, baagundi",te
+T002398,E02103,3,"Driver samayaniki vachadu, baagundi",te
+T002401,E01247,5,"Cab samay par aaya, driver acha tha",hi
+T002402,E03665,3,"Driver was punctual and polite",en
+T002405,E03261,3,"Driver was punctual and polite",en
+T002406,E03729,4,"Driver was punctual and polite",en
+T002407,E01964,3,"Driver samayaniki vachadu, baagundi",te
+T002408,E02148,5,"Cab samayakke bantu, chennagitru",kn
+T002410,E03795,3,"Driver was punctual and polite",en
+T002413,E00709,5,"Driver was punctual and polite",en
+T002417,E02027,4,"Driver was punctual and polite",en
+T002427,E00158,3,"Driver was punctual and polite",en
+T002432,E03578,3,"Cab samay par aaya, driver acha tha",hi
+T002434,E03972,3,"Driver samayaniki vachadu, baagundi",te
+T002439,E02097,3,"Driver samayaniki vachadu, baagundi",te
+T002440,E00515,1,"Waited forty minutes with no update",en
+T002441,E01203,5,"Driver samayaniki vachadu, baagundi",te
+T002442,E02561,4,"Driver was punctual and polite",en
+T002446,E00908,5,"Driver was punctual and polite",en
+T002447,E03522,4,"Driver was punctual and polite",en
+T002461,E01337,5,"Driver was punctual and polite",en
+T002462,E01645,4,"Vandi sariyana neratthil vanthathu",ta
+T002463,E00740,5,"Driver was punctual and polite",en
+T002466,E03855,5,"Vandi sariyana neratthil vanthathu",ta
+T002467,E03995,4,"Vandi sariyana neratthil vanthathu",ta
+T996064,E01987,5,"Driver was punctual and polite",en
+T002471,E03920,3,"Driver was punctual and polite",en
+T002473,E00595,1,"Cab chala late ayindi, sammachaaram ledu",te
+T002475,E01597,4,"Driver was punctual and polite",en
+T002477,E00492,3,"Vandi sariyana neratthil vanthathu",ta
+T002481,E01224,4,"Cab samayakke bantu, chennagitru",kn
+T002482,E01012,4,"Cab samayakke bantu, chennagitru",kn
+T002487,E01446,4,"Driver was punctual and polite",en
+T002489,E02243,4,"Driver was punctual and polite",en
+T002499,E01403,3,"Driver was punctual and polite",en
+T002503,E03974,3,"Driver was punctual and polite",en
+T002508,E00016,3,"Driver was punctual and polite",en
+T990204,E01145,3,"Cab samayakke bantu, chennagitru",kn
+T002516,E03709,5,"Cab samay par aaya, driver acha tha",hi
+T002517,E01156,3,"Cab samayakke bantu, chennagitru",kn
+T002518,E02633,4,"Driver was punctual and polite",en
+T002519,E02216,5,"Cab samay par aaya, driver acha tha",hi
+T002523,E00954,3,"Vandi sariyana neratthil vanthathu",ta
+T002529,E02017,5,"Driver was punctual and polite",en
+T002530,E03717,3,"Vandi sariyana neratthil vanthathu",ta
+T002532,E01783,4,"Driver was punctual and polite",en
+T002533,E02868,5,"Driver was punctual and polite",en
+T002536,E02606,4,"Cab samayakke bantu, chennagitru",kn
+T002539,E03903,4,"Cab samay par aaya, driver acha tha",hi
+T002542,E03186,3,"Driver was punctual and polite",en
+T002543,E03563,3,"Driver was punctual and polite",en
+T002545,E00835,4,"Driver was punctual and polite",en
+T002552,E00523,4,"Driver was punctual and polite",en
+T002560,E03220,5,"Driver was punctual and polite",en
+T002561,E01408,4,"Driver was punctual and polite",en
+T002564,E01258,5,"Driver was punctual and polite",en
+T002568,E02298,5,"Driver was punctual and polite",en
+T002573,E03788,2,"Vandi romba late, thagaval illai",ta
+T002577,E03342,5,"Cab samayakke bantu, chennagitru",kn
+T002580,E02188,3,"Driver was punctual and polite",en
+T002582,E03526,3,"Driver was punctual and polite",en
+T002583,E03771,5,"Driver was punctual and polite",en
+T002587,E02362,5,"Driver was punctual and polite",en
+T002589,E03848,4,"Driver was punctual and polite",en
+T002591,E03972,3,"Driver samayaniki vachadu, baagundi",te
+T002592,E01933,3,"Driver was punctual and polite",en
+T002603,E00785,5,"Driver was punctual and polite",en
+T002605,E03086,5,"Driver samayaniki vachadu, baagundi",te
+T002606,E01793,4,"Driver was punctual and polite",en
+T002608,E00644,5,"Cab samayakke bantu, chennagitru",kn
+T002609,E00296,5,"Driver was punctual and polite",en
+T002612,E00510,4,"Vandi sariyana neratthil vanthathu",ta
+T002614,E02215,5,"Driver was punctual and polite",en
+T002625,E02873,4,"Driver samayaniki vachadu, baagundi",te
+T002630,E01782,5,"Driver was punctual and polite",en
+T002632,E03525,5,"Driver samayaniki vachadu, baagundi",te
+T002635,E01735,3,"Driver was punctual and polite",en
+T002636,E03086,5,"Cab samay par aaya, driver acha tha",hi
+T002637,E01936,3,"Driver was punctual and polite",en
+T002641,E03680,3,"Driver samayaniki vachadu, baagundi",te
+T002645,E03978,5,"Cab samayakke bantu, chennagitru",kn
+T002647,E00938,4,"Vandi sariyana neratthil vanthathu",ta
+T002652,E01701,5,"Cab samay par aaya, driver acha tha",hi
+T002658,E01792,3,"Driver was punctual and polite",en
+T002659,E03999,4,"Cab samay par aaya, driver acha tha",hi
+T002660,E03823,5,"Cab samayakke bantu, chennagitru",kn
+T002661,E02914,5,"Driver was punctual and polite",en
+T002668,E01419,5,"Cab samay par aaya, driver acha tha",hi
+T002670,E01662,4,"Driver was punctual and polite",en
+T002676,E01878,3,"Driver was punctual and polite",en
+T002678,E02836,3,"Driver was punctual and polite",en
+T002679,E00024,5,"Driver samayaniki vachadu, baagundi",te
+T002680,E01207,4,"Driver was punctual and polite",en
+T002688,E00046,4,"Driver was punctual and polite",en
+T002693,E01084,4,"Cab samayakke bantu, chennagitru",kn
+T002701,E02554,5,"Driver was punctual and polite",en
+T002708,E00804,4,"Driver was punctual and polite",en
+T002709,E00558,4,"Cab samay par aaya, driver acha tha",hi
+T002710,E01099,3,"Driver was punctual and polite",en
+T002717,E02975,3,"Driver was punctual and polite",en
+T002721,E02324,4,"Driver was punctual and polite",en
+T002725,E02873,3,"Driver samayaniki vachadu, baagundi",te
+T002726,E00595,4,"Vandi sariyana neratthil vanthathu",ta
+T002727,E02460,3,"Driver was punctual and polite",en
+T002729,E03777,4,"Driver samayaniki vachadu, baagundi",te
+T002730,E00194,4,"Cab samay par aaya, driver acha tha",hi
+T002732,E00759,5,"Driver was punctual and polite",en
+T002736,E00592,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T002738,E01157,5,"Vandi sariyana neratthil vanthathu",ta
+T002739,E00859,5,"Vandi sariyana neratthil vanthathu",ta
+T002745,E01323,2,"Waited forty minutes with no update",en
+T002747,E01742,4,"Driver was punctual and polite",en
+T002748,E03364,5,"Vandi sariyana neratthil vanthathu",ta
+T002750,E03026,4,"Driver samayaniki vachadu, baagundi",te
+T002755,E01535,3,"Driver was punctual and polite",en
+T002756,E03236,5,"Driver was punctual and polite",en
+T002758,E03685,4,"Driver was punctual and polite",en
+T002759,E03244,3,"Driver was punctual and polite",en
+T002761,E03452,5,"Driver was punctual and polite",en
+T002762,E00383,5,"Driver was punctual and polite",en
+T002765,E00218,4,"Cab samay par aaya, driver acha tha",hi
+T002779,E02675,3,"Vandi sariyana neratthil vanthathu",ta
+T002780,E00797,5,"Driver was punctual and polite",en
+T991819,E01702,4,"Cab samayakke bantu, chennagitru",kn
+T002784,E00566,4,"Driver was punctual and polite",en
+T002785,E00853,4,"Cab samay par aaya, driver acha tha",hi
+T002789,E00165,3,"Driver was punctual and polite",en
+T002790,E03594,5,"Driver samayaniki vachadu, baagundi",te
+T002792,E01074,3,"Driver was punctual and polite",en
+T002793,E01606,5,"Driver samayaniki vachadu, baagundi",te
+T002796,E02759,4,"Driver was punctual and polite",en
+T002798,E02078,5,"Vandi sariyana neratthil vanthathu",ta
+T002799,E01768,4,"Driver samayaniki vachadu, baagundi",te
+T002802,E03429,3,"Driver samayaniki vachadu, baagundi",te
+T002805,E01252,3,"Driver was punctual and polite",en
+T002809,E03521,1,"Waited forty minutes with no update",en
+T995933,E01838,5,"Driver samayaniki vachadu, baagundi",te
+T002811,E00208,1,"Waited forty minutes with no update",en
+T002813,E02939,5,"Driver was punctual and polite",en
+T002817,E00980,3,"Driver was punctual and polite",en
+T002823,E02529,5,"Driver was punctual and polite",en
+T002824,E02542,3,"Driver was punctual and polite",en
+T002827,E03390,3,"Driver samayaniki vachadu, baagundi",te
+T002828,E02482,3,"Cab samayakke bantu, chennagitru",kn
+T002830,E00240,4,"Driver was punctual and polite",en
+T002832,E01220,3,"Driver was punctual and polite",en
+T002834,E03033,4,"Cab samay par aaya, driver acha tha",hi
+T002836,E01336,4,"Driver samayaniki vachadu, baagundi",te
+T002837,E02502,3,"Driver was punctual and polite",en
+T002844,E02371,4,"Driver was punctual and polite",en
+T002850,E01813,1,"Waited forty minutes with no update",en
+T002852,E02735,4,"Driver was punctual and polite",en
+T002853,E00168,5,"Driver was punctual and polite",en
+T002855,E00473,3,"Driver was punctual and polite",en
+T002857,E02882,5,"Cab samayakke bantu, chennagitru",kn
+T991820,E01783,5,"Driver was punctual and polite",en
+T002859,E02018,4,"Vandi sariyana neratthil vanthathu",ta
+T002862,E00760,4,"Driver was punctual and polite",en
+T002863,E02810,4,"Driver was punctual and polite",en
+T002864,E01609,5,"Driver was punctual and polite",en
+T002866,E02258,3,"Driver was punctual and polite",en
+T002873,E02546,3,"Driver was punctual and polite",en
+T002875,E01572,4,"Driver was punctual and polite",en
+T002879,E01635,5,"Vandi sariyana neratthil vanthathu",ta
+T002885,E00323,4,"Driver was punctual and polite",en
+T002888,E01914,4,"Driver samayaniki vachadu, baagundi",te
+T002889,E02339,3,"Driver was punctual and polite",en
+T002892,E03528,4,"Vandi sariyana neratthil vanthathu",ta
+T002893,E00325,4,"Cab samayakke bantu, chennagitru",kn
+T002894,E02416,3,"Driver was punctual and polite",en
+T002901,E00672,1,"Waited forty minutes with no update",en
+T002902,E03700,4,"Driver was punctual and polite",en
+T002903,E03880,3,"Driver was punctual and polite",en
+T002904,E00992,4,"Vandi sariyana neratthil vanthathu",ta
+T002907,E02508,5,"Driver was punctual and polite",en
+T002908,E01707,4,"Driver was punctual and polite",en
+T002910,E02252,4,"Driver was punctual and polite",en
+T002914,E02607,5,"Cab samay par aaya, driver acha tha",hi
+T002915,E02830,5,"Vandi sariyana neratthil vanthathu",ta
+T002917,E02703,5,"Driver was punctual and polite",en
+T002924,E01789,4,"Driver was punctual and polite",en
+T991463,E03439,3,"Vandi sariyana neratthil vanthathu",ta
+T002930,E00152,3,"Cab samay par aaya, driver acha tha",hi
+T002943,E01000,4,"Driver was punctual and polite",en
+T002945,E02835,5,"Driver was punctual and polite",en
+T002946,E01548,3,"Driver was punctual and polite",en
+T002950,E00259,5,"Driver was punctual and polite",en
+T002954,E00217,3,"Driver samayaniki vachadu, baagundi",te
+T002957,E03723,4,"Driver was punctual and polite",en
+T002960,E03057,3,"Driver was punctual and polite",en
+T002961,E00573,3,"Driver was punctual and polite",en
+T002963,E03739,5,"Cab samayakke bantu, chennagitru",kn
+T002968,E00034,3,"Driver was punctual and polite",en
+T002972,E03209,4,"Driver was punctual and polite",en
+T002974,E03057,4,"Cab samay par aaya, driver acha tha",hi
+T002976,E01589,4,"Driver was punctual and polite",en
+T002977,E02323,3,"Driver was punctual and polite",en
+T002979,E02050,5,"Driver was punctual and polite",en
+T002982,E01607,3,"Driver was punctual and polite",en
+T002989,E01412,4,"Driver was punctual and polite",en
+T002991,E03258,4,"Vandi sariyana neratthil vanthathu",ta
+T002993,E02865,1,"Cab chala late ayindi, sammachaaram ledu",te
+T002996,E00939,1,"Waited forty minutes with no update",en
+T003002,E01489,3,"Cab samayakke bantu, chennagitru",kn
+T003003,E03305,4,"Driver was punctual and polite",en
+T003004,E01217,4,"Driver was punctual and polite",en
+T003007,E00418,3,"Vandi sariyana neratthil vanthathu",ta
+T003008,E00525,4,"Driver was punctual and polite",en
+T003012,E01324,3,"Driver samayaniki vachadu, baagundi",te
+T003015,E03388,4,"Cab samayakke bantu, chennagitru",kn
+T994484,E01341,4,"Driver was punctual and polite",en
+T003019,E02203,4,"Driver samayaniki vachadu, baagundi",te
+T003023,E00699,5,"Driver was punctual and polite",en
+T003027,E00235,3,"Driver was punctual and polite",en
+T003030,E03155,4,"Driver was punctual and polite",en
+T003032,E01140,3,"Driver samayaniki vachadu, baagundi",te
+T003034,E03252,3,"Cab samayakke bantu, chennagitru",kn
+T003035,E02920,4,"Driver was punctual and polite",en
+T003040,E02924,4,"Cab samay par aaya, driver acha tha",hi
+T003044,E03594,3,"Vandi sariyana neratthil vanthathu",ta
+T003048,E03586,3,"Driver was punctual and polite",en
+T003049,E00307,5,"Vandi sariyana neratthil vanthathu",ta
+T003052,E01652,4,"Driver was punctual and polite",en
+T003054,E01504,3,"Driver was punctual and polite",en
+T003057,E00946,3,"Driver was punctual and polite",en
+T003062,E03387,3,"Cab samayakke bantu, chennagitru",kn
+T003068,E03979,5,"Driver samayaniki vachadu, baagundi",te
+T003071,E03782,3,"Cab samayakke bantu, chennagitru",kn
+T003072,E01916,1,"Cab chala late ayindi, sammachaaram ledu",te
+T003075,E03002,3,"Driver was punctual and polite",en
+T003081,E00049,5,"Driver was punctual and polite",en
+T003082,E00112,3,"Cab samayakke bantu, chennagitru",kn
+T003083,E01079,3,"Vandi sariyana neratthil vanthathu",ta
+T003087,E02831,5,"Driver was punctual and polite",en
+T003089,E03586,3,"Driver was punctual and polite",en
+T003095,E01431,5,"Vandi sariyana neratthil vanthathu",ta
+T003096,E03495,4,"Driver was punctual and polite",en
+T003099,E00977,5,"Cab samay par aaya, driver acha tha",hi
+T003103,E00837,1,"Waited forty minutes with no update",en
+T003106,E02088,3,"Driver was punctual and polite",en
+T003111,E02874,4,"Cab samayakke bantu, chennagitru",kn
+T003112,E02026,4,"Driver was punctual and polite",en
+T003113,E02045,5,"Vandi sariyana neratthil vanthathu",ta
+T003115,E00605,3,"Driver was punctual and polite",en
+T003123,E00481,5,"Cab samayakke bantu, chennagitru",kn
+T003124,E03033,5,"Cab samay par aaya, driver acha tha",hi
+T003126,E00301,4,"Driver was punctual and polite",en
+T003130,E01152,3,"Driver was punctual and polite",en
+T003135,E03762,5,"Driver was punctual and polite",en
+T003138,E02634,4,"Driver was punctual and polite",en
+T003140,E02774,3,"Driver was punctual and polite",en
+T999157,E03511,5,"Driver was punctual and polite",en
+T003149,E02131,3,"Driver was punctual and polite",en
+T003156,E01143,2,"Vandi romba late, thagaval illai",ta
+T003157,E03155,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T003158,E02532,3,"Driver was punctual and polite",en
+T003159,E00696,5,"Vandi sariyana neratthil vanthathu",ta
+T003161,E03050,5,"Driver was punctual and polite",en
+T003168,E02655,5,"Cab samayakke bantu, chennagitru",kn
+T003169,E01796,4,"Cab samay par aaya, driver acha tha",hi
+T003171,E01459,3,"Vandi sariyana neratthil vanthathu",ta
+T003172,E00647,3,"Driver was punctual and polite",en
+T003175,E02855,4,"Driver was punctual and polite",en
+T991060,E01191,2,"Waited forty minutes with no update",en
+T003182,E03736,3,"Driver was punctual and polite",en
+T003183,E00159,5,"Driver was punctual and polite",en
+T998497,E00912,4,"Driver was punctual and polite",en
+T003196,E03101,4,"Driver was punctual and polite",en
+T003200,E00043,4,"Driver was punctual and polite",en
+T003201,E03751,3,"Driver was punctual and polite",en
+T003202,E02706,2,"Cab chala late ayindi, sammachaaram ledu",te
+T003206,E00807,5,"Driver was punctual and polite",en
+T003208,E00805,3,"Driver was punctual and polite",en
+T003209,E03476,4,"Driver samayaniki vachadu, baagundi",te
+T993856,E01695,3,"Vandi sariyana neratthil vanthathu",ta
+T003213,E01475,4,"Driver was punctual and polite",en
+T003215,E02230,5,"Driver was punctual and polite",en
+T003217,E01975,3,"Driver was punctual and polite",en
+T003218,E01148,3,"Driver was punctual and polite",en
+T994816,E03313,4,"Driver was punctual and polite",en
+T003220,E02889,4,"Driver was punctual and polite",en
+T003221,E01245,1,"Waited forty minutes with no update",en
+T003222,E03574,3,"Cab samay par aaya, driver acha tha",hi
+T003223,E00478,3,"Driver was punctual and polite",en
+T003226,E00841,3,"Driver samayaniki vachadu, baagundi",te
+T003228,E03880,5,"Driver was punctual and polite",en
+T003229,E00669,4,"Driver was punctual and polite",en
+T003230,E02576,4,"Vandi sariyana neratthil vanthathu",ta
+T003237,E02612,3,"Driver was punctual and polite",en
+T003239,E02587,5,"Driver was punctual and polite",en
+T003240,E01862,3,"Driver was punctual and polite",en
+T003255,E02994,5,"Driver was punctual and polite",en
+T003260,E01321,4,"Driver was punctual and polite",en
+T003270,E03546,4,"Cab samay par aaya, driver acha tha",hi
+T003273,E02258,5,"Driver was punctual and polite",en
+T003279,E01711,2,"Cab chala late ayindi, sammachaaram ledu",te
+T003283,E01037,4,"Driver samayaniki vachadu, baagundi",te
+T003285,E00328,3,"Driver samayaniki vachadu, baagundi",te
+T003290,E00433,3,"Driver samayaniki vachadu, baagundi",te
+T003293,E02863,5,"Driver was punctual and polite",en
+T003294,E03585,4,"Driver was punctual and polite",en
+T003295,E01715,5,"Vandi sariyana neratthil vanthathu",ta
+T003296,E02474,4,"Vandi sariyana neratthil vanthathu",ta
+T003300,E02937,2,"Waited forty minutes with no update",en
+T003302,E03946,3,"Driver was punctual and polite",en
+T003305,E02926,3,"Driver was punctual and polite",en
+T003310,E02416,3,"Cab samay par aaya, driver acha tha",hi
+T003315,E02200,5,"Driver was punctual and polite",en
+T003322,E00757,5,"Driver was punctual and polite",en
+T003325,E02564,4,"Driver was punctual and polite",en
+T003328,E00050,4,"Driver was punctual and polite",en
+T003338,E01869,2,"Cab chala late ayindi, sammachaaram ledu",te
+T003348,E00341,4,"Driver was punctual and polite",en
+T003353,E00230,3,"Vandi sariyana neratthil vanthathu",ta
+T003355,E00236,5,"Cab samay par aaya, driver acha tha",hi
+T998124,E00123,3,"Driver was punctual and polite",en
+T003357,E03521,3,"Driver samayaniki vachadu, baagundi",te
+T003360,E01547,4,"Driver was punctual and polite",en
+T992631,E02152,3,"Cab samay par aaya, driver acha tha",hi
+T003365,E01545,4,"Cab samayakke bantu, chennagitru",kn
+T003371,E01600,3,"Cab samay par aaya, driver acha tha",hi
+T003372,E00337,3,"Driver samayaniki vachadu, baagundi",te
+T003374,E01276,3,"Driver was punctual and polite",en
+T003376,E03908,3,"Driver samayaniki vachadu, baagundi",te
+T003377,E03252,3,"Driver was punctual and polite",en
+T003379,E00947,5,"Driver was punctual and polite",en
+T003380,E02301,3,"Driver was punctual and polite",en
+T003388,E00409,3,"Driver was punctual and polite",en
+T003389,E02415,3,"Driver was punctual and polite",en
+T003391,E02343,5,"Driver was punctual and polite",en
+T003395,E03584,4,"Driver was punctual and polite",en
+T003398,E01004,3,"Driver was punctual and polite",en
+T003402,E02776,3,"Cab samayakke bantu, chennagitru",kn
+T003405,E03944,4,"Cab samay par aaya, driver acha tha",hi
+T003406,E00186,5,"Driver was punctual and polite",en
+T003407,E01069,3,"Vandi sariyana neratthil vanthathu",ta
+T003409,E03996,4,"Driver was punctual and polite",en
+T003410,E03917,3,"Driver was punctual and polite",en
+T003411,E02246,3,"Cab samay par aaya, driver acha tha",hi
+T003413,E00777,2,"Vandi romba late, thagaval illai",ta
+T003414,E03137,4,"Driver samayaniki vachadu, baagundi",te
+T003415,E00858,5,"Cab samay par aaya, driver acha tha",hi
+T003421,E00270,4,"Driver samayaniki vachadu, baagundi",te
+T003425,E03572,4,"Driver was punctual and polite",en
+T003426,E03176,5,"Driver was punctual and polite",en
+T992781,E00794,5,"Vandi sariyana neratthil vanthathu",ta
+T003432,E02814,5,"Driver was punctual and polite",en
+T003433,E03165,4,"Driver was punctual and polite",en
+T992408,E03136,3,"Vandi sariyana neratthil vanthathu",ta
+T003438,E02645,3,"Cab samayakke bantu, chennagitru",kn
+T003442,E00529,1,"Waited forty minutes with no update",en
+T003444,E03154,5,"Driver was punctual and polite",en
+T003451,E00558,5,"Driver was punctual and polite",en
+T003464,E01219,3,"Cab samayakke bantu, chennagitru",kn
+T003465,E01688,5,"Driver was punctual and polite",en
+T003466,E03152,4,"Driver was punctual and polite",en
+T003467,E01421,3,"Driver was punctual and polite",en
+T003468,E00419,5,"Driver was punctual and polite",en
+T003469,E00313,5,"Driver was punctual and polite",en
+T003471,E00687,3,"Driver was punctual and polite",en
+T003473,E00257,4,"Driver was punctual and polite",en
+T003475,E00186,3,"Cab samayakke bantu, chennagitru",kn
+T003483,E01865,3,"Cab samayakke bantu, chennagitru",kn
+T003486,E03543,5,"Driver was punctual and polite",en
+T003487,E02215,3,"Driver samayaniki vachadu, baagundi",te
+T003489,E02775,5,"Cab samay par aaya, driver acha tha",hi
+T003494,E01660,1,"Cab chala late ayindi, sammachaaram ledu",te
+T003497,E02618,3,"Cab samayakke bantu, chennagitru",kn
+T003499,E02287,5,"Driver was punctual and polite",en
+T003501,E02190,4,"Driver was punctual and polite",en
+T003504,E01382,4,"Driver was punctual and polite",en
+T003505,E02642,4,"Cab samayakke bantu, chennagitru",kn
+T003509,E01662,5,"Driver was punctual and polite",en
+T003513,E01631,4,"Driver was punctual and polite",en
+T003517,E02395,4,"Driver was punctual and polite",en
+T003518,E02098,4,"Cab samay par aaya, driver acha tha",hi
+T003521,E03592,4,"Cab samayakke bantu, chennagitru",kn
+T003523,E01550,3,"Driver was punctual and polite",en
+T003529,E02131,4,"Driver was punctual and polite",en
+T003530,E00881,3,"Driver was punctual and polite",en
+T003533,E00500,4,"Driver samayaniki vachadu, baagundi",te
+T003534,E03237,5,"Driver was punctual and polite",en
+T003535,E01997,5,"Driver was punctual and polite",en
+T003536,E03530,5,"Cab samay par aaya, driver acha tha",hi
+T003537,E00319,4,"Vandi sariyana neratthil vanthathu",ta
+T003539,E03290,3,"Vandi sariyana neratthil vanthathu",ta
+T003542,E02426,2,"Waited forty minutes with no update",en
+T003546,E03748,3,"Driver was punctual and polite",en
+T003547,E00775,3,"Cab samayakke bantu, chennagitru",kn
+T003553,E03898,3,"Vandi sariyana neratthil vanthathu",ta
+T003569,E00559,3,"Driver was punctual and polite",en
+T003570,E03721,3,"Driver was punctual and polite",en
+T003571,E01958,3,"Driver was punctual and polite",en
+T003575,E00154,4,"Driver was punctual and polite",en
+T003581,E03941,3,"Vandi sariyana neratthil vanthathu",ta
+T003583,E03772,4,"Driver was punctual and polite",en
+T003584,E03691,5,"Driver was punctual and polite",en
+T003585,E01821,5,"Cab samayakke bantu, chennagitru",kn
+T003586,E03677,4,"Driver was punctual and polite",en
+T003591,E01512,3,"Cab samayakke bantu, chennagitru",kn
+T003592,E02139,4,"Driver samayaniki vachadu, baagundi",te
+T003593,E00815,3,"Driver was punctual and polite",en
+T003595,E02651,4,"Driver was punctual and polite",en
+T003597,E01528,5,"Driver samayaniki vachadu, baagundi",te
+T003609,E01719,4,"Cab samayakke bantu, chennagitru",kn
+T003610,E02234,3,"Driver was punctual and polite",en
+T999221,E03132,5,"Driver samayaniki vachadu, baagundi",te
+T003612,E02637,4,"Cab samayakke bantu, chennagitru",kn
+T003616,E02462,3,"Driver was punctual and polite",en
+T003617,E00321,4,"Cab samayakke bantu, chennagitru",kn
+T003618,E02045,3,"Driver was punctual and polite",en
+T003624,E00692,5,"Driver was punctual and polite",en
+T003625,E00920,3,"Driver was punctual and polite",en
+T003633,E01966,5,"Driver was punctual and polite",en
+T003635,E00547,5,"Driver was punctual and polite",en
+T003636,E02160,4,"Driver was punctual and polite",en
+T003637,E01543,4,"Driver samayaniki vachadu, baagundi",te
+T003639,E02121,4,"Driver was punctual and polite",en
+T003641,E00515,3,"Cab samayakke bantu, chennagitru",kn
+T003645,E00653,5,"Driver was punctual and polite",en
+T003646,E02325,4,"Cab samay par aaya, driver acha tha",hi
+T003647,E03902,5,"Driver was punctual and polite",en
+T003648,E02730,4,"Driver was punctual and polite",en
+T003653,E02471,5,"Driver was punctual and polite",en
+T003659,E01059,3,"Driver was punctual and polite",en
+T003660,E00596,4,"Driver was punctual and polite",en
+T003662,E00383,4,"Driver samayaniki vachadu, baagundi",te
+T003667,E01592,4,"Cab samayakke bantu, chennagitru",kn
+T003670,E02137,5,"Cab samayakke bantu, chennagitru",kn
+T003672,E01772,5,"Driver was punctual and polite",en
+T003674,E03768,4,"Driver was punctual and polite",en
+T003675,E00203,5,"Driver was punctual and polite",en
+T003678,E00464,5,"Driver was punctual and polite",en
+T003683,E02646,5,"Driver was punctual and polite",en
+T003684,E01646,3,"Cab samay par aaya, driver acha tha",hi
+T003688,E01025,5,"Driver was punctual and polite",en
+T999154,E00880,3,"Cab samayakke bantu, chennagitru",kn
+T003693,E01876,3,"Cab samayakke bantu, chennagitru",kn
+T003699,E00411,3,"Driver was punctual and polite",en
+T003701,E02488,3,"Driver was punctual and polite",en
+T003704,E02243,3,"Cab samay par aaya, driver acha tha",hi
+T003705,E03252,5,"Cab samay par aaya, driver acha tha",hi
+T003706,E00617,5,"Vandi sariyana neratthil vanthathu",ta
+T003709,E00053,4,"Driver samayaniki vachadu, baagundi",te
+T003712,E02636,3,"Cab samayakke bantu, chennagitru",kn
+T003713,E02920,4,"Driver samayaniki vachadu, baagundi",te
+T003715,E03028,5,"Driver was punctual and polite",en
+T003717,E00361,4,"Cab samayakke bantu, chennagitru",kn
+T003722,E03501,3,"Driver was punctual and polite",en
+T003723,E00358,5,"Driver was punctual and polite",en
+T003724,E00962,3,"Driver was punctual and polite",en
+T003725,E00332,3,"Cab samay par aaya, driver acha tha",hi
+T003726,E03363,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T003731,E01604,3,"Driver was punctual and polite",en
+T003734,E01050,4,"Driver was punctual and polite",en
+T003747,E01063,3,"Driver samayaniki vachadu, baagundi",te
+T003749,E00989,3,"Driver was punctual and polite",en
+T003753,E03178,4,"Vandi sariyana neratthil vanthathu",ta
+T003756,E01017,3,"Cab samay par aaya, driver acha tha",hi
+T003758,E03112,2,"Vandi romba late, thagaval illai",ta
+T003766,E01099,3,"Driver was punctual and polite",en
+T003770,E01250,5,"Driver was punctual and polite",en
+T003771,E02294,3,"Cab samay par aaya, driver acha tha",hi
+T003774,E02675,4,"Driver was punctual and polite",en
+T003775,E00422,3,"Driver was punctual and polite",en
+T003779,E03990,3,"Cab samay par aaya, driver acha tha",hi
+T003781,E01413,4,"Driver was punctual and polite",en
+T003783,E01592,2,"Waited forty minutes with no update",en
+T003786,E03575,3,"Cab samayakke bantu, chennagitru",kn
+T003789,E01741,3,"Driver was punctual and polite",en
+T003791,E03706,2,"Waited forty minutes with no update",en
+T003793,E01629,3,"Driver was punctual and polite",en
+T003795,E02713,3,"Vandi sariyana neratthil vanthathu",ta
+T003796,E03323,4,"Cab samayakke bantu, chennagitru",kn
+T003799,E02991,5,"Cab samay par aaya, driver acha tha",hi
+T003801,E01881,2,"Cab chala late ayindi, sammachaaram ledu",te
+T003813,E02175,3,"Cab samayakke bantu, chennagitru",kn
+T003814,E00026,3,"Vandi sariyana neratthil vanthathu",ta
+T003815,E00347,4,"Driver was punctual and polite",en
+T003828,E02732,4,"Driver was punctual and polite",en
+T003833,E02080,5,"Cab samayakke bantu, chennagitru",kn
+T003834,E01312,4,"Driver samayaniki vachadu, baagundi",te
+T003835,E01871,3,"Driver was punctual and polite",en
+T003846,E03613,5,"Cab samay par aaya, driver acha tha",hi
+T003847,E01369,3,"Vandi sariyana neratthil vanthathu",ta
+T003852,E00625,3,"Driver was punctual and polite",en
+T003853,E03155,5,"Vandi sariyana neratthil vanthathu",ta
+T003856,E03535,4,"Vandi sariyana neratthil vanthathu",ta
+T003860,E02536,4,"Driver was punctual and polite",en
+T003863,E01890,5,"Driver samayaniki vachadu, baagundi",te
+T003866,E02668,3,"Vandi sariyana neratthil vanthathu",ta
+T003868,E00188,4,"Driver samayaniki vachadu, baagundi",te
+T003870,E03848,4,"Driver was punctual and polite",en
+T003873,E00082,3,"Driver was punctual and polite",en
+T003874,E00430,3,"Driver was punctual and polite",en
+T992991,E01925,2,"Waited forty minutes with no update",en
+T003877,E01394,4,"Driver was punctual and polite",en
+T003888,E03812,4,"Cab samayakke bantu, chennagitru",kn
+T003889,E02413,5,"Driver samayaniki vachadu, baagundi",te
+T003890,E03960,5,"Driver was punctual and polite",en
+T003892,E03059,3,"Driver samayaniki vachadu, baagundi",te
+T003899,E00033,5,"Driver was punctual and polite",en
+T003901,E03949,3,"Vandi sariyana neratthil vanthathu",ta
+T003906,E01769,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T003908,E03160,4,"Cab samay par aaya, driver acha tha",hi
+T003909,E01441,5,"Vandi sariyana neratthil vanthathu",ta
+T003911,E02141,3,"Driver was punctual and polite",en
+T003913,E00004,3,"Driver was punctual and polite",en
+T003915,E01681,3,"Vandi sariyana neratthil vanthathu",ta
+T003919,E00100,4,"Driver was punctual and polite",en
+T003929,E02046,4,"Cab samay par aaya, driver acha tha",hi
+T003930,E02108,3,"Cab samayakke bantu, chennagitru",kn
+T003931,E03667,4,"Driver samayaniki vachadu, baagundi",te
+T003933,E02655,3,"Vandi sariyana neratthil vanthathu",ta
+T003935,E01633,3,"Driver was punctual and polite",en
+T003937,E01900,5,"Vandi sariyana neratthil vanthathu",ta
+T003940,E01625,4,"Vandi sariyana neratthil vanthathu",ta
+T003942,E02393,3,"Vandi sariyana neratthil vanthathu",ta
+T003945,E01610,5,"Driver was punctual and polite",en
+T003949,E02498,3,"Cab samayakke bantu, chennagitru",kn
+T003962,E02034,3,"Driver was punctual and polite",en
+T003963,E02492,4,"Driver was punctual and polite",en
+T003964,E03838,3,"Driver was punctual and polite",en
+T003966,E01080,4,"Driver was punctual and polite",en
+T003972,E01940,3,"Cab samay par aaya, driver acha tha",hi
+T003973,E00578,5,"Driver was punctual and polite",en
+T003977,E03739,3,"Driver samayaniki vachadu, baagundi",te
+T003979,E01242,3,"Driver was punctual and polite",en
+T003980,E01443,5,"Driver was punctual and polite",en
+T003984,E00853,4,"Driver samayaniki vachadu, baagundi",te
+T003986,E01095,3,"Vandi sariyana neratthil vanthathu",ta
+T003987,E01248,5,"Cab samay par aaya, driver acha tha",hi
+T003988,E01606,4,"Driver was punctual and polite",en
+T003989,E02690,5,"Driver was punctual and polite",en
+T003990,E03635,3,"Driver was punctual and polite",en
+T003992,E03225,5,"Cab samayakke bantu, chennagitru",kn
+T003994,E03003,3,"Driver was punctual and polite",en
+T003995,E03709,5,"Cab samayakke bantu, chennagitru",kn
+T003996,E01760,3,"Driver was punctual and polite",en
+T003997,E03334,3,"Driver was punctual and polite",en
+T004002,E01743,5,"Cab samayakke bantu, chennagitru",kn
+T004005,E01135,5,"Driver was punctual and polite",en
+T004007,E02887,5,"Vandi sariyana neratthil vanthathu",ta
+T004016,E02563,3,"Driver samayaniki vachadu, baagundi",te
+T004019,E00485,3,"Driver was punctual and polite",en
+T004020,E03924,5,"Cab samay par aaya, driver acha tha",hi
+T004021,E00878,5,"Driver was punctual and polite",en
+T004027,E03291,3,"Driver was punctual and polite",en
+T004033,E02995,4,"Driver samayaniki vachadu, baagundi",te
+T004036,E02562,4,"Driver was punctual and polite",en
+T004037,E01534,5,"Cab samay par aaya, driver acha tha",hi
+T004038,E00476,5,"Cab samayakke bantu, chennagitru",kn
+T004044,E03584,3,"Driver was punctual and polite",en
+T004046,E02364,4,"Cab samayakke bantu, chennagitru",kn
+T004063,E02603,4,"Driver was punctual and polite",en
+T004064,E01933,3,"Driver was punctual and polite",en
+T004067,E01533,3,"Driver was punctual and polite",en
+T004069,E01367,4,"Driver was punctual and polite",en
+T004075,E02806,5,"Driver was punctual and polite",en
+T004076,E03270,4,"Driver was punctual and polite",en
+T004079,E01038,3,"Vandi sariyana neratthil vanthathu",ta
+T004080,E03188,3,"Driver was punctual and polite",en
+T004081,E01866,3,"Driver was punctual and polite",en
+T004082,E03976,4,"Driver samayaniki vachadu, baagundi",te
+T004083,E00226,3,"Driver was punctual and polite",en
+T004084,E02747,3,"Driver was punctual and polite",en
+T004088,E00199,5,"Driver samayaniki vachadu, baagundi",te
+T004092,E01595,3,"Driver was punctual and polite",en
+T004093,E03940,4,"Driver was punctual and polite",en
+T004096,E02317,4,"Cab samay par aaya, driver acha tha",hi
+T004097,E03556,3,"Cab samay par aaya, driver acha tha",hi
+T004100,E02929,4,"Driver samayaniki vachadu, baagundi",te
+T004104,E01077,4,"Driver was punctual and polite",en
+T004106,E03076,4,"Driver samayaniki vachadu, baagundi",te
+T004112,E02119,3,"Driver was punctual and polite",en
+T004114,E01613,1,"Vandi romba late, thagaval illai",ta
+T004115,E01275,4,"Driver was punctual and polite",en
+T004119,E00661,3,"Cab samayakke bantu, chennagitru",kn
+T004121,E00130,4,"Driver was punctual and polite",en
+T004123,E02067,4,"Driver was punctual and polite",en
+T004124,E01555,3,"Cab samayakke bantu, chennagitru",kn
+T004130,E02454,4,"Driver was punctual and polite",en
+T004131,E03731,3,"Vandi sariyana neratthil vanthathu",ta
+T004132,E01194,2,"Waited forty minutes with no update",en
+T004138,E02273,4,"Driver was punctual and polite",en
+T004142,E00000,3,"Driver was punctual and polite",en
+T004143,E03641,5,"Cab samayakke bantu, chennagitru",kn
+T004144,E00540,3,"Driver samayaniki vachadu, baagundi",te
+T004145,E03233,4,"Driver was punctual and polite",en
+T004149,E01420,4,"Driver was punctual and polite",en
+T004158,E00424,4,"Driver samayaniki vachadu, baagundi",te
+T004162,E00938,4,"Driver samayaniki vachadu, baagundi",te
+T004164,E02377,3,"Driver was punctual and polite",en
+T004169,E01724,3,"Vandi sariyana neratthil vanthathu",ta
+T004170,E00328,4,"Vandi sariyana neratthil vanthathu",ta
+T004171,E00711,3,"Driver was punctual and polite",en
+T004174,E03133,4,"Cab samay par aaya, driver acha tha",hi
+T004176,E02176,4,"Driver was punctual and polite",en
+T004183,E00244,5,"Cab samay par aaya, driver acha tha",hi
+T004188,E01322,5,"Driver was punctual and polite",en
+T004192,E01581,5,"Driver samayaniki vachadu, baagundi",te
+T004194,E00540,5,"Driver samayaniki vachadu, baagundi",te
+T004196,E01480,3,"Driver was punctual and polite",en
+T004197,E03769,5,"Driver was punctual and polite",en
+T004200,E03855,3,"Driver was punctual and polite",en
+T004201,E01041,4,"Driver was punctual and polite",en
+T004202,E00821,3,"Driver was punctual and polite",en
+T004203,E02904,4,"Driver was punctual and polite",en
+T004207,E00157,3,"Driver was punctual and polite",en
+T004208,E03817,3,"Cab samay par aaya, driver acha tha",hi
+T004211,E02039,3,"Driver was punctual and polite",en
+T004212,E01514,3,"Driver was punctual and polite",en
+T990438,E02632,5,"Driver was punctual and polite",en
+T004216,E03434,3,"Cab samay par aaya, driver acha tha",hi
+T004219,E00514,3,"Driver was punctual and polite",en
+T004221,E02319,3,"Driver was punctual and polite",en
+T004224,E00561,3,"Driver was punctual and polite",en
+T004225,E00879,4,"Driver was punctual and polite",en
+T004227,E01086,3,"Driver samayaniki vachadu, baagundi",te
+T004236,E00341,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T004245,E03642,1,"Vandi romba late, thagaval illai",ta
+T004246,E03342,3,"Cab samay par aaya, driver acha tha",hi
+T004247,E00362,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T004250,E03178,4,"Driver was punctual and polite",en
+T004257,E03918,3,"Cab samayakke bantu, chennagitru",kn
+T004258,E03118,5,"Driver was punctual and polite",en
+T004259,E02701,4,"Driver was punctual and polite",en
+T004260,E02896,3,"Driver was punctual and polite",en
+T004264,E03454,3,"Driver was punctual and polite",en
+T004267,E02723,2,"Waited forty minutes with no update",en
+T004268,E03195,3,"Cab samay par aaya, driver acha tha",hi
+T004271,E03325,4,"Driver was punctual and polite",en
+T004272,E00423,4,"Cab samayakke bantu, chennagitru",kn
+T004276,E02809,3,"Driver was punctual and polite",en
+T004278,E03634,5,"Driver was punctual and polite",en
+T004283,E00799,3,"Driver samayaniki vachadu, baagundi",te
+T004285,E00864,3,"Vandi sariyana neratthil vanthathu",ta
+T004287,E00928,5,"Cab samayakke bantu, chennagitru",kn
+T004292,E02366,3,"Driver was punctual and polite",en
+T004297,E00848,4,"Driver was punctual and polite",en
+T004308,E00221,4,"Driver was punctual and polite",en
+T004309,E02727,4,"Driver was punctual and polite",en
+T004313,E02274,3,"Driver was punctual and polite",en
+T004315,E00240,4,"Driver samayaniki vachadu, baagundi",te
+T004317,E00922,5,"Driver was punctual and polite",en
+T004318,E03638,5,"Vandi sariyana neratthil vanthathu",ta
+T004321,E01695,4,"Driver was punctual and polite",en
+T004328,E01218,3,"Driver was punctual and polite",en
+T004330,E01498,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T996589,E02709,3,"Driver was punctual and polite",en
+T004334,E03211,5,"Driver was punctual and polite",en
+T004335,E03998,3,"Cab samay par aaya, driver acha tha",hi
+T004340,E01461,3,"Cab samayakke bantu, chennagitru",kn
+T004347,E00871,3,"Driver was punctual and polite",en
+T004349,E01601,3,"Driver was punctual and polite",en
+T004350,E03816,3,"Driver was punctual and polite",en
+T004352,E00993,3,"Cab samay par aaya, driver acha tha",hi
+T004359,E00349,2,"Waited forty minutes with no update",en
+T004362,E02493,4,"Driver was punctual and polite",en
+T004364,E00378,5,"Driver was punctual and polite",en
+T004365,E03475,3,"Driver was punctual and polite",en
+T004366,E00385,4,"Cab samayakke bantu, chennagitru",kn
+T004370,E02177,3,"Driver was punctual and polite",en
+T004376,E03847,4,"Cab samayakke bantu, chennagitru",kn
+T004378,E00395,4,"Driver was punctual and polite",en
+T004380,E01697,5,"Driver samayaniki vachadu, baagundi",te
+T004381,E00416,5,"Driver was punctual and polite",en
+T004383,E02578,5,"Driver was punctual and polite",en
+T004386,E01284,5,"Driver was punctual and polite",en
+T004389,E01876,4,"Driver was punctual and polite",en
+T004390,E02479,2,"Waited forty minutes with no update",en
+T004398,E01943,3,"Cab samayakke bantu, chennagitru",kn
+T993671,E01751,4,"Cab samay par aaya, driver acha tha",hi
+T004409,E01513,3,"Driver was punctual and polite",en
+T004415,E00258,3,"Cab samay par aaya, driver acha tha",hi
+T004416,E00795,1,"Vandi romba late, thagaval illai",ta
+T004420,E02395,3,"Driver was punctual and polite",en
+T004421,E03572,5,"Cab samay par aaya, driver acha tha",hi
+T004425,E02368,3,"Driver was punctual and polite",en
+T004429,E03808,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T004432,E03471,3,"Driver was punctual and polite",en
+T004433,E02149,4,"Driver was punctual and polite",en
+T004440,E00110,4,"Driver was punctual and polite",en
+T004443,E01531,5,"Driver was punctual and polite",en
+T004446,E03730,1,"Waited forty minutes with no update",en
+T004447,E02912,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T004449,E02681,3,"Driver was punctual and polite",en
+T004459,E02675,3,"Vandi sariyana neratthil vanthathu",ta
+T004462,E01895,5,"Driver was punctual and polite",en
+T004464,E02670,1,"Waited forty minutes with no update",en
+T004472,E00894,3,"Driver was punctual and polite",en
+T004475,E02050,3,"Driver samayaniki vachadu, baagundi",te
+T004478,E00682,3,"Driver was punctual and polite",en
+T004482,E01771,3,"Vandi sariyana neratthil vanthathu",ta
+T004483,E00224,3,"Vandi sariyana neratthil vanthathu",ta
+T004484,E01815,5,"Driver was punctual and polite",en
+T004485,E03496,5,"Driver was punctual and polite",en
+T004487,E03244,5,"Cab samayakke bantu, chennagitru",kn
+T004491,E00330,5,"Driver samayaniki vachadu, baagundi",te
+T004495,E00451,5,"Driver was punctual and polite",en
+T004497,E02887,4,"Driver was punctual and polite",en
+T004498,E00885,5,"Driver samayaniki vachadu, baagundi",te
+T004506,E01125,5,"Driver was punctual and polite",en
+T004507,E00290,3,"Driver samayaniki vachadu, baagundi",te
+T004511,E03741,3,"Cab samayakke bantu, chennagitru",kn
+T004512,E00767,4,"Driver samayaniki vachadu, baagundi",te
+T004514,E02347,3,"Driver was punctual and polite",en
+T004515,E01658,3,"Driver was punctual and polite",en
+T004516,E01489,5,"Cab samayakke bantu, chennagitru",kn
+T004519,E01661,3,"Driver was punctual and polite",en
+T004521,E02385,5,"Driver was punctual and polite",en
+T004525,E02129,5,"Driver was punctual and polite",en
+T004533,E00359,5,"Driver was punctual and polite",en
+T995928,E01644,3,"Cab samay par aaya, driver acha tha",hi
+T004542,E01383,1,"Vandi romba late, thagaval illai",ta
+T991661,E00432,4,"Driver samayaniki vachadu, baagundi",te
+T004544,E00068,4,"Driver was punctual and polite",en
+T004545,E01881,5,"Driver samayaniki vachadu, baagundi",te
+T004547,E00396,4,"Cab samay par aaya, driver acha tha",hi
+T004548,E00987,3,"Vandi sariyana neratthil vanthathu",ta
+T004549,E02312,5,"Driver was punctual and polite",en
+T004550,E02484,5,"Driver was punctual and polite",en
+T004551,E03218,5,"Vandi sariyana neratthil vanthathu",ta
+T004552,E02367,2,"Waited forty minutes with no update",en
+T004559,E00672,5,"Driver was punctual and polite",en
+T004566,E03216,3,"Vandi sariyana neratthil vanthathu",ta
+T004570,E00773,5,"Driver was punctual and polite",en
+T004572,E00147,4,"Driver was punctual and polite",en
+T004575,E01966,5,"Cab samayakke bantu, chennagitru",kn
+T004576,E00876,4,"Driver was punctual and polite",en
+T004579,E00393,3,"Driver samayaniki vachadu, baagundi",te
+T004580,E03352,4,"Driver was punctual and polite",en
+T004582,E03389,5,"Cab samayakke bantu, chennagitru",kn
+T004589,E02230,3,"Driver was punctual and polite",en
+T004592,E00854,4,"Driver was punctual and polite",en
+T004598,E02394,3,"Vandi sariyana neratthil vanthathu",ta
+T004600,E02629,5,"Vandi sariyana neratthil vanthathu",ta
+T004601,E02454,3,"Driver was punctual and polite",en
+T004606,E02838,3,"Driver was punctual and polite",en
+T004608,E01166,5,"Driver samayaniki vachadu, baagundi",te
+T004610,E02338,3,"Driver samayaniki vachadu, baagundi",te
+T004614,E00044,5,"Driver samayaniki vachadu, baagundi",te
+T004617,E02704,5,"Driver was punctual and polite",en
+T004618,E03276,3,"Driver was punctual and polite",en
+T004621,E02736,4,"Vandi sariyana neratthil vanthathu",ta
+T004624,E02349,3,"Driver was punctual and polite",en
+T004625,E03860,4,"Driver was punctual and polite",en
+T004627,E01631,5,"Driver was punctual and polite",en
+T004630,E00047,5,"Driver was punctual and polite",en
+T004631,E00383,4,"Driver was punctual and polite",en
+T004636,E03217,3,"Driver was punctual and polite",en
+T004641,E03283,3,"Driver was punctual and polite",en
+T004643,E00004,5,"Cab samayakke bantu, chennagitru",kn
+T004644,E02980,4,"Driver was punctual and polite",en
+T004645,E01660,4,"Driver was punctual and polite",en
+T004654,E00781,5,"Driver was punctual and polite",en
+T004656,E02428,3,"Driver was punctual and polite",en
+T004658,E03227,4,"Vandi sariyana neratthil vanthathu",ta
+T004664,E01916,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T004668,E03389,4,"Vandi sariyana neratthil vanthathu",ta
+T004671,E00232,3,"Driver samayaniki vachadu, baagundi",te
+T004673,E00566,3,"Driver samayaniki vachadu, baagundi",te
+T004674,E03147,3,"Driver samayaniki vachadu, baagundi",te
+T004675,E00199,4,"Driver was punctual and polite",en
+T004676,E01444,3,"Driver was punctual and polite",en
+T004678,E00767,3,"Driver was punctual and polite",en
+T004682,E03932,3,"Driver was punctual and polite",en
+T004683,E00162,3,"Driver was punctual and polite",en
+T004684,E01430,3,"Cab samayakke bantu, chennagitru",kn
+T004685,E03359,4,"Driver was punctual and polite",en
+T004687,E00674,4,"Driver was punctual and polite",en
+T004691,E00096,5,"Cab samayakke bantu, chennagitru",kn
+T004697,E03750,4,"Cab samay par aaya, driver acha tha",hi
+T004700,E01966,3,"Driver was punctual and polite",en
+T004701,E02547,4,"Cab samay par aaya, driver acha tha",hi
+T004707,E00865,3,"Driver was punctual and polite",en
+T004709,E03252,4,"Driver was punctual and polite",en
+T004714,E00926,5,"Driver was punctual and polite",en
+T004715,E01750,4,"Cab samayakke bantu, chennagitru",kn
+T004728,E02063,4,"Driver was punctual and polite",en
+T004733,E03924,5,"Driver was punctual and polite",en
+T004735,E01157,4,"Cab samay par aaya, driver acha tha",hi
+T004737,E02541,3,"Vandi sariyana neratthil vanthathu",ta
+T004738,E00686,3,"Cab samayakke bantu, chennagitru",kn
+T004744,E00763,5,"Driver samayaniki vachadu, baagundi",te
+T994811,E00336,4,"Cab samayakke bantu, chennagitru",kn
+T004752,E00358,3,"Driver was punctual and polite",en
+T004754,E02585,2,"Waited forty minutes with no update",en
+T004755,E02575,5,"Cab samayakke bantu, chennagitru",kn
+T004756,E00693,5,"Driver was punctual and polite",en
+T004757,E01535,4,"Driver was punctual and polite",en
+T004759,E01364,4,"Vandi sariyana neratthil vanthathu",ta
+T004763,E00564,3,"Driver was punctual and polite",en
+T004769,E03224,3,"Driver was punctual and polite",en
+T004774,E00790,4,"Cab samayakke bantu, chennagitru",kn
+T004776,E00409,5,"Driver was punctual and polite",en
+T004777,E00783,4,"Cab samayakke bantu, chennagitru",kn
+T004778,E01707,3,"Driver was punctual and polite",en
+T004779,E03764,5,"Cab samayakke bantu, chennagitru",kn
+T004780,E02429,5,"Cab samayakke bantu, chennagitru",kn
+T004786,E02300,5,"Cab samay par aaya, driver acha tha",hi
+T004790,E03331,4,"Driver was punctual and polite",en
+T004794,E02657,4,"Vandi sariyana neratthil vanthathu",ta
+T004796,E02440,5,"Driver was punctual and polite",en
+T004797,E02757,5,"Driver was punctual and polite",en
+T004800,E03777,5,"Driver was punctual and polite",en
+T004801,E03845,3,"Vandi sariyana neratthil vanthathu",ta
+T004802,E01583,5,"Driver samayaniki vachadu, baagundi",te
+T004807,E02109,3,"Driver was punctual and polite",en
+T004810,E03821,4,"Cab samay par aaya, driver acha tha",hi
+T004812,E01505,4,"Vandi sariyana neratthil vanthathu",ta
+T004814,E02299,1,"Vandi romba late, thagaval illai",ta
+T004816,E01114,4,"Driver was punctual and polite",en
+T004818,E03413,5,"Cab samay par aaya, driver acha tha",hi
+T004822,E03519,5,"Cab samayakke bantu, chennagitru",kn
+T991282,E01223,5,"Driver was punctual and polite",en
+T004828,E01211,3,"Vandi sariyana neratthil vanthathu",ta
+T004829,E02352,5,"Driver was punctual and polite",en
+T004839,E01798,4,"Vandi sariyana neratthil vanthathu",ta
+T004840,E00210,3,"Driver was punctual and polite",en
+T004843,E03242,4,"Cab samayakke bantu, chennagitru",kn
+T004846,E02259,3,"Cab samayakke bantu, chennagitru",kn
+T004851,E03867,5,"Driver was punctual and polite",en
+T004852,E03499,3,"Driver was punctual and polite",en
+T004857,E00780,4,"Driver was punctual and polite",en
+T004858,E02193,3,"Driver was punctual and polite",en
+T004867,E01601,4,"Driver was punctual and polite",en
+T004868,E01727,4,"Driver was punctual and polite",en
+T004870,E02163,4,"Driver samayaniki vachadu, baagundi",te
+T004871,E01069,3,"Cab samay par aaya, driver acha tha",hi
+T004873,E02023,3,"Driver was punctual and polite",en
+T004874,E01862,3,"Driver was punctual and polite",en
+T004875,E03933,3,"Driver was punctual and polite",en
+T997789,E00979,3,"Cab samayakke bantu, chennagitru",kn
+T004879,E02360,4,"Driver samayaniki vachadu, baagundi",te
+T004881,E01026,2,"Waited forty minutes with no update",en
+T004883,E00428,4,"Driver was punctual and polite",en
+T004884,E00449,3,"Cab samayakke bantu, chennagitru",kn
+T004893,E00659,4,"Driver was punctual and polite",en
+T004896,E01730,5,"Driver was punctual and polite",en
+T004899,E03455,4,"Driver was punctual and polite",en
+T004907,E00059,5,"Cab samayakke bantu, chennagitru",kn
+T004910,E02215,5,"Driver was punctual and polite",en
+T004911,E01947,3,"Driver was punctual and polite",en
+T004913,E02253,3,"Driver was punctual and polite",en
+T004921,E03981,4,"Driver was punctual and polite",en
+T004922,E02113,5,"Driver was punctual and polite",en
+T004926,E02337,4,"Driver was punctual and polite",en
+T004929,E02086,4,"Driver was punctual and polite",en
+T004943,E03079,5,"Cab samayakke bantu, chennagitru",kn
+T004944,E00730,3,"Driver was punctual and polite",en
+T004947,E02114,5,"Cab samayakke bantu, chennagitru",kn
+T004949,E00388,3,"Driver was punctual and polite",en
+T004953,E00672,4,"Driver was punctual and polite",en
+T004956,E01574,5,"Driver was punctual and polite",en
+T004958,E02221,3,"Cab samay par aaya, driver acha tha",hi
+T004968,E03620,3,"Driver samayaniki vachadu, baagundi",te
+T004970,E02388,3,"Vandi sariyana neratthil vanthathu",ta
+T004973,E01403,4,"Driver was punctual and polite",en
+T004976,E01186,4,"Driver was punctual and polite",en
+T004982,E00469,3,"Driver samayaniki vachadu, baagundi",te
+T004990,E03429,4,"Driver samayaniki vachadu, baagundi",te
+T004991,E02534,5,"Cab samayakke bantu, chennagitru",kn
+T004992,E03591,4,"Vandi sariyana neratthil vanthathu",ta
+T004994,E01023,3,"Driver was punctual and polite",en
+T004997,E03575,3,"Cab samay par aaya, driver acha tha",hi
+T004999,E00005,3,"Driver was punctual and polite",en
+T005001,E03981,4,"Cab samayakke bantu, chennagitru",kn
+T005004,E02707,5,"Cab samayakke bantu, chennagitru",kn
+T005006,E01648,4,"Driver was punctual and polite",en
+T005007,E01993,4,"Driver samayaniki vachadu, baagundi",te
+T005014,E00478,3,"Driver was punctual and polite",en
+T005015,E01968,4,"Driver was punctual and polite",en
+T005016,E00163,1,"Vandi romba late, thagaval illai",ta
+T005018,E02420,5,"Driver was punctual and polite",en
+T005021,E00354,5,"Driver was punctual and polite",en
+T005022,E02050,3,"Driver was punctual and polite",en
+T005024,E02043,5,"Driver was punctual and polite",en
+T005027,E00751,3,"Vandi sariyana neratthil vanthathu",ta
+T005028,E01182,3,"Driver samayaniki vachadu, baagundi",te
+T005030,E03847,4,"Driver was punctual and polite",en
+T005031,E01202,4,"Cab samayakke bantu, chennagitru",kn
+T005032,E01880,3,"Driver was punctual and polite",en
+T005037,E03423,5,"Vandi sariyana neratthil vanthathu",ta
+T005039,E01134,5,"Cab samayakke bantu, chennagitru",kn
+T005040,E02489,3,"Cab samayakke bantu, chennagitru",kn
+T990233,E02119,2,"Vandi romba late, thagaval illai",ta
+T005043,E00592,3,"Driver was punctual and polite",en
+T005049,E03151,3,"Driver was punctual and polite",en
+T993063,E02254,4,"Cab samay par aaya, driver acha tha",hi
+T005061,E02447,3,"Cab samayakke bantu, chennagitru",kn
+T005062,E00131,4,"Driver was punctual and polite",en
+T005069,E01691,5,"Driver samayaniki vachadu, baagundi",te
+T005070,E03487,3,"Cab samay par aaya, driver acha tha",hi
+T005079,E00677,5,"Driver was punctual and polite",en
+T005080,E00313,5,"Cab samay par aaya, driver acha tha",hi
+T005082,E03077,5,"Driver was punctual and polite",en
+T005083,E01291,5,"Driver was punctual and polite",en
+T005084,E00899,5,"Cab samayakke bantu, chennagitru",kn
+T005090,E00775,5,"Driver was punctual and polite",en
+T005098,E00327,3,"Driver was punctual and polite",en
+T005107,E00814,4,"Vandi sariyana neratthil vanthathu",ta
+T005110,E00825,5,"Driver samayaniki vachadu, baagundi",te
+T005113,E00190,4,"Cab samay par aaya, driver acha tha",hi
+T005115,E03610,3,"Driver was punctual and polite",en
+T005119,E02415,5,"Driver was punctual and polite",en
+T005121,E03484,4,"Driver was punctual and polite",en
+T005122,E02090,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T005124,E00195,3,"Cab samay par aaya, driver acha tha",hi
+T005127,E03082,3,"Vandi sariyana neratthil vanthathu",ta
+T005131,E00613,5,"Driver was punctual and polite",en
+T005134,E00764,4,"Vandi sariyana neratthil vanthathu",ta
+T005136,E03909,4,"Driver was punctual and polite",en
+T005145,E01321,3,"Driver was punctual and polite",en
+T005146,E02760,3,"Cab samay par aaya, driver acha tha",hi
+T005153,E02847,5,"Cab samayakke bantu, chennagitru",kn
+T005168,E00598,3,"Driver samayaniki vachadu, baagundi",te
+T005170,E03072,3,"Driver was punctual and polite",en
+T005173,E01251,5,"Driver was punctual and polite",en
+T005174,E02714,5,"Driver samayaniki vachadu, baagundi",te
+T005175,E01650,4,"Driver was punctual and polite",en
+T005179,E02936,3,"Driver was punctual and polite",en
+T005181,E00650,1,"Waited forty minutes with no update",en
+T005191,E01780,3,"Vandi sariyana neratthil vanthathu",ta
+T005193,E02568,5,"Driver was punctual and polite",en
+T005198,E01747,4,"Driver was punctual and polite",en
+T005200,E00274,2,"Waited forty minutes with no update",en
+T005204,E03326,5,"Driver was punctual and polite",en
+T005209,E02394,5,"Driver was punctual and polite",en
+T005212,E03519,5,"Cab samay par aaya, driver acha tha",hi
+T005213,E02767,3,"Driver was punctual and polite",en
+T005217,E01568,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T005219,E02292,1,"Waited forty minutes with no update",en
+T005221,E02408,5,"Driver was punctual and polite",en
+T005223,E01182,3,"Driver was punctual and polite",en
+T005225,E01627,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T005230,E00808,5,"Driver was punctual and polite",en
+T005232,E03688,5,"Driver was punctual and polite",en
+T005233,E01252,4,"Driver was punctual and polite",en
+T005234,E01670,3,"Cab samayakke bantu, chennagitru",kn
+T005235,E02017,5,"Cab samay par aaya, driver acha tha",hi
+T005239,E02500,3,"Driver was punctual and polite",en
+T005240,E00904,5,"Driver was punctual and polite",en
+T005242,E01926,3,"Driver was punctual and polite",en
+T994832,E03445,5,"Vandi sariyana neratthil vanthathu",ta
+T005244,E01190,5,"Cab samay par aaya, driver acha tha",hi
+T005246,E00676,5,"Cab samay par aaya, driver acha tha",hi
+T005248,E00278,5,"Driver was punctual and polite",en
+T005249,E01327,3,"Driver was punctual and polite",en
+T005251,E03665,4,"Driver was punctual and polite",en
+T005253,E02067,4,"Driver was punctual and polite",en
+T005256,E00949,3,"Driver samayaniki vachadu, baagundi",te
+T991537,E03056,3,"Driver was punctual and polite",en
+T005261,E02688,3,"Driver samayaniki vachadu, baagundi",te
+T005275,E01767,4,"Cab samayakke bantu, chennagitru",kn
+T005278,E03413,4,"Cab samay par aaya, driver acha tha",hi
+T005279,E03300,5,"Cab samay par aaya, driver acha tha",hi
+T005282,E01299,4,"Driver was punctual and polite",en
+T005285,E01640,5,"Driver was punctual and polite",en
+T005287,E01564,4,"Driver was punctual and polite",en
+T005290,E01204,3,"Driver was punctual and polite",en
+T005293,E03157,4,"Cab samay par aaya, driver acha tha",hi
+T005296,E00664,3,"Cab samayakke bantu, chennagitru",kn
+T005300,E00625,3,"Driver samayaniki vachadu, baagundi",te
+T005302,E02882,5,"Driver was punctual and polite",en
+T005304,E01096,4,"Driver was punctual and polite",en
+T005305,E00538,5,"Driver was punctual and polite",en
+T005306,E02490,3,"Driver was punctual and polite",en
+T005308,E03151,5,"Cab samay par aaya, driver acha tha",hi
+T005309,E00272,4,"Cab samayakke bantu, chennagitru",kn
+T996936,E00323,5,"Cab samayakke bantu, chennagitru",kn
+T005311,E03778,3,"Cab samayakke bantu, chennagitru",kn
+T005313,E01387,5,"Driver was punctual and polite",en
+T005314,E01611,3,"Driver was punctual and polite",en
+T005318,E03874,5,"Cab samayakke bantu, chennagitru",kn
+T005324,E00727,4,"Driver was punctual and polite",en
+T005325,E01276,4,"Driver samayaniki vachadu, baagundi",te
+T005326,E01782,3,"Vandi sariyana neratthil vanthathu",ta
+T005331,E02869,4,"Vandi sariyana neratthil vanthathu",ta
+T005332,E02884,5,"Cab samay par aaya, driver acha tha",hi
+T005334,E01665,3,"Driver was punctual and polite",en
+T005337,E03391,3,"Driver was punctual and polite",en
+T005338,E03709,2,"Waited forty minutes with no update",en
+T005340,E02133,5,"Driver was punctual and polite",en
+T005342,E02781,4,"Driver was punctual and polite",en
+T005349,E00943,2,"Cab chala late ayindi, sammachaaram ledu",te
+T005350,E02030,5,"Driver was punctual and polite",en
+T005354,E03639,4,"Driver was punctual and polite",en
+T005355,E02337,3,"Driver was punctual and polite",en
+T005358,E03771,3,"Vandi sariyana neratthil vanthathu",ta
+T005359,E01549,5,"Driver was punctual and polite",en
+T005360,E01129,4,"Driver was punctual and polite",en
+T005361,E02428,4,"Driver samayaniki vachadu, baagundi",te
+T005365,E02729,2,"Waited forty minutes with no update",en
+T005368,E00426,3,"Driver was punctual and polite",en
+T005375,E02593,5,"Cab samayakke bantu, chennagitru",kn
+T005376,E01954,5,"Driver was punctual and polite",en
+T005378,E02254,3,"Driver was punctual and polite",en
+T005379,E02522,5,"Driver was punctual and polite",en
+T005381,E02868,4,"Driver was punctual and polite",en
+T005382,E03119,4,"Driver was punctual and polite",en
+T005385,E01231,3,"Driver was punctual and polite",en
+T005386,E02081,3,"Vandi sariyana neratthil vanthathu",ta
+T005387,E01151,5,"Driver was punctual and polite",en
+T005389,E00316,4,"Driver was punctual and polite",en
+T005390,E00134,3,"Driver was punctual and polite",en
+T005393,E00575,1,"Waited forty minutes with no update",en
+T005394,E00233,5,"Cab samay par aaya, driver acha tha",hi
+T005402,E00711,3,"Driver samayaniki vachadu, baagundi",te
+T005406,E00762,5,"Driver was punctual and polite",en
+T005407,E03892,5,"Cab samay par aaya, driver acha tha",hi
+T005409,E01167,4,"Driver was punctual and polite",en
+T005414,E01281,5,"Cab samayakke bantu, chennagitru",kn
+T005418,E01713,5,"Cab samay par aaya, driver acha tha",hi
+T005419,E03748,5,"Cab samayakke bantu, chennagitru",kn
+T005420,E03747,4,"Driver was punctual and polite",en
+T005422,E02486,1,"Cab chala late ayindi, sammachaaram ledu",te
+T005428,E02193,5,"Cab samayakke bantu, chennagitru",kn
+T005429,E00123,4,"Driver was punctual and polite",en
+T005433,E03000,4,"Driver was punctual and polite",en
+T005436,E03607,4,"Vandi sariyana neratthil vanthathu",ta
+T005438,E02926,1,"Waited forty minutes with no update",en
+T005442,E00652,5,"Cab samayakke bantu, chennagitru",kn
+T005444,E03314,4,"Driver was punctual and polite",en
+T005447,E00486,3,"Driver was punctual and polite",en
+T005449,E00535,5,"Vandi sariyana neratthil vanthathu",ta
+T005452,E00761,4,"Driver was punctual and polite",en
+T005453,E01375,1,"Waited forty minutes with no update",en
+T005456,E01059,2,"Waited forty minutes with no update",en
+T005457,E03162,5,"Driver was punctual and polite",en
+T005459,E00098,4,"Driver was punctual and polite",en
+T005463,E02120,4,"Driver was punctual and polite",en
+T005465,E00862,5,"Cab samay par aaya, driver acha tha",hi
+T005466,E03568,3,"Cab samay par aaya, driver acha tha",hi
+T005470,E03483,2,"Waited forty minutes with no update",en
+T005474,E03970,4,"Cab samay par aaya, driver acha tha",hi
+T005477,E01007,4,"Driver was punctual and polite",en
+T005479,E01213,3,"Driver was punctual and polite",en
+T005481,E00717,4,"Driver was punctual and polite",en
+T005498,E03111,4,"Cab samayakke bantu, chennagitru",kn
+T005499,E02609,4,"Driver was punctual and polite",en
+T005500,E02790,3,"Vandi sariyana neratthil vanthathu",ta
+T005503,E02366,4,"Driver was punctual and polite",en
+T005506,E03021,1,"Waited forty minutes with no update",en
+T005508,E01710,3,"Driver was punctual and polite",en
+T005510,E00158,3,"Cab samayakke bantu, chennagitru",kn
+T005511,E01078,4,"Cab samay par aaya, driver acha tha",hi
+T005512,E00916,3,"Driver was punctual and polite",en
+T005518,E00901,5,"Driver was punctual and polite",en
+T005519,E03080,3,"Driver was punctual and polite",en
+T005522,E01556,5,"Cab samayakke bantu, chennagitru",kn
+T005525,E03337,5,"Driver was punctual and polite",en
+T992970,E00666,4,"Driver samayaniki vachadu, baagundi",te
+T005531,E03998,3,"Driver was punctual and polite",en
+T005537,E02209,3,"Cab samayakke bantu, chennagitru",kn
+T005539,E03887,3,"Driver was punctual and polite",en
+T005546,E03011,5,"Vandi sariyana neratthil vanthathu",ta
+T005552,E00623,5,"Driver samayaniki vachadu, baagundi",te
+T005561,E02974,3,"Vandi sariyana neratthil vanthathu",ta
+T005562,E03868,3,"Driver was punctual and polite",en
+T005564,E03740,5,"Cab samayakke bantu, chennagitru",kn
+T005565,E02209,3,"Cab samayakke bantu, chennagitru",kn
+T005567,E03769,3,"Driver samayaniki vachadu, baagundi",te
+T005570,E00489,4,"Driver was punctual and polite",en
+T005573,E03486,3,"Driver was punctual and polite",en
+T005588,E03791,3,"Driver was punctual and polite",en
+T005590,E01988,4,"Driver was punctual and polite",en
+T005593,E00446,5,"Driver was punctual and polite",en
+T005595,E02923,3,"Driver was punctual and polite",en
+T005597,E02987,4,"Driver was punctual and polite",en
+T005599,E00076,3,"Cab samay par aaya, driver acha tha",hi
+T005603,E02748,4,"Driver was punctual and polite",en
+T005606,E03622,4,"Vandi sariyana neratthil vanthathu",ta
+T005610,E02975,3,"Cab samayakke bantu, chennagitru",kn
+T005611,E03293,3,"Vandi sariyana neratthil vanthathu",ta
+T005614,E01431,4,"Driver samayaniki vachadu, baagundi",te
+T005622,E02752,4,"Cab samay par aaya, driver acha tha",hi
+T005623,E00808,4,"Driver was punctual and polite",en
+T005624,E01335,5,"Driver was punctual and polite",en
+T005632,E01448,3,"Driver was punctual and polite",en
+T005638,E03969,4,"Cab samay par aaya, driver acha tha",hi
+T005639,E01443,4,"Driver samayaniki vachadu, baagundi",te
+T005640,E01042,4,"Driver samayaniki vachadu, baagundi",te
+T005642,E03011,4,"Cab samay par aaya, driver acha tha",hi
+T005643,E02912,4,"Vandi sariyana neratthil vanthathu",ta
+T005645,E01045,5,"Driver was punctual and polite",en
+T005646,E00852,4,"Driver was punctual and polite",en
+T005648,E00810,4,"Driver was punctual and polite",en
+T005659,E03071,5,"Driver was punctual and polite",en
+T005663,E02262,5,"Driver was punctual and polite",en
+T005664,E00077,3,"Driver was punctual and polite",en
+T005667,E01272,3,"Driver was punctual and polite",en
+T005668,E03670,3,"Driver was punctual and polite",en
+T005669,E03649,5,"Cab samayakke bantu, chennagitru",kn
+T005673,E02528,3,"Driver samayaniki vachadu, baagundi",te
+T005676,E02381,5,"Driver was punctual and polite",en
+T005677,E02073,3,"Driver was punctual and polite",en
+T005678,E00438,3,"Driver was punctual and polite",en
+T005679,E03429,5,"Driver was punctual and polite",en
+T005680,E01858,5,"Cab samayakke bantu, chennagitru",kn
+T005681,E00171,5,"Cab samay par aaya, driver acha tha",hi
+T005686,E02035,3,"Driver was punctual and polite",en
+T005687,E02977,3,"Driver was punctual and polite",en
+T005688,E01477,4,"Driver was punctual and polite",en
+T005689,E01705,2,"Waited forty minutes with no update",en
+T005695,E03612,5,"Driver was punctual and polite",en
+T005696,E01684,5,"Cab samayakke bantu, chennagitru",kn
+T005700,E02714,3,"Driver samayaniki vachadu, baagundi",te
+T005704,E02864,4,"Vandi sariyana neratthil vanthathu",ta
+T005705,E00029,2,"Waited forty minutes with no update",en
+T005708,E02606,4,"Cab samayakke bantu, chennagitru",kn
+T005713,E00478,3,"Cab samay par aaya, driver acha tha",hi
+T005714,E00342,4,"Driver was punctual and polite",en
+T005716,E02892,5,"Driver samayaniki vachadu, baagundi",te
+T005717,E03426,5,"Cab samay par aaya, driver acha tha",hi
+T005718,E03083,4,"Cab samayakke bantu, chennagitru",kn
+T005721,E01886,4,"Cab samay par aaya, driver acha tha",hi
+T005724,E02230,4,"Driver was punctual and polite",en
+T005728,E02761,5,"Driver samayaniki vachadu, baagundi",te
+T005732,E01858,4,"Cab samay par aaya, driver acha tha",hi
+T005733,E03986,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T005737,E01808,4,"Driver was punctual and polite",en
+T005738,E00437,5,"Driver was punctual and polite",en
+T005740,E02196,3,"Driver was punctual and polite",en
+T005745,E00254,3,"Cab samayakke bantu, chennagitru",kn
+T005748,E01708,4,"Vandi sariyana neratthil vanthathu",ta
+T997565,E01263,5,"Cab samay par aaya, driver acha tha",hi
+T005758,E00279,3,"Driver samayaniki vachadu, baagundi",te
+T005761,E02692,1,"Cab chala late ayindi, sammachaaram ledu",te
+T005763,E00513,2,"Waited forty minutes with no update",en
+T005769,E02988,3,"Driver was punctual and polite",en
+T005771,E03828,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T005774,E01598,4,"Cab samayakke bantu, chennagitru",kn
+T005777,E01916,3,"Cab samayakke bantu, chennagitru",kn
+T005778,E02633,4,"Driver samayaniki vachadu, baagundi",te
+T005779,E01962,3,"Driver was punctual and polite",en
+T005782,E01768,3,"Cab samay par aaya, driver acha tha",hi
+T005783,E03728,4,"Cab samayakke bantu, chennagitru",kn
+T005784,E03848,1,"Waited forty minutes with no update",en
+T005789,E01342,4,"Driver was punctual and polite",en
+T005791,E03220,5,"Driver was punctual and polite",en
+T005793,E00808,5,"Driver was punctual and polite",en
+T005797,E00677,3,"Driver was punctual and polite",en
+T005800,E01697,4,"Driver was punctual and polite",en
+T005801,E02145,4,"Driver was punctual and polite",en
+T005802,E03801,3,"Driver was punctual and polite",en
+T005804,E01441,3,"Driver samayaniki vachadu, baagundi",te
+T005809,E01682,5,"Cab samayakke bantu, chennagitru",kn
+T005812,E03514,4,"Cab samay par aaya, driver acha tha",hi
+T005816,E01723,5,"Driver was punctual and polite",en
+T005817,E01031,4,"Driver was punctual and polite",en
+T005818,E03091,4,"Vandi sariyana neratthil vanthathu",ta
+T005821,E03365,3,"Driver was punctual and polite",en
+T005822,E01233,5,"Driver was punctual and polite",en
+T005823,E01991,4,"Driver was punctual and polite",en
+T005825,E01242,4,"Driver was punctual and polite",en
+T005831,E02741,3,"Cab samay par aaya, driver acha tha",hi
+T005833,E02781,4,"Cab samay par aaya, driver acha tha",hi
+T005834,E02916,4,"Driver was punctual and polite",en
+T005836,E03044,3,"Driver was punctual and polite",en
+T005837,E03667,5,"Driver was punctual and polite",en
+T005838,E00866,4,"Cab samay par aaya, driver acha tha",hi
+T005844,E02602,3,"Vandi sariyana neratthil vanthathu",ta
+T005848,E00772,3,"Vandi sariyana neratthil vanthathu",ta
+T005850,E03244,4,"Cab samay par aaya, driver acha tha",hi
+T005851,E01135,4,"Cab samayakke bantu, chennagitru",kn
+T005860,E00895,3,"Driver was punctual and polite",en
+T005862,E02178,3,"Driver was punctual and polite",en
+T005865,E02770,4,"Driver was punctual and polite",en
+T005867,E03101,5,"Driver samayaniki vachadu, baagundi",te
+T005870,E02441,4,"Driver was punctual and polite",en
+T005873,E02703,5,"Driver samayaniki vachadu, baagundi",te
+T005882,E01415,3,"Driver was punctual and polite",en
+T005884,E00786,4,"Cab samayakke bantu, chennagitru",kn
+T005885,E00062,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T005890,E02718,5,"Driver was punctual and polite",en
+T005891,E02042,4,"Driver was punctual and polite",en
+T005895,E00201,5,"Driver was punctual and polite",en
+T005896,E00298,5,"Driver samayaniki vachadu, baagundi",te
+T005898,E02525,3,"Driver was punctual and polite",en
+T005899,E00641,3,"Driver was punctual and polite",en
+T005901,E00067,3,"Driver was punctual and polite",en
+T005902,E01363,3,"Driver was punctual and polite",en
+T005904,E02144,3,"Driver was punctual and polite",en
+T005908,E00444,5,"Driver was punctual and polite",en
+T005909,E03219,4,"Driver was punctual and polite",en
+T005911,E01144,5,"Driver was punctual and polite",en
+T005912,E00769,4,"Driver was punctual and polite",en
+T005913,E01250,3,"Driver was punctual and polite",en
+T005916,E00680,3,"Driver was punctual and polite",en
+T005920,E03963,4,"Vandi sariyana neratthil vanthathu",ta
+T005926,E02065,5,"Driver was punctual and polite",en
+T005927,E01643,5,"Driver was punctual and polite",en
+T005928,E01909,4,"Driver was punctual and polite",en
+T005930,E00261,3,"Driver was punctual and polite",en
+T005931,E02981,3,"Cab samayakke bantu, chennagitru",kn
+T005938,E02681,3,"Driver was punctual and polite",en
+T005941,E01995,2,"Cab chala late ayindi, sammachaaram ledu",te
+T005943,E01369,4,"Driver was punctual and polite",en
+T005945,E00827,3,"Driver was punctual and polite",en
+T005947,E03715,4,"Driver was punctual and polite",en
+T005948,E01888,3,"Driver was punctual and polite",en
+T005950,E01440,3,"Driver was punctual and polite",en
+T005955,E02740,4,"Driver was punctual and polite",en
+T005960,E03844,5,"Driver was punctual and polite",en
+T005964,E00920,3,"Driver samayaniki vachadu, baagundi",te
+T005966,E03072,5,"Driver was punctual and polite",en
+T005967,E02927,1,"Waited forty minutes with no update",en
+T005971,E02248,3,"Driver samayaniki vachadu, baagundi",te
+T005973,E00198,5,"Driver was punctual and polite",en
+T005975,E00656,4,"Driver was punctual and polite",en
+T005976,E03294,5,"Driver was punctual and polite",en
+T005980,E00688,5,"Driver samayaniki vachadu, baagundi",te
+T005982,E01949,5,"Driver was punctual and polite",en
+T005983,E03097,4,"Vandi sariyana neratthil vanthathu",ta
+T005987,E03229,1,"Waited forty minutes with no update",en
+T005988,E02430,3,"Cab samay par aaya, driver acha tha",hi
+T005989,E00785,4,"Driver was punctual and polite",en
+T005991,E03377,1,"Waited forty minutes with no update",en
+T005995,E02114,4,"Driver was punctual and polite",en
+T005996,E01288,5,"Driver was punctual and polite",en
+T006000,E00017,3,"Driver was punctual and polite",en
+T006001,E03959,3,"Driver was punctual and polite",en
+T006003,E03651,3,"Driver was punctual and polite",en
+T006004,E02064,4,"Driver was punctual and polite",en
+T006009,E01445,5,"Driver was punctual and polite",en
+T006010,E03256,4,"Driver was punctual and polite",en
+T006014,E02231,4,"Driver samayaniki vachadu, baagundi",te
+T006015,E02252,3,"Driver samayaniki vachadu, baagundi",te
+T006024,E03530,2,"Waited forty minutes with no update",en
+T006025,E00422,4,"Driver was punctual and polite",en
+T991738,E02502,3,"Driver was punctual and polite",en
+T006027,E03016,5,"Cab samay par aaya, driver acha tha",hi
+T993697,E02965,3,"Driver samayaniki vachadu, baagundi",te
+T006033,E03501,3,"Cab samay par aaya, driver acha tha",hi
+T006036,E00961,4,"Driver was punctual and polite",en
+T006037,E02702,5,"Driver was punctual and polite",en
+T006040,E00964,5,"Cab samay par aaya, driver acha tha",hi
+T006041,E03813,4,"Driver was punctual and polite",en
+T006046,E00209,4,"Driver was punctual and polite",en
+T006049,E03268,4,"Driver samayaniki vachadu, baagundi",te
+T006050,E00298,3,"Cab samayakke bantu, chennagitru",kn
+T006055,E01407,5,"Driver was punctual and polite",en
+T006056,E03090,5,"Driver was punctual and polite",en
+T006058,E03177,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T006064,E01439,3,"Driver was punctual and polite",en
+T006065,E02514,4,"Driver was punctual and polite",en
+T006068,E03300,5,"Cab samay par aaya, driver acha tha",hi
+T006069,E02709,4,"Driver was punctual and polite",en
+T006070,E00154,3,"Cab samay par aaya, driver acha tha",hi
+T006077,E01596,3,"Driver samayaniki vachadu, baagundi",te
+T006081,E03584,5,"Cab samay par aaya, driver acha tha",hi
+T006084,E02534,3,"Driver was punctual and polite",en
+T006085,E02435,5,"Driver was punctual and polite",en
+T006090,E01742,5,"Driver samayaniki vachadu, baagundi",te
+T006092,E03451,4,"Driver was punctual and polite",en
+T006095,E03062,5,"Vandi sariyana neratthil vanthathu",ta
+T006098,E01891,4,"Cab samay par aaya, driver acha tha",hi
+T006104,E02659,5,"Driver samayaniki vachadu, baagundi",te
+T006110,E02349,5,"Driver was punctual and polite",en
+T006111,E02541,5,"Driver was punctual and polite",en
+T006112,E01355,3,"Driver was punctual and polite",en
+T006118,E00417,3,"Driver samayaniki vachadu, baagundi",te
+T006120,E00121,4,"Vandi sariyana neratthil vanthathu",ta
+T006125,E03043,4,"Driver was punctual and polite",en
+T006126,E03245,4,"Driver was punctual and polite",en
+T006127,E00557,4,"Driver samayaniki vachadu, baagundi",te
+T006128,E03499,5,"Driver was punctual and polite",en
+T006134,E01814,4,"Driver was punctual and polite",en
+T006135,E03295,3,"Vandi sariyana neratthil vanthathu",ta
+T006137,E02349,5,"Cab samayakke bantu, chennagitru",kn
+T006138,E00521,1,"Vandi romba late, thagaval illai",ta
+T006140,E02233,4,"Driver was punctual and polite",en
+T006141,E01386,4,"Driver was punctual and polite",en
+T006142,E00707,4,"Driver was punctual and polite",en
+T006145,E00935,4,"Vandi sariyana neratthil vanthathu",ta
+T006146,E02479,3,"Driver was punctual and polite",en
+T006153,E03163,4,"Cab samay par aaya, driver acha tha",hi
+T006161,E00650,5,"Driver was punctual and polite",en
+T006170,E02800,3,"Driver was punctual and polite",en
+T006172,E00932,5,"Cab samayakke bantu, chennagitru",kn
+T006174,E03647,4,"Driver was punctual and polite",en
+T006176,E00106,2,"Waited forty minutes with no update",en
+T006178,E02630,5,"Driver was punctual and polite",en
+T006182,E03235,4,"Driver was punctual and polite",en
+T006198,E03391,3,"Driver was punctual and polite",en
+T006203,E02073,3,"Driver was punctual and polite",en
+T006206,E03159,3,"Driver samayaniki vachadu, baagundi",te
+T006208,E02010,4,"Driver was punctual and polite",en
+T006210,E03898,4,"Driver was punctual and polite",en
+T006211,E02555,3,"Cab samay par aaya, driver acha tha",hi
+T006214,E00427,5,"Driver was punctual and polite",en
+T006218,E00069,4,"Driver was punctual and polite",en
+T006220,E01798,5,"Driver was punctual and polite",en
+T006221,E03046,5,"Vandi sariyana neratthil vanthathu",ta
+T006224,E01157,4,"Driver was punctual and polite",en
+T006225,E00906,4,"Vandi sariyana neratthil vanthathu",ta
+T991025,E00572,4,"Driver was punctual and polite",en
+T006233,E01777,4,"Driver was punctual and polite",en
+T006235,E02882,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T006236,E02259,5,"Driver was punctual and polite",en
+T006242,E00020,4,"Driver was punctual and polite",en
+T006244,E03005,5,"Driver was punctual and polite",en
+T006248,E00168,3,"Driver was punctual and polite",en
+T006249,E01240,3,"Cab samay par aaya, driver acha tha",hi
+T006256,E03724,4,"Driver was punctual and polite",en
+T006257,E00190,5,"Driver was punctual and polite",en
+T006258,E03968,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T006259,E00617,5,"Driver was punctual and polite",en
+T006260,E00015,4,"Driver was punctual and polite",en
+T006261,E02855,3,"Driver was punctual and polite",en
+T006264,E03978,3,"Vandi sariyana neratthil vanthathu",ta
+T006266,E02931,1,"Waited forty minutes with no update",en
+T006270,E01861,3,"Vandi sariyana neratthil vanthathu",ta
+T006274,E00202,3,"Driver was punctual and polite",en
+T006276,E00683,4,"Vandi sariyana neratthil vanthathu",ta
+T006278,E03544,5,"Vandi sariyana neratthil vanthathu",ta
+T006284,E03486,3,"Driver was punctual and polite",en
+T006287,E03315,3,"Cab samayakke bantu, chennagitru",kn
+T006291,E02850,4,"Vandi sariyana neratthil vanthathu",ta
+T006292,E00714,3,"Driver was punctual and polite",en
+T006297,E00874,5,"Driver was punctual and polite",en
+T006298,E02828,4,"Driver was punctual and polite",en
+T006306,E01573,3,"Cab samayakke bantu, chennagitru",kn
+T006307,E01199,4,"Cab samay par aaya, driver acha tha",hi
+T006308,E00568,5,"Vandi sariyana neratthil vanthathu",ta
+T006310,E03966,3,"Driver was punctual and polite",en
+T006313,E00672,5,"Cab samayakke bantu, chennagitru",kn
+T006315,E02140,5,"Driver was punctual and polite",en
+T006316,E01467,5,"Driver was punctual and polite",en
+T006317,E00514,3,"Driver was punctual and polite",en
+T006320,E00560,3,"Driver was punctual and polite",en
+T006321,E03496,5,"Driver was punctual and polite",en
+T006322,E01343,5,"Cab samayakke bantu, chennagitru",kn
+T006323,E01500,5,"Cab samayakke bantu, chennagitru",kn
+T006325,E00322,3,"Driver was punctual and polite",en
+T006327,E02323,3,"Driver was punctual and polite",en
+T006328,E00852,1,"Waited forty minutes with no update",en
+T006329,E03249,3,"Driver was punctual and polite",en
+T006333,E01212,4,"Vandi sariyana neratthil vanthathu",ta
+T006335,E02042,3,"Driver was punctual and polite",en
+T006336,E00044,5,"Cab samayakke bantu, chennagitru",kn
+T006337,E03082,4,"Driver was punctual and polite",en
+T006338,E00045,4,"Driver samayaniki vachadu, baagundi",te
+T006343,E00476,4,"Driver was punctual and polite",en
+T006345,E02846,2,"Waited forty minutes with no update",en
+T006347,E01776,3,"Driver samayaniki vachadu, baagundi",te
+T006349,E01967,1,"Cab bahut late tha, koi soochna nahi mili",hi
+T006356,E03237,5,"Driver was punctual and polite",en
+T006361,E00579,3,"Cab samayakke bantu, chennagitru",kn
+T006367,E03231,4,"Cab samayakke bantu, chennagitru",kn
+T006376,E01912,2,"Waited forty minutes with no update",en
+T006377,E03677,3,"Driver was punctual and polite",en
+T006380,E02077,5,"Driver was punctual and polite",en
+T006384,E00585,4,"Driver was punctual and polite",en
+T006388,E02831,5,"Driver samayaniki vachadu, baagundi",te
+T006390,E02230,1,"Waited forty minutes with no update",en
+T006391,E00144,3,"Driver samayaniki vachadu, baagundi",te
+T006395,E01709,5,"Driver was punctual and polite",en
+T006397,E03626,5,"Driver was punctual and polite",en
+T006399,E02262,4,"Driver was punctual and polite",en
+T006405,E03573,5,"Driver samayaniki vachadu, baagundi",te
+T006407,E02584,4,"Driver was punctual and polite",en
+T006410,E02973,4,"Driver was punctual and polite",en
+T006412,E01743,4,"Cab samay par aaya, driver acha tha",hi
+T006414,E03616,3,"Driver was punctual and polite",en
+T006420,E01778,3,"Driver was punctual and polite",en
+T006423,E00672,5,"Cab samayakke bantu, chennagitru",kn
+T006432,E00118,3,"Driver was punctual and polite",en
+T006433,E03316,3,"Driver was punctual and polite",en
+T006439,E01863,3,"Driver samayaniki vachadu, baagundi",te
+T006442,E01151,3,"Driver was punctual and polite",en
+T006443,E00492,1,"Vandi romba late, thagaval illai",ta
+T006445,E02252,3,"Driver was punctual and polite",en
+T006450,E02101,4,"Cab samayakke bantu, chennagitru",kn
+T006452,E00048,5,"Driver was punctual and polite",en
+T006453,E03165,5,"Driver was punctual and polite",en
+T006454,E00300,5,"Driver was punctual and polite",en
+T006458,E00266,3,"Cab samay par aaya, driver acha tha",hi
+T006461,E02628,5,"Driver was punctual and polite",en
+T006465,E03215,3,"Vandi sariyana neratthil vanthathu",ta
+T006467,E00442,5,"Vandi sariyana neratthil vanthathu",ta
+T006468,E02910,5,"Driver was punctual and polite",en
+T006470,E00206,3,"Driver was punctual and polite",en
+T006473,E03302,4,"Driver was punctual and polite",en
+T006477,E02092,3,"Driver was punctual and polite",en
+T006479,E00596,3,"Driver was punctual and polite",en
+T991914,E02287,3,"Driver was punctual and polite",en
+T006484,E00861,3,"Driver samayaniki vachadu, baagundi",te
+T006485,E02130,1,"Cab chala late ayindi, sammachaaram ledu",te
+T006487,E01596,3,"Cab samayakke bantu, chennagitru",kn
+T006489,E00462,4,"Vandi sariyana neratthil vanthathu",ta
+T006490,E00528,5,"Cab samay par aaya, driver acha tha",hi
+T006492,E03153,3,"Driver was punctual and polite",en
+T992371,E02588,5,"Driver was punctual and polite",en
+T006496,E02928,5,"Driver was punctual and polite",en
+T006498,E02036,3,"Driver was punctual and polite",en
+T006500,E02606,3,"Cab samay par aaya, driver acha tha",hi
+T006503,E00780,5,"Driver was punctual and polite",en
+T006504,E01423,3,"Cab samayakke bantu, chennagitru",kn
+T006508,E01958,5,"Driver was punctual and polite",en
+T006513,E00791,4,"Driver was punctual and polite",en
+T006516,E03226,4,"Cab samay par aaya, driver acha tha",hi
+T995816,E03502,2,"Waited forty minutes with no update",en
+T006518,E03680,4,"Cab samay par aaya, driver acha tha",hi
+T006520,E02541,4,"Driver was punctual and polite",en
+T006524,E01231,4,"Vandi sariyana neratthil vanthathu",ta
+T006526,E03210,3,"Driver samayaniki vachadu, baagundi",te
+T006530,E03269,3,"Driver was punctual and polite",en
+T995708,E03750,5,"Driver was punctual and polite",en
+T006536,E00704,4,"Driver samayaniki vachadu, baagundi",te
+T006539,E01160,4,"Driver was punctual and polite",en
+T006540,E03594,4,"Driver was punctual and polite",en
+T006541,E03031,5,"Cab samayakke bantu, chennagitru",kn
+T006548,E03501,4,"Driver samayaniki vachadu, baagundi",te
+T006549,E02395,3,"Driver was punctual and polite",en
+T006551,E03990,3,"Driver samayaniki vachadu, baagundi",te
+T006556,E03838,4,"Driver was punctual and polite",en
+T006557,E03451,5,"Driver samayaniki vachadu, baagundi",te
+T006558,E03168,3,"Driver was punctual and polite",en
+T006566,E02487,3,"Vandi sariyana neratthil vanthathu",ta
+T006567,E02165,5,"Cab samay par aaya, driver acha tha",hi
+T006578,E01710,4,"Driver samayaniki vachadu, baagundi",te
+T006581,E02070,5,"Vandi sariyana neratthil vanthathu",ta
+T006583,E00538,3,"Driver was punctual and polite",en
+T006584,E00354,4,"Driver was punctual and polite",en
+T006585,E03471,4,"Driver was punctual and polite",en
+T006586,E02129,1,"Waited forty minutes with no update",en
+T006588,E01839,5,"Driver samayaniki vachadu, baagundi",te
+T006593,E03056,4,"Driver was punctual and polite",en
+T006596,E03204,5,"Driver was punctual and polite",en
+T006600,E03434,3,"Vandi sariyana neratthil vanthathu",ta
+T006601,E03704,2,"Waited forty minutes with no update",en
+T006603,E00840,4,"Driver was punctual and polite",en
+T006604,E01369,5,"Driver was punctual and polite",en
+T006608,E03612,5,"Driver was punctual and polite",en
+T006610,E03539,4,"Driver was punctual and polite",en
+T006613,E00088,5,"Vandi sariyana neratthil vanthathu",ta
+T006615,E02944,3,"Driver was punctual and polite",en
+T006619,E01655,5,"Driver was punctual and polite",en
+T006622,E01234,4,"Cab samayakke bantu, chennagitru",kn
+T006625,E00711,5,"Driver was punctual and polite",en
+T006631,E03757,4,"Driver was punctual and polite",en
+T006634,E03268,4,"Driver samayaniki vachadu, baagundi",te
+T006635,E02743,3,"Driver was punctual and polite",en
+T006636,E01719,5,"Driver was punctual and polite",en
+T006638,E02333,3,"Cab samayakke bantu, chennagitru",kn
+T006639,E02663,2,"Waited forty minutes with no update",en
+T006641,E01699,5,"Driver samayaniki vachadu, baagundi",te
+T006646,E02642,4,"Driver was punctual and polite",en
+T991795,E03445,3,"Driver samayaniki vachadu, baagundi",te
+T006650,E02834,5,"Cab samayakke bantu, chennagitru",kn
+T006651,E00667,5,"Vandi sariyana neratthil vanthathu",ta
+T006662,E03711,4,"Cab samayakke bantu, chennagitru",kn
+T006665,E02249,5,"Driver was punctual and polite",en
+T006666,E01855,3,"Cab samay par aaya, driver acha tha",hi
+T006668,E01933,5,"Driver was punctual and polite",en
+T006671,E01375,2,"Waited forty minutes with no update",en
+T006673,E03318,4,"Driver was punctual and polite",en
+T006678,E03718,3,"Driver was punctual and polite",en
+T006684,E02992,3,"Driver was punctual and polite",en
+T006685,E00857,3,"Driver was punctual and polite",en
+T006688,E01510,3,"Driver was punctual and polite",en
+T006689,E01421,5,"Cab samayakke bantu, chennagitru",kn
+T006692,E03340,3,"Driver was punctual and polite",en
+T006709,E03198,4,"Driver was punctual and polite",en
+T006714,E02521,5,"Driver was punctual and polite",en
+T006715,E02811,5,"Driver was punctual and polite",en
+T006718,E00571,5,"Driver samayaniki vachadu, baagundi",te
+T006720,E01920,4,"Driver was punctual and polite",en
+T006723,E03218,3,"Driver was punctual and polite",en
+T006724,E00201,5,"Driver was punctual and polite",en
+T006728,E00908,3,"Driver samayaniki vachadu, baagundi",te
+T006729,E01178,5,"Vandi sariyana neratthil vanthathu",ta
+T006730,E00591,2,"Cab chala late ayindi, sammachaaram ledu",te
+T006733,E01262,3,"Driver was punctual and polite",en
+T006734,E02602,5,"Vandi sariyana neratthil vanthathu",ta
+T006743,E02751,4,"Driver was punctual and polite",en
+T006744,E00068,5,"Cab samay par aaya, driver acha tha",hi
+T006746,E02408,4,"Vandi sariyana neratthil vanthathu",ta
+T998263,E03923,4,"Cab samay par aaya, driver acha tha",hi
+T006749,E01530,4,"Driver was punctual and polite",en
+T006752,E00719,3,"Driver was punctual and polite",en
+T006753,E02128,4,"Cab samayakke bantu, chennagitru",kn
+T006754,E01816,3,"Driver was punctual and polite",en
+T006755,E03305,3,"Driver samayaniki vachadu, baagundi",te
+T006760,E01082,5,"Driver was punctual and polite",en
+T006762,E01967,1,"Waited forty minutes with no update",en
+T006765,E01416,3,"Cab samay par aaya, driver acha tha",hi
+T006768,E02721,3,"Driver was punctual and polite",en
+T006769,E03599,3,"Driver was punctual and polite",en
+T006770,E01329,5,"Driver was punctual and polite",en
+T006782,E00444,3,"Driver was punctual and polite",en
+T006787,E00205,3,"Vandi sariyana neratthil vanthathu",ta
+T006789,E01465,4,"Driver was punctual and polite",en
+T006794,E01033,5,"Driver was punctual and polite",en
+T006796,E01193,4,"Cab samay par aaya, driver acha tha",hi
+T006801,E01153,3,"Vandi sariyana neratthil vanthathu",ta
+T006802,E02542,4,"Cab samay par aaya, driver acha tha",hi
+T006805,E01946,3,"Driver was punctual and polite",en
+T006806,E03060,4,"Cab samayakke bantu, chennagitru",kn
+T006814,E02034,3,"Driver was punctual and polite",en
+T006816,E02883,4,"Driver was punctual and polite",en
+T006819,E02588,3,"Driver was punctual and polite",en
+T006820,E03221,4,"Driver was punctual and polite",en
+T006825,E01032,4,"Cab samay par aaya, driver acha tha",hi
+T006829,E03610,4,"Driver was punctual and polite",en
+T006830,E01067,4,"Driver was punctual and polite",en
+T006833,E02041,5,"Driver was punctual and polite",en
+T006839,E02939,3,"Driver samayaniki vachadu, baagundi",te
+T006840,E00852,3,"Cab samay par aaya, driver acha tha",hi
+T006843,E03670,3,"Driver was punctual and polite",en
+T006844,E02569,4,"Vandi sariyana neratthil vanthathu",ta
+T006848,E02022,2,"Waited forty minutes with no update",en
+T006850,E01958,3,"Vandi sariyana neratthil vanthathu",ta
+T006852,E00439,4,"Driver was punctual and polite",en
+T006853,E03641,4,"Driver was punctual and polite",en
+T995279,E03739,5,"Driver was punctual and polite",en
+T006855,E03795,3,"Cab samay par aaya, driver acha tha",hi
+T006857,E00678,5,"Driver was punctual and polite",en
+T006862,E01600,4,"Driver was punctual and polite",en
+T006866,E00649,5,"Driver was punctual and polite",en
+T006867,E02999,3,"Cab samay par aaya, driver acha tha",hi
+T006872,E02950,5,"Driver was punctual and polite",en
+T006875,E02324,5,"Driver was punctual and polite",en
+T006878,E03043,3,"Driver was punctual and polite",en
+T006880,E00508,4,"Driver was punctual and polite",en
+T006884,E00664,5,"Driver was punctual and polite",en
+T006886,E02159,4,"Driver was punctual and polite",en
+T006887,E01852,3,"Driver samayaniki vachadu, baagundi",te
+T006890,E01365,4,"Cab samay par aaya, driver acha tha",hi
+T006893,E00422,1,"Waited forty minutes with no update",en
+T006894,E03495,3,"Driver samayaniki vachadu, baagundi",te
+T006895,E00922,3,"Driver was punctual and polite",en
+T006897,E02271,3,"Driver was punctual and polite",en
+T006902,E01280,5,"Driver was punctual and polite",en
+T006903,E01361,3,"Driver was punctual and polite",en
+T006907,E00205,4,"Driver was punctual and polite",en
+T006910,E00667,3,"Cab samay par aaya, driver acha tha",hi
+T006912,E01006,3,"Driver samayaniki vachadu, baagundi",te
+T006915,E03491,3,"Driver was punctual and polite",en
+T006923,E00519,3,"Driver samayaniki vachadu, baagundi",te
+T006924,E03598,5,"Driver was punctual and polite",en
+T006925,E01260,3,"Driver was punctual and polite",en
+T006926,E02174,5,"Driver was punctual and polite",en
+T006932,E03064,5,"Cab samayakke bantu, chennagitru",kn
+T006934,E02750,5,"Driver was punctual and polite",en
+T991517,E02022,4,"Driver was punctual and polite",en
+T006942,E03523,2,"Waited forty minutes with no update",en
+T006945,E03298,3,"Driver was punctual and polite",en
+T006948,E00075,3,"Driver was punctual and polite",en
+T006950,E03505,5,"Driver samayaniki vachadu, baagundi",te
+T006951,E01668,5,"Driver was punctual and polite",en
+T006952,E01863,3,"Driver was punctual and polite",en
+T006959,E02413,5,"Cab samay par aaya, driver acha tha",hi
+T006963,E03777,3,"Driver was punctual and polite",en
+T006964,E00025,3,"Cab samay par aaya, driver acha tha",hi
+T006965,E00084,5,"Driver was punctual and polite",en
+T006972,E00475,3,"Driver was punctual and polite",en
+T006977,E03414,5,"Driver samayaniki vachadu, baagundi",te
+T006982,E02728,3,"Driver was punctual and polite",en
+T006983,E00761,5,"Driver was punctual and polite",en
+T006985,E02528,4,"Driver was punctual and polite",en
+T006986,E03631,3,"Cab samayakke bantu, chennagitru",kn
+T006994,E02962,4,"Driver was punctual and polite",en
+T007000,E03331,1,"Waited forty minutes with no update",en
+T007004,E00861,5,"Driver was punctual and polite",en
+T007006,E02951,3,"Driver was punctual and polite",en
+T007008,E00019,4,"Driver was punctual and polite",en
+T007011,E03526,3,"Driver was punctual and polite",en
+T007013,E01650,5,"Driver was punctual and polite",en
+T007015,E03864,5,"Vandi sariyana neratthil vanthathu",ta
+T007025,E00132,5,"Driver was punctual and polite",en
+T007035,E03538,5,"Driver was punctual and polite",en
+T007036,E02118,3,"Driver was punctual and polite",en
+T007039,E03751,5,"Driver samayaniki vachadu, baagundi",te
+T007042,E00644,4,"Driver was punctual and polite",en
+T007045,E03656,4,"Cab samay par aaya, driver acha tha",hi
+T007047,E03494,5,"Driver was punctual and polite",en
+T007049,E01720,4,"Driver was punctual and polite",en
+T007051,E01480,3,"Cab samayakke bantu, chennagitru",kn
+T007052,E00181,3,"Driver was punctual and polite",en
+T007053,E02061,4,"Vandi sariyana neratthil vanthathu",ta
+T007057,E03928,4,"Driver was punctual and polite",en
+T007058,E00697,1,"Cab tumba late aytu, maahiti sigalilla",kn
+T007061,E00700,5,"Cab samay par aaya, driver acha tha",hi
+T007066,E03162,5,"Driver was punctual and polite",en
+T007067,E02847,5,"Driver samayaniki vachadu, baagundi",te
+T007073,E03005,5,"Driver was punctual and polite",en
+T007076,E00310,5,"Cab samayakke bantu, chennagitru",kn
+T007078,E00297,3,"Driver was punctual and polite",en
+T007079,E01479,4,"Driver was punctual and polite",en
+T007080,E01189,4,"Vandi sariyana neratthil vanthathu",ta
+T007081,E03765,3,"Driver samayaniki vachadu, baagundi",te
+T007082,E01091,4,"Cab samayakke bantu, chennagitru",kn
+T007085,E01605,4,"Driver was punctual and polite",en
+T007086,E01837,4,"Cab samayakke bantu, chennagitru",kn
+T007089,E01275,5,"Driver was punctual and polite",en
+T007090,E02562,5,"Driver was punctual and polite",en
+T007096,E02515,5,"Vandi sariyana neratthil vanthathu",ta
+T007097,E03525,3,"Driver was punctual and polite",en
+T007105,E01992,4,"Driver was punctual and polite",en
+T007106,E02326,4,"Driver was punctual and polite",en
+T007111,E01826,5,"Driver was punctual and polite",en
+T007112,E03791,4,"Driver was punctual and polite",en
+T007123,E02069,5,"Driver was punctual and polite",en
+T007125,E03717,5,"Driver was punctual and polite",en
+T007126,E03898,5,"Vandi sariyana neratthil vanthathu",ta
+T007130,E02525,4,"Vandi sariyana neratthil vanthathu",ta
+T007131,E03748,5,"Cab samayakke bantu, chennagitru",kn
+T007132,E03913,4,"Vandi sariyana neratthil vanthathu",ta
+T007137,E00329,4,"Vandi sariyana neratthil vanthathu",ta
+T007139,E00296,3,"Driver was punctual and polite",en
+T007142,E00097,5,"Driver was punctual and polite",en
+T007149,E00758,4,"Driver was punctual and polite",en
+T007151,E01131,3,"Cab samay par aaya, driver acha tha",hi
+T007152,E00234,5,"Vandi sariyana neratthil vanthathu",ta
+T007156,E02335,5,"Cab samay par aaya, driver acha tha",hi
+T007158,E02089,5,"Cab samay par aaya, driver acha tha",hi
+T007159,E01381,3,"Driver was punctual and polite",en
+T007163,E03133,3,"Cab samayakke bantu, chennagitru",kn
+T007166,E03142,3,"Driver samayaniki vachadu, baagundi",te
+T007168,E00642,5,"Vandi sariyana neratthil vanthathu",ta
+T007171,E02978,5,"Cab samay par aaya, driver acha tha",hi
+T007172,E00544,5,"Driver was punctual and polite",en
+T007176,E03280,5,"Driver samayaniki vachadu, baagundi",te
+T007177,E01138,3,"Driver was punctual and polite",en
+T007180,E02592,5,"Driver samayaniki vachadu, baagundi",te
+T007183,E02550,1,"Waited forty minutes with no update",en
+T007190,E01303,5,"Driver was punctual and polite",en
+T007191,E03378,5,"Cab samayakke bantu, chennagitru",kn
+T007192,E00024,3,"Driver was punctual and polite",en
+T007193,E00013,4,"Driver samayaniki vachadu, baagundi",te
+T007195,E03684,5,"Driver was punctual and polite",en
+T007196,E02494,3,"Driver was punctual and polite",en
+T007201,E00157,4,"Cab samay par aaya, driver acha tha",hi
+T007203,E03912,3,"Cab samayakke bantu, chennagitru",kn
+T007204,E01120,5,"Driver was punctual and polite",en
+T007206,E00191,4,"Driver was punctual and polite",en
+T007207,E03633,5,"Driver was punctual and polite",en
+T007211,E02323,3,"Cab samayakke bantu, chennagitru",kn
+T007220,E03972,3,"Driver was punctual and polite",en
+T007226,E02723,3,"Driver was punctual and polite",en
+T007227,E03914,3,"Driver was punctual and polite",en
+T007230,E00836,5,"Driver was punctual and polite",en
+T007231,E03649,5,"Cab samayakke bantu, chennagitru",kn
+T007232,E03687,3,"Driver was punctual and polite",en
+T007233,E01619,5,"Cab samayakke bantu, chennagitru",kn
+T007238,E01266,5,"Driver was punctual and polite",en
+T007242,E00301,4,"Driver was punctual and polite",en
+T007243,E01782,3,"Driver was punctual and polite",en
+T007244,E00763,2,"Vandi romba late, thagaval illai",ta
+T007247,E03128,4,"Vandi sariyana neratthil vanthathu",ta
+T007253,E03501,4,"Driver was punctual and polite",en
+T007256,E03120,5,"Driver was punctual and polite",en
+T007257,E02864,5,"Driver was punctual and polite",en
+T007258,E00914,4,"Driver was punctual and polite",en
+T007264,E01282,5,"Vandi sariyana neratthil vanthathu",ta
+T007265,E02464,3,"Driver samayaniki vachadu, baagundi",te
+T007266,E00297,4,"Driver was punctual and polite",en
+T991271,E00960,5,"Cab samay par aaya, driver acha tha",hi
+T007284,E01915,5,"Vandi sariyana neratthil vanthathu",ta
+T007286,E01420,3,"Driver was punctual and polite",en
+T007287,E03209,3,"Driver was punctual and polite",en
+T007289,E01028,4,"Driver was punctual and polite",en
+T007290,E03926,3,"Cab samay par aaya, driver acha tha",hi
+T007291,E02180,5,"Cab samay par aaya, driver acha tha",hi
+T007298,E00640,4,"Vandi sariyana neratthil vanthathu",ta
+T007303,E02664,3,"Cab samayakke bantu, chennagitru",kn
+T007304,E02480,3,"Cab samay par aaya, driver acha tha",hi
+T007306,E01095,3,"Cab samay par aaya, driver acha tha",hi
+T007307,E00073,5,"Driver was punctual and polite",en
+T007308,E03339,5,"Driver was punctual and polite",en
+T007310,E03963,3,"Driver was punctual and polite",en
+T007311,E02749,4,"Driver was punctual and polite",en
+T007317,E00563,3,"Driver was punctual and polite",en
+T007318,E02561,1,"Waited forty minutes with no update",en
+T007320,E00933,5,"Driver samayaniki vachadu, baagundi",te
+T007321,E03205,4,"Driver was punctual and polite",en
+T007324,E02636,5,"Cab samay par aaya, driver acha tha",hi
+T007328,E03135,4,"Driver was punctual and polite",en
+T007329,E00579,5,"Driver was punctual and polite",en
+T007332,E01844,5,"Driver was punctual and polite",en
+T007336,E03812,4,"Cab samay par aaya, driver acha tha",hi
+T007338,E00714,3,"Driver was punctual and polite",en
+T007339,E02164,5,"Driver was punctual and polite",en
+T007345,E03233,4,"Driver was punctual and polite",en
+T007346,E03810,3,"Driver was punctual and polite",en
+T007347,E03423,3,"Driver was punctual and polite",en
+T007348,E02381,5,"Cab samayakke bantu, chennagitru",kn
+T007354,E01573,3,"Driver was punctual and polite",en
+T007355,E01210,4,"Vandi sariyana neratthil vanthathu",ta
+T007357,E01548,5,"Driver was punctual and polite",en
+T007359,E00630,5,"Vandi sariyana neratthil vanthathu",ta
+T007360,E03201,4,"Vandi sariyana neratthil vanthathu",ta
+T007365,E02638,4,"Driver was punctual and polite",en
+T007366,E01507,3,"Driver was punctual and polite",en
+T007369,E02998,4,"Driver was punctual and polite",en
+T007372,E00281,4,"Driver was punctual and polite",en
+T007377,E03437,4,"Cab samay par aaya, driver acha tha",hi
+T007380,E02231,3,"Driver was punctual and polite",en
+T007385,E01050,3,"Driver was punctual and polite",en
+T007390,E00256,5,"Driver was punctual and polite",en
+T007391,E01240,2,"Waited forty minutes with no update",en
+T007395,E03879,2,"Cab chala late ayindi, sammachaaram ledu",te
+T007397,E02819,4,"Driver was punctual and polite",en
+T007398,E01029,3,"Driver samayaniki vachadu, baagundi",te
+T007401,E00537,5,"Driver was punctual and polite",en
+T007403,E00701,4,"Driver was punctual and polite",en
+T007404,E00939,3,"Driver was punctual and polite",en
+T007408,E00273,4,"Driver was punctual and polite",en
+T007411,E02744,4,"Driver was punctual and polite",en
+T007414,E01681,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T007416,E01969,5,"Cab samayakke bantu, chennagitru",kn
+T007418,E03303,3,"Driver was punctual and polite",en
+T007421,E01567,4,"Cab samay par aaya, driver acha tha",hi
+T007422,E00531,3,"Driver was punctual and polite",en
+T007424,E01200,5,"Driver was punctual and polite",en
+T007426,E03064,3,"Cab samayakke bantu, chennagitru",kn
+T007434,E01337,2,"Cab tumba late aytu, maahiti sigalilla",kn
+T007436,E03746,5,"Driver was punctual and polite",en
+T007437,E03515,2,"Waited forty minutes with no update",en
+T007438,E00657,3,"Driver samayaniki vachadu, baagundi",te
+T007440,E01393,3,"Driver samayaniki vachadu, baagundi",te
+T007443,E02104,3,"Driver was punctual and polite",en
+T995028,E02243,4,"Cab samay par aaya, driver acha tha",hi
+T007448,E00206,5,"Cab samay par aaya, driver acha tha",hi
+T007450,E02022,4,"Driver was punctual and polite",en
+T007454,E01034,4,"Driver was punctual and polite",en
+T007456,E02097,4,"Driver was punctual and polite",en
+T007463,E02619,5,"Cab samayakke bantu, chennagitru",kn
+T007465,E02843,5,"Driver samayaniki vachadu, baagundi",te
+T007470,E00254,4,"Vandi sariyana neratthil vanthathu",ta
+T007474,E03986,5,"Driver was punctual and polite",en
+T007476,E01912,4,"Driver was punctual and polite",en
+T007481,E01198,4,"Driver was punctual and polite",en
+T007483,E00514,3,"Driver was punctual and polite",en
+T007485,E03706,5,"Vandi sariyana neratthil vanthathu",ta
+T007487,E02699,3,"Driver was punctual and polite",en
+T007491,E00848,4,"Driver was punctual and polite",en
+T007492,E01865,3,"Driver was punctual and polite",en
+T007493,E02537,3,"Driver samayaniki vachadu, baagundi",te
+T007494,E02794,4,"Vandi sariyana neratthil vanthathu",ta
+T007499,E03130,4,"Driver was punctual and polite",en
+T007500,E03088,4,"Cab samay par aaya, driver acha tha",hi
+T007501,E02426,5,"Driver was punctual and polite",en
+T007507,E01807,4,"Driver samayaniki vachadu, baagundi",te
+T007508,E00220,4,"Driver was punctual and polite",en
+T007522,E00399,3,"Cab samay par aaya, driver acha tha",hi
+T007527,E03277,4,"Driver was punctual and polite",en
+T007530,E03506,5,"Cab samay par aaya, driver acha tha",hi
+T007535,E01768,3,"Cab samay par aaya, driver acha tha",hi
+T007536,E03970,4,"Cab samay par aaya, driver acha tha",hi
+T007537,E01872,5,"Driver samayaniki vachadu, baagundi",te
+T007540,E00154,3,"Vandi sariyana neratthil vanthathu",ta
+T007546,E03403,5,"Driver samayaniki vachadu, baagundi",te
+T007549,E01128,5,"Driver was punctual and polite",en
+T007554,E02834,4,"Driver was punctual and polite",en
+T007555,E03016,4,"Driver was punctual and polite",en
+T007556,E01238,4,"Driver was punctual and polite",en
+T007560,E00779,5,"Cab samay par aaya, driver acha tha",hi
+T007566,E01411,3,"Driver was punctual and polite",en
+T007567,E03526,3,"Driver was punctual and polite",en
+T007575,E03508,3,"Driver was punctual and polite",en
+T007576,E03022,5,"Driver was punctual and polite",en
+T007578,E01624,4,"Driver was punctual and polite",en
+T007585,E01034,5,"Driver was punctual and polite",en
+T007595,E02496,4,"Driver was punctual and polite",en
+T007599,E02654,3,"Cab samayakke bantu, chennagitru",kn
+T007602,E00889,2,"Waited forty minutes with no update",en
+T007603,E02703,4,"Driver was punctual and polite",en
+T999852,E02082,3,"Cab samay par aaya, driver acha tha",hi
+T007605,E02808,4,"Driver was punctual and polite",en
+T007608,E03691,3,"Cab samay par aaya, driver acha tha",hi
+T007611,E03654,3,"Driver was punctual and polite",en
+T007613,E02844,3,"Driver samayaniki vachadu, baagundi",te
+T007614,E00015,3,"Driver was punctual and polite",en
+T007615,E01350,3,"Driver was punctual and polite",en
+T007616,E01338,5,"Cab samay par aaya, driver acha tha",hi
+T007619,E01782,4,"Vandi sariyana neratthil vanthathu",ta
+T007622,E00384,4,"Driver was punctual and polite",en
+T007625,E01643,3,"Driver was punctual and polite",en
+T007628,E03786,4,"Cab samay par aaya, driver acha tha",hi
+T007629,E01880,3,"Driver was punctual and polite",en
+T007631,E00224,4,"Driver was punctual and polite",en
+T007634,E01531,4,"Cab samay par aaya, driver acha tha",hi
+T007636,E01995,4,"Driver was punctual and polite",en
+T007638,E00721,2,"Vandi romba late, thagaval illai",ta
+T007639,E02959,5,"Driver was punctual and polite",en
+T007640,E01493,4,"Cab samay par aaya, driver acha tha",hi
+T007641,E02769,4,"Cab samay par aaya, driver acha tha",hi
+T007644,E00866,4,"Cab samayakke bantu, chennagitru",kn
+T007653,E02138,5,"Driver was punctual and polite",en
+T007654,E01381,3,"Cab samay par aaya, driver acha tha",hi
+T007658,E00509,1,"Waited forty minutes with no update",en
+T007661,E00730,3,"Driver was punctual and polite",en
+T007663,E02863,5,"Driver was punctual and polite",en
+T007668,E02465,4,"Driver was punctual and polite",en
+T007670,E03277,4,"Driver was punctual and polite",en
+T007672,E03047,5,"Cab samay par aaya, driver acha tha",hi
+T007678,E02514,3,"Driver was punctual and polite",en
+T993298,E01161,3,"Driver was punctual and polite",en
+T007684,E03044,4,"Cab samayakke bantu, chennagitru",kn
+T007687,E00392,4,"Vandi sariyana neratthil vanthathu",ta
+T007688,E01763,3,"Cab samayakke bantu, chennagitru",kn
+T007703,E02948,4,"Vandi sariyana neratthil vanthathu",ta
+T007707,E00427,4,"Driver was punctual and polite",en
+T007708,E01145,4,"Driver was punctual and polite",en
+T007709,E02318,5,"Vandi sariyana neratthil vanthathu",ta
+T007711,E03811,4,"Driver samayaniki vachadu, baagundi",te
+T007712,E01577,4,"Driver was punctual and polite",en
+T007722,E00769,5,"Driver was punctual and polite",en
+T007724,E01272,5,"Vandi sariyana neratthil vanthathu",ta
+T007725,E01606,3,"Driver was punctual and polite",en
+T007731,E03315,5,"Cab samay par aaya, driver acha tha",hi
+T007732,E02717,3,"Driver was punctual and polite",en
+T007734,E03679,5,"Driver was punctual and polite",en
+T007735,E02478,3,"Driver was punctual and polite",en
+T007736,E00299,4,"Driver was punctual and polite",en
+T007740,E01075,3,"Vandi sariyana neratthil vanthathu",ta
+T007742,E02103,4,"Driver samayaniki vachadu, baagundi",te
+T007744,E01809,5,"Driver samayaniki vachadu, baagundi",te
+T007745,E00559,4,"Cab samay par aaya, driver acha tha",hi
+T007746,E03673,3,"Cab samay par aaya, driver acha tha",hi
+T007747,E00506,3,"Driver was punctual and polite",en
+T007748,E00227,4,"Driver was punctual and polite",en
+T007752,E02097,5,"Driver samayaniki vachadu, baagundi",te
+T007753,E03399,5,"Vandi sariyana neratthil vanthathu",ta
+T007760,E00551,4,"Driver was punctual and polite",en
+T007761,E00345,2,"Waited forty minutes with no update",en
+T007764,E02017,4,"Driver samayaniki vachadu, baagundi",te
+T997192,E02215,4,"Driver was punctual and polite",en
+T007769,E03062,2,"Waited forty minutes with no update",en
+T007772,E00055,5,"Driver was punctual and polite",en
+T994956,E02753,2,"Cab chala late ayindi, sammachaaram ledu",te
+T007778,E00830,5,"Driver samayaniki vachadu, baagundi",te
+T007781,E03199,3,"Vandi sariyana neratthil vanthathu",ta
+T007783,E02761,3,"Vandi sariyana neratthil vanthathu",ta
+T007790,E01536,3,"Cab samayakke bantu, chennagitru",kn
+T007794,E01134,3,"Driver was punctual and polite",en
+T997902,E02381,5,"Driver was punctual and polite",en
+T007799,E03381,4,"Driver was punctual and polite",en
+T007800,E01422,5,"Driver was punctual and polite",en
+T007813,E03930,5,"Driver samayaniki vachadu, baagundi",te
+T007814,E02158,3,"Driver was punctual and polite",en
+T007816,E00422,3,"Driver was punctual and polite",en
+T007818,E02870,3,"Driver samayaniki vachadu, baagundi",te
+T007821,E02583,3,"Driver was punctual and polite",en
+T007824,E02494,3,"Driver samayaniki vachadu, baagundi",te
+T007825,E02579,4,"Cab samay par aaya, driver acha tha",hi
+T007826,E02702,5,"Driver was punctual and polite",en
+T007829,E01314,4,"Driver was punctual and polite",en
+T007832,E00681,4,"Vandi sariyana neratthil vanthathu",ta
+T007834,E01086,4,"Driver was punctual and polite",en
+T007836,E03358,3,"Cab samay par aaya, driver acha tha",hi
+T007838,E03454,3,"Cab samayakke bantu, chennagitru",kn
+T007839,E01927,4,"Cab samayakke bantu, chennagitru",kn
+T007840,E03926,4,"Driver was punctual and polite",en
+T007842,E00757,3,"Vandi sariyana neratthil vanthathu",ta
+T007843,E03890,4,"Driver was punctual and polite",en
+T007846,E03146,5,"Driver was punctual and polite",en
+T007847,E02975,4,"Driver was punctual and polite",en
+T007849,E03734,3,"Driver was punctual and polite",en
+T007852,E00150,1,"Waited forty minutes with no update",en
+T007859,E02373,5,"Cab samayakke bantu, chennagitru",kn
+T007862,E02589,5,"Vandi sariyana neratthil vanthathu",ta
+T007865,E01552,5,"Driver was punctual and polite",en
+T007867,E01296,4,"Driver was punctual and polite",en
+T007876,E00508,5,"Driver was punctual and polite",en
+T007879,E03786,4,"Cab samayakke bantu, chennagitru",kn
+T007880,E00815,3,"Driver was punctual and polite",en
+T007881,E02708,2,"Cab bahut late tha, koi soochna nahi mili",hi
+T007884,E02928,5,"Driver samayaniki vachadu, baagundi",te
+T007885,E03262,5,"Cab samay par aaya, driver acha tha",hi
+T007887,E02126,5,"Driver was punctual and polite",en
+T007892,E00532,4,"Driver was punctual and polite",en
+T007893,E03755,3,"Driver was punctual and polite",en
+T993661,E00759,4,"Cab samay par aaya, driver acha tha",hi
+T007898,E01489,5,"Driver was punctual and polite",en
+T007899,E02300,2,"Waited forty minutes with no update",en
+T007900,E01533,3,"Cab samayakke bantu, chennagitru",kn
+T007902,E00657,3,"Driver was punctual and polite",en
+T007903,E02021,3,"Driver was punctual and polite",en
+T007904,E01475,3,"Driver was punctual and polite",en
+T007913,E03635,4,"Driver was punctual and polite",en
+T007917,E02864,3,"Driver was punctual and polite",en
+T007927,E00127,4,"Driver was punctual and polite",en
+T007930,E03382,5,"Cab samayakke bantu, chennagitru",kn
+T007931,E00684,4,"Driver was punctual and polite",en
+T007933,E02842,3,"Driver was punctual and polite",en
+T007934,E03131,4,"Driver samayaniki vachadu, baagundi",te
+T007936,E00118,2,"Vandi romba late, thagaval illai",ta
+T007938,E01986,5,"Driver samayaniki vachadu, baagundi",te
+T007939,E00673,3,"Cab samayakke bantu, chennagitru",kn
+T007941,E02376,4,"Driver was punctual and polite",en
+T007942,E03583,4,"Driver was punctual and polite",en
+T007945,E02310,4,"Driver was punctual and polite",en
+T007950,E02915,3,"Vandi sariyana neratthil vanthathu",ta
+T007957,E01440,3,"Driver was punctual and polite",en
+T007958,E00372,3,"Cab samayakke bantu, chennagitru",kn
+T007960,E03230,4,"Cab samay par aaya, driver acha tha",hi
+T007963,E00044,5,"Driver was punctual and polite",en
+T007968,E01619,3,"Cab samay par aaya, driver acha tha",hi
+T007970,E00597,3,"Cab samayakke bantu, chennagitru",kn
+T007979,E03013,4,"Driver was punctual and polite",en
+T007984,E03885,4,"Driver was punctual and polite",en
+T007991,E02954,3,"Driver was punctual and polite",en
+T007993,E02843,5,"Driver was punctual and polite",en
+T007995,E02258,3,"Driver was punctual and polite",en
+T007998,E01815,3,"Driver was punctual and polite",en
