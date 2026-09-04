@@ -1,20 +1,52 @@
-# hackathon-moveinsync
+# Signal Desk
 
-Workspace for building an **Agentic Intelligence & Reporting Layer for
-Enterprise Mobility** — an agentic system for reporting and intelligence over
-mobility operations data, in Go + React on AWS.
+Build workspace for the MoveInSync hackathon: an **Agentic Intelligence &
+Reporting Layer for Enterprise Mobility**.
 
-The repo previously held prep for a different, guessed problem statement (a
-vehicle-pooling/routing optimiser). That guess turned out to be wrong once the
-real problem statement arrived, so the prep was cleared out. It is not lost:
-the annotated tag `prep/pooling-prototype` points at the commit where it still
-lives in full. To bring any of it back, check it out — for example
-`git checkout prep/pooling-prototype -- <path>`, or inspect it directly with
-`git show prep/pooling-prototype:<path>`.
+An agent that watches enterprise commute operations, works out what a transport
+manager needs to know before they ask, and sends it — with the reasoning
+attached.
 
-The one document carried forward is
-[`docs/TESTING-LESSONS.md`](docs/TESTING-LESSONS.md) — lessons on testing
-approach that stay useful regardless of the problem.
+## Start here
 
-See [`AGENTS.md`](AGENTS.md) for orientation if you're picking this repo up
-cold.
+| Document | What it is |
+|---|---|
+| [`PROPOSAL.md`](PROPOSAL.md) | The build proposal: architecture, scoring rationale, build order, and the open items. **Awaiting team sign-off.** |
+| [`docs/MoveInSync-problem-statement.pdf`](docs/MoveInSync-problem-statement.pdf) | The problem statement as issued by the organisers. The authority — every design decision answers to it. |
+| [`docs/TESTING-LESSONS.md`](docs/TESTING-LESSONS.md) | How to keep tests honest under time pressure. Domain-independent. |
+| [`AGENTS.md`](AGENTS.md) | Orientation for an agent or a person picking this repo up cold. |
+
+## Status
+
+**No application code yet, and no design spec.** The proposal is deliberately
+ahead of the spec: it is far cheaper to overturn the shape now than after a spec
+argues from it.
+
+Direction so far: **Java · Spring Boot · React**, embedded **DuckDB** over the
+provided trip-log dataset, **Sarvam** as the model layer, delivering to Slack
+and email. The reasoning is deterministic and testable; the model writes
+language only. `PROPOSAL.md` explains why.
+
+## The prep that was cleared
+
+This repo previously held preparation built against a *guess* at the problem
+statement — a vehicle-pooling and route-optimisation engine. The real statement
+turned out to be a different problem, so that work was removed rather than left
+around to mislead.
+
+Nothing was destroyed. The annotated tag `prep/pooling-prototype` points at the
+commit where it all still lives:
+
+```sh
+git show prep/pooling-prototype:<path>          # inspect a file
+git checkout prep/pooling-prototype -- <path>   # bring one back
+```
+
+Worth a look from that tag if you ever want it: `commute-os/src/core/policy.ts`,
+a four-tier verdict engine whose pattern *is* carried forward into this build.
+
+## Secrets
+
+Nothing credential-shaped belongs in this repo. The Sarvam API key and the Slack
+webhook URL live in environment variables only — a Slack webhook URL is itself a
+credential, since anyone holding it can post to the channel.

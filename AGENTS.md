@@ -1,46 +1,85 @@
-# AGENTS.md — orientation for an AI agent working in this repo
+# AGENTS.md — orientation for an agent working in this repo
 
-Read this first if you're picking up this repo cold.
+Read this before doing anything else here.
+
+## What this repo is
+
+The build workspace for a MoveInSync hackathon entry answering the statement
+**"Agentic Intelligence & Reporting Layer for Enterprise Mobility"**.
+
+The problem statement is committed at
+[`docs/MoveInSync-problem-statement.pdf`](docs/MoveInSync-problem-statement.pdf)
+and is **the authority**. Read it before proposing anything. Its mandatory bar
+matters: the solution must sense, reason and act — a passive dashboard or a
+query-only tool is explicitly ruled out.
 
 ## Current state
 
-The repo has just been cleared of prep work built against a guessed problem
-statement. The real problem statement has now arrived and is a different
-problem, so that prep was removed. There is no application code here yet, and
-no design spec for the new problem — the repo is awaiting that work.
+**No application code. No design spec.** What exists is a proposal.
 
-## What this repo is now for
+[`PROPOSAL.md`](PROPOSAL.md) holds the agreed shape: the four-layer
+architecture, the mapping to the published scoring weights, the build order with
+a protected checkpoint, and a list of genuinely open items. It is awaiting team
+sign-off, so treat it as a strong default rather than a settled contract — and
+do not start implementing from it without checking that sign-off has happened.
 
-Building an **Agentic Intelligence & Reporting Layer for Enterprise
-Mobility** — an agentic system for reporting and intelligence over mobility
-operations data. The tech direction is **Go + React on AWS**.
+## The one decision to preserve
 
-No product design, architecture, or feature set has been written down yet.
-Do not infer or invent one — wait for the design spec, or for explicit
-direction, before assuming any specifics beyond what's stated here.
+**The model never computes a number and never writes raw SQL.** Rules decide
+what is wrong and who cares; a metric registry answers what the figures are; the
+model turns settled findings into language and answers open questions through
+validated tools.
 
-## What was removed, and where it went
+If you change anything, do not erode that split. It is what makes the output
+trustworthy, the reasoning unit-testable, and the model layer swappable. Several
+of the proposal's claims — including its cost-at-scale argument — depend on it.
 
-Earlier prep explored a vehicle-pooling/routing optimiser (a TypeScript
-prototype called `commute-os`, specs analysing eight cloned VRP/pooling
-reference repos, and the design docs and plans built on top of that). All of
-it is preserved at the annotated tag `prep/pooling-prototype`, which points at
-the commit just before the cleanup. Nothing is destroyed — it's just not on
-this branch's working tree. Recover a path from it with:
+## Direction
+
+- **Java · Spring Boot** service, **React** console
+- Embedded **DuckDB** via the official JDBC driver — no separate database, no
+  Redis, no queue
+- **Sarvam** as the model layer (`sarvam-105b`; the older Sarvam-M is deprecated
+  and no longer served), reached through the official OpenAI Java SDK with a
+  base-URL override, since the API is OpenAI-compatible
+- Delivery to **Slack** (incoming webhook) and **email** (SES, sandbox, to
+  verified addresses)
+
+Anything beyond the above is not yet decided. Do not infer a feature set — check
+`PROPOSAL.md`, and prefer asking over assuming.
+
+## Secrets
+
+The Sarvam API key and the Slack webhook URL live in environment variables and
+must never reach a commit, a screenshot, or the deck. A Slack webhook URL is a
+credential in its own right: anyone holding it can post to the channel. If you
+add configuration, add it to `.env.example` with placeholder values.
+
+## The prep that was cleared
+
+Earlier work in this repo targeted a *guess* at the problem statement — a
+vehicle-pooling and route-optimisation engine (a TypeScript prototype called
+`commute-os`, specs for eight cloned VRP reference repos, and the plans built on
+them). The real statement is a different problem, so that work was removed to
+stop it misleading anyone.
+
+It is preserved in full at the annotated tag `prep/pooling-prototype`:
 
 ```sh
 git show prep/pooling-prototype:<path>
 git checkout prep/pooling-prototype -- <path>
 ```
 
+**Do not resurrect it wholesale.** Almost none of it applies. The exception is
+the pattern in `commute-os/src/core/policy.ts` — a four-tier verdict engine
+carrying cause, severity and a reasoning trace — which is the ancestor of this
+build's rules layer and is worth reading once.
+
 ## What's kept
 
-- [`docs/TESTING-LESSONS.md`](docs/TESTING-LESSONS.md) — the one document from
-  the prior prep judged transferable regardless of problem domain.
-- `.superpowers/` — agent workspace, git-ignored, not part of the repo's
-  tracked content.
-
-## Conventions
-
-None established yet for the new build. Follow whatever standards land with
-the design spec and initial scaffolding.
+- [`docs/TESTING-LESSONS.md`](docs/TESTING-LESSONS.md) — the taxonomy of vacuous
+  tests and the break-it-to-prove-it protocol. Written during the prep, but
+  domain-independent, and the single most useful habit to carry into a timed
+  build: after a test passes, delete the behaviour it is named for and confirm
+  it fails.
+- `.superpowers/` — agent scratch workspace, git-ignored, not tracked content.

@@ -1,8 +1,14 @@
 # Test Integrity — what 11 tasks of TDD actually taught us
 
-**Written 2026-09-03, from executing the commute-os core-engine plan** (11 tasks,
-191 tests, 43 commits, every diff reviewed). Applies to Plans 2 and 3, and to how
-to write tests under time pressure on hackathon day.
+**Written 2026-09-03**, from executing an 11-task TDD plan end to end (191 tests,
+43 commits, every diff reviewed). That project was cleared from this repo when
+the real problem statement turned out to be a different problem — see
+[`AGENTS.md`](../AGENTS.md) — but the findings below are about how tests fail as
+tests, not about that domain, so they carry over unchanged.
+
+Read this for one habit above all: **after a test passes, delete the behaviour it
+is named for and confirm it fails.** That single step caught ten tests that were
+asserting nothing.
 
 Across eleven tasks, ~173 tests and a full review of every diff, the score was:
 
