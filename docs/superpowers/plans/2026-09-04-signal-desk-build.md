@@ -606,11 +606,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -634,7 +634,6 @@ public final class FixtureGenerator {
     static final String[] SHIFTS = {"S1", "S2", "S3"};
     static final String[] MODES = {"cab", "nodal", "shuttle"};
     static final String[] DIRECTIONS = {"login", "logout"};
-    static final long DAY_MS = 86_400_000L;
     static final LocalDate DAY_ZERO = LocalDate.parse("2026-06-07");
 
     private FixtureGenerator() {}
@@ -648,6 +647,12 @@ public final class FixtureGenerator {
         return dayStartMs(DAYS);
     }
 
+    /**
+     * All six writers share ONE Random. Inserting or removing a single draw
+     * anywhere shifts every subsequent value and changes the committed fixture
+     * byte-for-byte. theCommittedFixtureMatchesWhatTheGeneratorProducesNow will
+     * catch it, but know it before you edit rather than after.
+     */
     public static void generate(Path outDir, long seed) throws IOException {
         Files.createDirectories(outDir);
         Random rnd = new Random(seed);
@@ -862,7 +867,7 @@ public final class FixtureGenerator {
             for (int day = 0; day < DAYS; day++) {
                 for (int i = 0; i < 40; i++) {
                     // Planted fault: ~5% of roster rows name employees with no trip.
-                    boolean orphan = rnd.nextDouble() < 0.05;
+                    boolean orphan = rnd.nextDouble() < FaultInjector.ORPHAN_ROSTER_RATE;
                     String employeeId = orphan
                             ? String.format("E9%04d", rnd.nextInt(1000))
                             : String.format("E%05d", rnd.nextInt(4000));
@@ -880,12 +885,16 @@ public final class FixtureGenerator {
         return Files.newBufferedWriter(dir.resolve(feed.fileName()), StandardCharsets.UTF_8);
     }
 
+    // Locale.ROOT is not optional. String.format without it uses the JVM's
+    // default locale, and a comma decimal separator would write "12,34" into a
+    // CSV field — breaking field counting (indistinguishable from the planted
+    // malformed-row fault) and breaking byte-identical output across machines.
     private static String fmt(double d) {
-        return String.format("%.2f", d);
+        return String.format(Locale.ROOT, "%.2f", d);
     }
 
     private static String fmt6(double d) {
-        return String.format("%.6f", d);
+        return String.format(Locale.ROOT, "%.6f", d);
     }
 
     private static String quote(String s) {
@@ -895,8 +904,11 @@ public final class FixtureGenerator {
     public static void main(String[] args) throws IOException {
         Path out = Path.of(args.length > 0 ? args[0] : "../data/fixture");
         generate(out, SEED);
+        // Print the ABSOLUTE path: exec:java inherits the shell's cwd rather than
+        // ${basedir}, so the default relative argument can land outside the repo.
+        // Reading this line is how that gets caught.
         System.out.println("fixture written to " + out.toAbsolutePath().normalize()
-                + " (seed " + SEED + ", generated " + Instant.EPOCH + "-independent)");
+                + " (seed " + SEED + ")");
     }
 }
 ```
@@ -922,6 +934,8 @@ public final class FaultInjector {
     public static final double UNMATCHED_RATE = 0.03;
     /** ~40% of feedback comments are not in English. */
     public static final double NON_ENGLISH_RATE = 0.40;
+    /** ~5% of roster rows name an employee who never took a trip. */
+    public static final double ORPHAN_ROSTER_RATE = 0.05;
 
     private FaultInjector() {}
 
@@ -1000,6 +1014,15 @@ Append to `FixtureGeneratorTest`:
         long nonEnglish = feedback.stream().skip(1).filter(r -> !r.endsWith(",en")).count();
         assertThat(nonEnglish / (double) (feedback.size() - 1)).as("non-English").isBetween(0.30, 0.50);
 
+        long unmatchedFeedback = feedback.stream().skip(1).filter(r -> r.startsWith("T99")).count();
+        assertThat(unmatchedFeedback / (double) (feedback.size() - 1))
+                .as("unmatched feedback").isBetween(0.02, 0.045);
+
+        List<String> roster = Files.readAllLines(dir.resolve(Feed.ROSTER.fileName()));
+        long orphanRoster = roster.stream().skip(1).filter(r -> r.startsWith("E9")).count();
+        assertThat(orphanRoster / (double) (roster.size() - 1))
+                .as("orphan roster rows").isBetween(0.03, 0.07);
+
         List<String> pings = Files.readAllLines(dir.resolve(Feed.GPS_PINGS.fileName()));
         Map<String, Long> perTrip = pings.stream().skip(1)
                 .collect(Collectors.groupingBy(r -> r.split(",")[0], Collectors.counting()));
@@ -1061,10 +1084,24 @@ Expected: PASS, 5 tests.
 
 - [ ] **Step 9: Break-it-to-prove-it**
 
-Set `FaultInjector.MALFORMED_RATE` to `0.0`, rerun. Expected: the malformed
-assertion FAILS. Restore. Then set the `intoRegression > 0` branch to a no-op,
-rerun. Expected: `theDegradingVendorIsActuallyWorseInTheFinalThreeWeeks` FAILS.
-Restore.
+Falsify each rate guard, one at a time, restoring between each:
+
+- `FaultInjector.MALFORMED_RATE = 0.0` → the malformed assertion FAILS
+- `FaultInjector.UNMATCHED_RATE = 0.0` → both the unmatched-costs and
+  unmatched-feedback assertions FAIL
+- `FaultInjector.ORPHAN_ROSTER_RATE = 0.0` → the orphan-roster assertion FAILS
+- the `intoRegression > 0` branch made a no-op →
+  `theDegradingVendorIsActuallyWorseInTheFinalThreeWeeks` FAILS
+- `istHourFor`'s S3 logout changed back to `6` →
+  `everyNightLogoutShiftIsClassifiedByTheIstHourRuleNotByShiftName` FAILS
+
+The last one is the mismatch that made `night_compliance` match zero rows in an
+earlier draft. Knowing empirically that the test fires is worth the minute.
+
+Then prove the locale guard, if your shell makes it easy: run the determinism
+tests with `-Duser.language=de -Duser.country=DE`. They pass with `Locale.ROOT`
+and fail without it. Skip and say so if it turns fiddly — the code fix stands on
+its own.
 
 - [ ] **Step 10: Generate and commit the fixture**
 
