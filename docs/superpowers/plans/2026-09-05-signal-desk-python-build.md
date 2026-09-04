@@ -1040,6 +1040,7 @@ arrives, check whether `actual_km` nulls cluster on the GPS-gap trips, and if
 they do, **say so in the data-quality panel**: one causal story reads far better
 than two unrelated defect rates. Their `auto sign-off` feature is likewise the
 explanation for trips with no close-out time.
+```
 
 ```python
 def test_the_real_dataset_loads_and_its_health_is_printed():
