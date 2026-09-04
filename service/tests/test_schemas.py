@@ -10,6 +10,26 @@ def test_tiers_compare_ordinally_and_a_breach_beats_any_watch():
     assert max([Tier.WATCH, Tier.WATCH, Tier.WATCH, Tier.BREACH]) is Tier.BREACH
 
 
+def test_every_ordering_operator_on_tier_works_not_just_less_than():
+    # The finding this pins: defining only __lt__ works through Python's
+    # reflected-comparison fallback, and the ranking rule plus the delivery
+    # routing both depend on > and max(). Assert all four operators so the
+    # guarantee is checked rather than assumed.
+    assert Tier.BREACH > Tier.WATCH
+    assert Tier.WATCH < Tier.BREACH
+    assert Tier.CONCERN >= Tier.CONCERN
+    assert Tier.PASS <= Tier.WATCH
+    assert max([Tier.WATCH, Tier.BREACH, Tier.PASS]) is Tier.BREACH
+    assert min([Tier.CONCERN, Tier.PASS]) is Tier.PASS
+    assert sorted([Tier.BREACH, Tier.PASS, Tier.CONCERN]) == [
+        Tier.PASS, Tier.CONCERN, Tier.BREACH]
+
+
+def test_comparing_a_tier_to_a_non_tier_is_refused_rather_than_guessed():
+    with pytest.raises(TypeError):
+        _ = Tier.BREACH > 2
+
+
 def test_an_unknown_dimension_is_refused_with_the_valid_values_named():
     with pytest.raises(ValueError, match="route"):
         Dimension.parse("route")

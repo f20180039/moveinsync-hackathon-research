@@ -49,7 +49,7 @@ of the proposal's claims — including its cost-at-scale argument — depend on 
 
 ## Direction
 
-- **Python 3.12 · FastAPI · uvicorn** service, **React 19 · Vite 7** console
+- **Python 3.12 · FastAPI · uvicorn** service, **React 19 · Vite 8** console
 - Embedded **DuckDB** via the `duckdb` package — no separate database, no Redis,
   no queue
 - **Sarvam** as the model layer (`sarvam-105b`; Sarvam-M is deprecated and no
@@ -78,7 +78,7 @@ runtimes and their defaults must not change.
 costs more than it saves.
 
 **Node — pinned to 22 via `.nvmrc`.** The global default is deliberately still
-18 for other work. Run `nvm use` on entering the repo. Vite 7 requires Node
+18 for other work. Run `nvm use` on entering the repo. Vite 8 requires Node
 20.19+ or 22.12+, so 18 fails outright rather than degrading. Two guards
 enforce this: `.npmrc` sets `engine-strict=true` (gates `npm install`), and
 `scripts/require-node.mjs` gates `npm run dev` — wire it as the frontend's

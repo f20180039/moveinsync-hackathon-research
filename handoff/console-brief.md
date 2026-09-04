@@ -26,7 +26,7 @@ that path first; it is the demo's best moment.
 ## Setup (should already be done; if not, do this first)
 
 ```sh
-nvm use                       # Node 22 — Vite 7 fails on 18
+nvm use                       # Node 22 — Vite 8 fails on 18
 cd console && npm install
 npm run dev                   # http://localhost:5173
 npm test

@@ -6,7 +6,7 @@
 
 **Architecture:** Four layers, one hard seam. Tolerant CSV ingest into embedded DuckDB with a rejects quarantine; a metric registry that is the only thing holding SQL; pure functions comparing each metric to its reference points and emitting ranked findings; the model turning settled findings into language and answering questions through four validated tools. **No arithmetic passes through the model.**
 
-**Tech Stack:** Python 3.12 · FastAPI · uvicorn · DuckDB (`duckdb` package) · OpenAI Python SDK against Sarvam · boto3 (SES, S3) · React 19 · Vite 7 · TypeScript · pytest · Vitest + Testing Library
+**Tech Stack:** Python 3.12 · FastAPI · uvicorn · DuckDB 1.5.5 (`duckdb` package) · OpenAI Python SDK against Sarvam · boto3 (SES, S3) · React 19.2 · **Vite 8** · TypeScript 6 · pytest · Vitest 5 + Testing Library
 
 **Spec:** [`docs/superpowers/specs/2026-09-04-signal-desk-design.md`](../specs/2026-09-04-signal-desk-design.md) — **read §15 (Amendment 1.1) first**; it supersedes the body's Java signatures and Render/Vercel deployment.
 
@@ -100,7 +100,7 @@ These were found by a pre-flight conflict scan and by review. **Five of the seve
 Every task's requirements implicitly include this section.
 
 - **Python 3.12**, one virtualenv at `service/.venv`, dependencies pinned in `service/requirements.txt`. No Poetry, no Conda — a lockfile argument at 10:30 costs more than it saves.
-- **Node 22** for the console, pinned by `.nvmrc`; the machine's global default is deliberately 18. Run `nvm use`. Vite 7 needs 20.19+ or 22.12+, so 18 fails outright. `scripts/require-node.mjs` is the `predev` gate.
+- **Node 22** for the console, pinned by `.nvmrc`; the machine's global default is deliberately 18. Run `nvm use`. Vite 8 needs 20.19+ or 22.12+, so 18 fails outright. `scripts/require-node.mjs` is the `predev` gate.
 - **`ignore_errors` is forbidden** in every `read_csv_auto` call — it silently drops *valid* rows. Use `store_rejects=true` and read the rejects back.
 - **The model never computes a number and never writes raw SQL.** No `run_sql` tool at any point. SQL lives only in `registry.py` and `ingest.py`; a test enforces that by grep.
 - **Tiers are ordinal and never summed.** Three `WATCH`es must never outrank one `BREACH`.
@@ -138,7 +138,11 @@ Not optional, and none of it needs the dataset. Every one of these is something 
       @testing-library/jest-dom @testing-library/user-event jsdom
   ```
 
-  Then wire `console/package.json` (`"engines": {"node": ">=22.12"}`, a `predev` script running `node ../scripts/require-node.mjs`, and a `test` script running `vitest run`) and `vite.config.ts` (the react plugin, `server.proxy` mapping `/api` to `http://localhost:8080`, and `test: { environment: 'jsdom', globals: true }`). Confirm `npm run dev` serves and `npm test` runs with zero tests before you stop.
+  Then wire `console/package.json` (`"engines": {"node": ">=22.12"}`, a `predev` script running `node ../scripts/require-node.mjs`, and a `test` script running `vitest run`) and `vite.config.ts` (the react plugin, `server.proxy` mapping `/api` to `http://localhost:8080`, and `test: { environment: 'jsdom', globals: true }`). Confirm `npm run dev` serves, `npx tsc --noEmit` is clean, and `npm test` runs before you stop.
+
+  **DONE 2026-09-04.** Two things the scaffold turned up, recorded so nobody re-discovers them:
+  - `create-vite` now pulls **Vite 8 / Vitest 5 / TypeScript 6 / plugin-react 6**, not the Vite 7 this plan originally named. Same Node floor (≥20.19 or ≥22.12), so nothing breaks — but the version numbers in older text were wrong and are corrected here.
+  - Putting `test: {...}` inside `vite.config.ts` needs **`/// <reference types="vitest/config" />`** at the top or `tsc` fails, and **Vitest 5 exits non-zero on zero test files** unless you set `passWithNoTests: true`. Both are in place. Confirmed running under Node v22.21.1, not the global 18.
 - [ ] **Create the Slack incoming webhook** and `curl` one message to it. Minutes, no approval. This is the primary delivery channel and Tier 1 needs it.
 - [ ] **Verify 2–3 team emails in SES sandbox — and note this one has human latency.** Each address gets a confirmation email that *the recipient has to click*. That is not a config step you can do at 14:00 tomorrow and have finished at 14:05; if a teammate does not check their inbox, the address stays unverified. Send the verification requests tonight and chase the clicks.
 

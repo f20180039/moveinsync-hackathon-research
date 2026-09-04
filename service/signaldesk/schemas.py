@@ -1,21 +1,33 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+from functools import total_ordering
 from typing import Optional
 
 from . import constants
 
 
+@total_ordering
 class Tier(Enum):
     """Ordered, compared ordinally, NEVER summed into a score. Summing would let
-    three mild issues outrank one genuine breach."""
+    three mild issues outrank one genuine breach.
+
+    total_ordering is deliberate rather than decorative. Defining only __lt__
+    happens to work -- `BREACH > CONCERN` and `max(...)` resolve through
+    Python's reflected-comparison fallback -- but the whole ranking rule and
+    the delivery routing depend on `>` and `max()`, and that fallback silently
+    stops applying the moment anyone gives Tier a custom __eq__. Generating the
+    operators makes the guarantee explicit instead of incidental.
+    """
     PASS = 0
     WATCH = 1
     CONCERN = 2
     BREACH = 3
 
     def __lt__(self, other: "Tier") -> bool:
+        if not isinstance(other, Tier):
+            return NotImplemented
         return self.value < other.value
 
 
