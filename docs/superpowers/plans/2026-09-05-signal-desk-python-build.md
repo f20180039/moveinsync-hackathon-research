@@ -1604,6 +1604,16 @@ BASE_URL = "https://api.sarvam.ai/v1"
 MODEL = "sarvam-105b"      # Sarvam-M is deprecated and no longer served
 
 
+class TruncatedResponse(RuntimeError):
+    """The model hit its token ceiling or returned nothing.
+
+    Raised rather than returned so every caller must decide. SarvamComposer
+    catches it and sends the template brief; the interrogator catches it and
+    withholds. Silently returning a half-written brief is the one outcome
+    neither of them should have to guess at.
+    """
+
+
 @dataclass
 class CostMeter:
     """Tokens and rupees per interaction, extrapolated to scale.
@@ -1680,13 +1690,36 @@ class SarvamClient:
         self._client = OpenAI(api_key=api_key or os.environ.get("SARVAM_API_KEY", ""),
                               base_url=BASE_URL)
 
+    # MEASURED 2026-09-04: sarvam-105b bills reasoning tokens as
+    # completion_tokens without surfacing them in message.content. Replying with
+    # the single word "READY" cost 195 completion tokens; one tool call cost
+    # 199; a ten-word translation cost 19. So the overhead is real, variable,
+    # and up to ~200 tokens BEFORE any prose. A 700-token ceiling on a
+    # 200-word brief is uncomfortably close to truncating.
+    DEFAULT_MAX_TOKENS = 1600
+
     def complete(self, messages: list[dict], purpose: str = "brief",
-                 max_tokens: int = 700) -> str:
+                 max_tokens: int | None = None) -> str:
         r = self._client.chat.completions.create(
-            model=MODEL, messages=messages, max_tokens=max_tokens)
+            model=MODEL, messages=messages,
+            max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS)
         if r.usage:
             COST.record(purpose, r.usage)
-        return (r.choices[0].message.content or "").strip()
+        choice = r.choices[0]
+        text = (choice.message.content or "").strip()
+
+        # A truncated brief is the DANGEROUS failure, not an obvious one: half a
+        # sentence whose every figure is correct passes the numeric validator
+        # and goes on stage mid-word. Treat it as a hard failure so the caller
+        # falls back to the deterministic template.
+        if choice.finish_reason == "length":
+            raise TruncatedResponse(
+                f"{purpose} hit the {max_tokens or self.DEFAULT_MAX_TOKENS}-token "
+                f"ceiling; reasoning overhead is billed but not returned")
+        if not text:
+            raise TruncatedResponse(f"{purpose} returned empty content "
+                                    f"(finish_reason={choice.finish_reason})")
+        return text
 ```
 
 **The rate is measured, not invented.** 629 tokens billed at ₹0.03 on 2026-09-04 gives ~₹0.048 per 1k blended. Two things follow:
@@ -1694,7 +1727,7 @@ class SarvamClient:
 - **Say "fractions of a rupee", not three significant figures.** ₹0.03 is a rounded dashboard display, so the rate is really ₹0.040–0.056 per 1k — ±17%. `rateIsApproximate` is in the payload so the console can hedge honestly. A precise-looking made-up number is the one thing a judge can check and catch.
 - **Cost is not a constraint on this build.** The rate is ~₹0.048 per 1k tokens; a brief is ₹0.09 and an interrogation question ₹0.38. The team's allocation is topped up per request, so nothing here needs rationing. Report the *rate* honestly on stage and let the per-organisation figure below carry the argument — do not present a credit balance as if it were a limit we engineered around.
 
-**The number that carries the argument is per-organisation, not per-interaction.** One brief is ~1,900 tokens ≈ ₹0.09; three audiences daily is **~₹8 per month for the entire client** — and that total is *flat* whether they have 500 employees or 50,000, because the model sees aggregates rather than rows. So per-employee cost **falls** as the client grows: ₹0.016/employee/month at 500, ₹0.0002 at 50,000. A per-row pipeline behaves the opposite way, and that contrast is the whole of criterion 2.
+**The number that carries the argument is per-organisation, not per-interaction.** One brief is ~2,200 tokens ≈ ₹0.10 (revised upward after measuring the reasoning overhead); three audiences daily is **~₹9.50 per month for the entire client** — and that total is *flat* whether they have 500 employees or 50,000, because the model sees aggregates rather than rows. So per-employee cost **falls** as the client grows: ₹0.016/employee/month at 500, ₹0.0002 at 50,000. A per-row pipeline behaves the opposite way, and that contrast is the whole of criterion 2.
 
 - [ ] **Step 2: `compose.py` — the validator is the load-bearing part**
 
@@ -1776,9 +1809,37 @@ If it reads like a data dump, fix the template now. This wording is what the dem
 
 Check the log for a rejected narrative. **If validation fires, tighten the prompt — do not loosen the validator.** The usual cause is the model recomputing a percentage change; add one line naming that specific mistake.
 
+- [ ] **Step 4b: Handle truncation as a fallback, and test it**
+
+`sarvam_brief()` already falls back to the template on an exception, so
+`TruncatedResponse` is handled by construction — but assert it, because this is
+the failure mode most likely to reach a stage:
+
+```python
+def test_sarvam_brief_substitutes_the_template_when_the_model_truncates():
+    # A half-written brief whose figures are all correct PASSES the numeric
+    # validator. Truncation has to be caught before validation, not by it.
+    model = StubModel()
+    model.raises = TruncatedResponse("brief hit the ceiling")
+    brief = sarvam_brief(run(), Audience.FACILITIES_HEAD, model=model)
+    assert "[BREACH]" in brief          # the template's marker
+```
+
+And one that pins the reason the ceiling is generous:
+
+```python
+def test_the_default_token_ceiling_leaves_room_for_reasoning_overhead():
+    # Measured: ~200 completion tokens of reasoning before any prose.
+    # A 200-word brief is ~280 tokens of prose. 1600 leaves real headroom.
+    assert SarvamClient.DEFAULT_MAX_TOKENS >= 1200
+```
+
 - [ ] **Step 5: Break-it-to-prove-it**
 
 Return the model narrative unconditionally → the invented-figure test FAILS. Restore.
+
+Remove the `finish_reason == "length"` check → the truncation test FAILS. Restore.
+That guard is the only thing standing between a truncated brief and a judge.
 Make `_DECIMAL` match integers too → the dates-and-integers test FAILS. Restore.
 Let the send exception propagate → the channel-failure test FAILS. Restore.
 
@@ -1950,7 +2011,11 @@ def normalise(con, translator, *, allow_api: bool = True) -> None:
 - [ ] **Every test passes `allow_api=False`** with a stub translator, so no test can reach the network.
 - [ ] **Confirm determinism after caching:** two consecutive sweeps must produce identical `experience` findings. That assertion is what proves the cache is doing its job.
 
-`SENTIMENT_LEXICON` scores a translated comment in `{-1, 0, +1}` deterministically — negative and positive marker lists, stronger side wins, neutral on a tie or on `None`. `translate()` sends non-English comments to Sarvam (`purpose="translate"` so the cost meter attributes them separately) and returns `None` on failure. `normalise()` materialises `feedback_normalised(trip_id, employee_id, rating, comment, comment_en, language, sentiment)` **once at startup, then caches** — translation is not deterministic and the sweep must be.
+`SENTIMENT_LEXICON` scores a translated comment in `{-1, 0, +1}` deterministically — negative and positive marker lists, stronger side wins, neutral on a tie or on `None`.
+
+**Seed the markers from what Sarvam actually returns, not from what the Hindi says.** Measured 2026-09-04: `"Cab bahut late tha, koi soochna nahi mili"` came back as *"The cab was really late, and I didn't get any notice."* Only `late` matched the draft marker list — `"didn't get any notice"` matched nothing, because the drafted markers were `no update` / `not inform` / `information`. One marker was enough to score it correctly here, but a comment whose only complaint is phrased that way would score **neutral**, and `experience` would quietly under-report.
+
+Add at minimum: `notice`, `no notice`, `without notice`, `no information`, `never came`, `waited`. Then **run the lexicon over the real translated corpus once and print the score distribution.** If most rows land on 0, the markers do not match Sarvam's register and the fix is to widen the list — never to hand-tune the translations, which would make the pipeline non-reproducible. `translate()` sends non-English comments to Sarvam (`purpose="translate"` so the cost meter attributes them separately) and returns `None` on failure. `normalise()` materialises `feedback_normalised(trip_id, employee_id, rating, comment, comment_en, language, sentiment)` **once at startup, then caches** — translation is not deterministic and the sweep must be.
 
 The original comment is retained verbatim so the narrative can quote it alongside the translation.
 
