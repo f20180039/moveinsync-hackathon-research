@@ -11,7 +11,9 @@ attached.
 
 | Document | What it is |
 |---|---|
-| [`PROPOSAL.md`](PROPOSAL.md) | The build proposal: architecture, scoring rationale, build order, and the open items. **Awaiting team sign-off.** |
+| [`docs/superpowers/plans/2026-09-05-signal-desk-python-build.md`](docs/superpowers/plans/2026-09-05-signal-desk-python-build.md) | **The plan you execute on build day.** Tiered against the real ~6-hour schedule. Start here. |
+| [`docs/superpowers/specs/2026-09-04-signal-desk-design.md`](docs/superpowers/specs/2026-09-04-signal-desk-design.md) | The design spec, v1.1. **Read §15 first** — it supersedes the body's stack and deployment. |
+| [`PROPOSAL.md`](PROPOSAL.md) | The original argument. Read it for the *reasoning*, not the stack or the budget — it assumes ~14 hours and a Java backend, and both changed. |
 | [`docs/MoveInSync-problem-statement.pdf`](docs/MoveInSync-problem-statement.pdf) | The problem statement as issued by the organisers. The authority — every design decision answers to it. |
 | [`docs/TESTING-LESSONS.md`](docs/TESTING-LESSONS.md) | How to keep tests honest under time pressure. Domain-independent. |
 | [`AGENTS.md`](AGENTS.md) | Orientation for an agent or a person picking this repo up cold. |
