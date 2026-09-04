@@ -100,16 +100,16 @@ else:
 '
 echo
 echo "=== sandbox limits, for the record ===================================="
-aws ses get-send-quota --region "$REGION" --output json 2>/dev/null \
-| python3 -c '
-import json,sys
-try: q=json.load(sys.stdin)
-except Exception: raise SystemExit
-print(f"  {q.get(\"Max24HourSend\")} sends/24h, {q.get(\"MaxSendRate\")}/sec, "
-      f"{q.get(\"SentLast24Hours\")} used")
-print("  Ample. The demo sends a handful.")
-'
+# No python here on purpose: an f-string with escaped quotes inside a
+# single-quoted shell block is a syntax error, and it was one. The CLI's own
+# --query does this without the quoting hazard.
+aws ses get-send-quota --region "$REGION" \
+    --query '[Max24HourSend,MaxSendRate,SentLast24Hours]' --output text 2>/dev/null \
+  | awk '{printf "  %s sends/24h, %s/sec, %s used\n", $1, $2, $3}' \
+  || echo "  (quota unavailable -- informational only, ignore)"
+echo "  Ample. The demo sends a handful."
 echo
+
 echo "Note: leaving the sandbox is NOT achievable for tomorrow -- it needs SPF,"
 echo "DKIM and DMARC in place BEFORE the request can be filed, then 4-24h of"
 echo "review. Sandbox delivery to verified addresses IS the email proof, and"
