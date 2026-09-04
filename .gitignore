@@ -4,6 +4,7 @@ node_modules/
 .next/
 coverage/
 target/
+service/.venv/
 
 # MCP config — may carry API keys in env blocks. Never commit.
 .mcp.json
