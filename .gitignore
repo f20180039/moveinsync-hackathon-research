@@ -5,6 +5,8 @@ node_modules/
 coverage/
 target/
 service/.venv/
+__pycache__/
+*.pyc
 
 # MCP config — may carry API keys in env blocks. Never commit.
 .mcp.json
