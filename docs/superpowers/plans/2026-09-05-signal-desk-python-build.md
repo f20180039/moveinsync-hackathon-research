@@ -1692,7 +1692,7 @@ class SarvamClient:
 **The rate is measured, not invented.** 629 tokens billed at ₹0.03 on 2026-09-04 gives ~₹0.048 per 1k blended. Two things follow:
 
 - **Say "fractions of a rupee", not three significant figures.** ₹0.03 is a rounded dashboard display, so the rate is really ₹0.040–0.056 per 1k — ±17%. `rateIsApproximate` is in the payload so the console can hedge honestly. A precise-looking made-up number is the one thing a judge can check and catch.
-- **The credit budget is a non-issue.** $100 ≈ ₹8,800 ≈ **185 million tokens** at that rate. Nothing in this build's design can spend that. Stop treating cost as a constraint and treat it as a selling point.
+- **Cost is not a constraint on this build.** The rate is ~₹0.048 per 1k tokens; a brief is ₹0.09 and an interrogation question ₹0.38. The team's allocation is topped up per request, so nothing here needs rationing. Report the *rate* honestly on stage and let the per-organisation figure below carry the argument — do not present a credit balance as if it were a limit we engineered around.
 
 **The number that carries the argument is per-organisation, not per-interaction.** One brief is ~1,900 tokens ≈ ₹0.09; three audiences daily is **~₹8 per month for the entire client** — and that total is *flat* whether they have 500 employees or 50,000, because the model sees aggregates rather than rows. So per-employee cost **falls** as the client grows: ₹0.016/employee/month at 500, ₹0.0002 at 50,000. A per-row pipeline behaves the opposite way, and that contrast is the whole of criterion 2.
 
@@ -1912,7 +1912,43 @@ Then `InterrogationPanel.tsx` + `ToolTrace.tsx`: a question box, the answer, and
 
 The one thing a general-purpose competitor cannot easily copy, and it **must degrade rather than fail**.
 
-**Affordability is settled: this costs about ₹6.** Translation is the only place in the design where model calls scale with rows rather than with briefs — ~1,118 non-English comments at ~120 tokens each is ~134k tokens ≈ ₹6.40, one-off, and the result is cached in `feedback_normalised` so a re-sweep costs nothing. Against ~₹8,800 of credits that is noise. Earlier caution about this was misplaced; go ahead.
+**Translation must cache to disk, and cost is the least of the reasons.**
+
+This is the only place in the design where model calls scale with *rows* rather than with briefs: ~1,118 non-English comments, ~134k tokens, ~₹6.40 a pass. Credits are topped up on request so the money does not bite — but three things do, and all of them are fixed by the same cache:
+
+- **Determinism.** The sweep must produce identical findings from identical data. Translation does not, so a fresh translation on every restart means `experience` moves under you and the golden tier distribution stops holding. The plan already says the normalised table is "cached"; that was wrong — `feedback_normalised` is a DuckDB table, so it is **in-memory only and dies with the process.**
+- **Speed.** 1,118 sequential API calls at startup is minutes of dead time on every restart, during a six-hour build where you will restart dozens of times. That is the real cost.
+- **Test hygiene.** A suite that hits a live API is slow, flaky offline, and non-deterministic. Every test must use a stub.
+
+- [ ] **Persist the cache before the first real run:**
+
+```python
+CACHE = Path("data/cache/feedback_normalised.parquet")
+
+def normalise(con, translator, *, allow_api: bool = True) -> None:
+    # Translate only what is not already cached, then persist. Keyed on
+    # (trip_id, employee_id) so a re-run is free and a new comment still gets
+    # picked up. Re-running this must cost nothing and change nothing.
+    if CACHE.exists():
+        con.execute(
+            f"CREATE OR REPLACE TABLE feedback_normalised AS "
+            f"SELECT * FROM read_parquet('{CACHE}')")
+        missing = con.sql(
+            "SELECT count(*) FROM feedback f "
+            "LEFT JOIN feedback_normalised n USING (trip_id, employee_id) "
+            "WHERE n.trip_id IS NULL").fetchone()[0]
+        if missing == 0:
+            return
+    if not allow_api:
+        raise RuntimeError("translation cache is cold and allow_api=False")
+    # ... translate ONLY the missing rows ...
+    CACHE.parent.mkdir(parents=True, exist_ok=True)
+    con.execute(f"COPY feedback_normalised TO '{CACHE}' (FORMAT PARQUET)")
+```
+
+- [ ] **Commit the parquet once it is warm.** Small, deterministic, and it means a teammate pulling the repo gets a working `experience` metric instantly instead of waiting on 1,118 API calls.
+- [ ] **Every test passes `allow_api=False`** with a stub translator, so no test can reach the network.
+- [ ] **Confirm determinism after caching:** two consecutive sweeps must produce identical `experience` findings. That assertion is what proves the cache is doing its job.
 
 `SENTIMENT_LEXICON` scores a translated comment in `{-1, 0, +1}` deterministically — negative and positive marker lists, stronger side wins, neutral on a tie or on `None`. `translate()` sends non-English comments to Sarvam (`purpose="translate"` so the cost meter attributes them separately) and returns `None` on failure. `normalise()` materialises `feedback_normalised(trip_id, employee_id, rating, comment, comment_en, language, sentiment)` **once at startup, then caches** — translation is not deterministic and the sweep must be.
 
