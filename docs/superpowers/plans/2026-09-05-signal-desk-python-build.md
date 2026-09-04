@@ -127,6 +127,7 @@ Not optional, and none of it needs the dataset. Every one of these is something 
 - [ ] **Verify 2–3 team emails in SES sandbox.** Sandbox delivers only to verified addresses; leaving sandbox needs SPF/DKIM/DMARC in place before the request can even be filed, so production SES is not achievable. This is the email proof.
 - [ ] **Fire one real Sarvam call with a `tools` array** and confirm the response carries `finish_reason: "tool_calls"`. Tool calling is the one capability the interrogation panel cannot be built without, and learning it fails at 10:00 is survivable — at 15:00 it is not. Note the credit balance while you are there.
 - [ ] **Write `schemas.py` tonight** (Task 1 below). At 10:05 it should be a paste, not a debate.
+- [ ] **Everyone reads [`docs/moveinsync-domain-vocabulary.md`](../../moveinsync-domain-vocabulary.md).** It is MoveInSync's own vocabulary for their own concepts, pulled from their help centre, and it corrected two things this plan had guessed wrong (the escort column is called a **marshal**, and dark hours default to **19:00–06:00**, not 22:00). The judges are MoveInSync — using their words is free credibility and using invented ones is an avoidable signal.
 - [ ] Set an AWS budget alarm at $50 of the $100. Credits do not stop charges by themselves.
 - [ ] Add the teammates as repo collaborators — they cannot read any of this otherwise.
 - [ ] Whoever is presenting reads `PROPOSAL.md` and spec §15 tonight, not at 18:00.
@@ -224,8 +225,18 @@ SLA_BREACH_MS = 15 * 60_000
 
 # Deviation 8: epoch ms are absolute; "night trip" is local.
 IST_OFFSET_MS = 19_800_000
-NIGHT_START_HOUR_IST = 22
-NIGHT_END_HOUR_IST = 6
+
+# MoveInSync calls this window "dark hours" and configures it PER CITY. Their
+# published example is 19:00-06:00, so 19 is the default here — an earlier draft
+# guessed 22:00 and was three hours too narrow. Per-site override is the honest
+# multi-tenancy story and is nearly free, since it is already one dict.
+# See docs/moveinsync-domain-vocabulary.md §1.
+DARK_HOURS_DEFAULT = (19, 6)
+DARK_HOURS_BY_SITE: dict[str, tuple[int, int]] = {}
+
+
+def dark_hours(site: str | None = None) -> tuple[int, int]:
+    return DARK_HOURS_BY_SITE.get(site or "", DARK_HOURS_DEFAULT)
 
 # Verdict bands, as a fraction of the reference. PROVISIONAL until Task 5
 # measures them against the real dataset (spec §6.3 requires this).
@@ -823,6 +834,17 @@ The rejects-table column names vary across DuckDB versions. If the projection fa
 - [ ] **Step 5: Point it at the real dataset and print what it found**
 
 ```python
+**One thing to expect in the real data that the fixture does not model.**
+MoveInSync's own definition: *"In cases of GPS loss the actual Km will not be
+calculated."* So GPS gaps and missing distances are **correlated**, not
+independent — a trip with a GPS hole is a trip whose actual distance was never
+computed. Our fixture plants those as two separate faults. When the real data
+arrives, check whether `actual_km` nulls cluster on the GPS-gap trips, and if
+they do, **say so in the data-quality panel**: one causal story reads far better
+than two unrelated defect rates. Their `auto sign-off` feature is likewise the
+explanation for trips with no close-out time.
+
+```python
 def test_the_real_dataset_loads_and_its_health_is_printed():
     import os, pathlib, duckdb
     from signaldesk import ingest
@@ -838,6 +860,7 @@ def test_the_real_dataset_loads_and_its_health_is_printed():
     assert all(0.0 <= h.confidence <= 1.0 for h in health.values())
     assert health["trips"].rows_loaded > 0
 ```
+
 
 Run it against the committed fixture now, and **again at 10:05 against the real dataset** with `SIGNALDESK_DATA=../data/real`. Record both. **At least one feed should land below 0.9** so the disclosure path has something to disclose; if none does on the real data, say so on stage rather than inventing a fault.
 
@@ -902,19 +925,32 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{SLICE}}
 """
 
-# BUG F1: the night predicate is the IST HOUR, not a shift name. The fixture is
-# built from the same rule. S3 logout sits at 05:00 IST and S2 logout at 23:00
-# IST; both are night. An earlier draft hardcoded "S3 logout" against this
-# predicate and the metric matched ZERO rows.
-_NIGHT_SQL = f"""
-SELECT 100.0 * sum(CASE WHEN t.night_escort THEN 1 ELSE 0 END) / nullif(count(*), 0)
+# MoveInSync's term is MARSHAL, not "night escort", and the window is "dark
+# hours" — configured per city, default 19:00-06:00. See
+# docs/moveinsync-domain-vocabulary.md §1. Their model has THREE states
+# (Required / Maybe Required / Good to go), so the honest figure is
+# "signed in WHERE required", with Maybe-Required excluded from the denominator
+# rather than flattened into a boolean.
+#
+# BUG F1 still applies: the predicate is the IST HOUR, not a shift name. An
+# earlier draft hardcoded "S3 logout" against an hour predicate and the metric
+# matched ZERO rows. Assert the population is non-empty.
+_DARK_START, _DARK_END = C.dark_hours()
+_MARSHAL_SQL = f"""
+SELECT 100.0 * sum(CASE WHEN t.marshal_signed_in THEN 1 ELSE 0 END) / nullif(count(*), 0)
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND t.direction = 'logout'
-  AND (extract(hour FROM epoch_ms(t.scheduled_at + {C.IST_OFFSET_MS})) >= {C.NIGHT_START_HOUR_IST}
-       OR extract(hour FROM epoch_ms(t.scheduled_at + {C.IST_OFFSET_MS})) < {C.NIGHT_END_HOUR_IST})
+  AND t.marshal_required
+  AND (extract(hour FROM epoch_ms(t.scheduled_at + {C.IST_OFFSET_MS})) >= {_DARK_START}
+       OR extract(hour FROM epoch_ms(t.scheduled_at + {C.IST_OFFSET_MS})) < {_DARK_END})
   {{{{SLICE}}}}
 """
+
+# The committed fixture predates this research and carries `night_escort` with a
+# 22:00 window. At 10:00, map whatever the real data calls it onto
+# marshal_required / marshal_signed_in in ONE place — ingest, not here. If the
+# real data has no marshal column at all, coverage goes to 0.0, the rule caps at
+# WATCH, and the metric degrades instead of lying. That path is already tested.
 
 # Deviation 7: sentiment comes from a deterministic Python lexicon over the
 # TRANSLATED comment. The model does language; this arithmetic is tested Python.
@@ -931,6 +967,15 @@ METRICS: tuple[Metric, ...] = (
     Metric("ota", "On-time arrival", "%", Direction.HIGHER, _OTA_SQL,
            (ReferenceKind.TREND, ReferenceKind.TARGET), "trips",
            ("actual_at", "scheduled_at"), target=90.0),
+    # OTA is On-Time ARRIVAL and applies to LOGIN trips; OTD is On-Time
+    # DEPARTURE and applies to LOGOUT trips. They are two named metrics in
+    # MoveInSync's own vocabulary, not one metric sliced by direction — a console
+    # reading "on-time arrival, logout" is not a thing. Both reuse _OTA_SQL with
+    # a direction filter appended.
+    Metric("otd", "On-time departure", "%", Direction.HIGHER,
+           _OTA_SQL.replace("{{SLICE}}", "AND t.direction = 'logout' {{SLICE}}"),
+           (ReferenceKind.TREND, ReferenceKind.TARGET), "trips",
+           ("actual_at", "scheduled_at"), target=90.0),
     Metric("sla_breach", "SLA breach rate", "%", Direction.LOWER, _SLA_SQL,
            (ReferenceKind.TARGET,), "trips",
            ("actual_at", "scheduled_at"), target=10.0),
@@ -940,14 +985,18 @@ METRICS: tuple[Metric, ...] = (
     Metric("cost_per_trip", "Cost per trip", "INR", Direction.LOWER, _COST_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "costs", ("total_inr",)),
     # Deviation 2: a hard target — 100% is a compliance floor, not an aspiration.
-    Metric("night_compliance", "Night-trip compliance", "%", Direction.HIGHER, _NIGHT_SQL,
-           (ReferenceKind.TARGET,), "trips", ("night_escort",),
+    # This is the one metric where a hard target is genuinely right: a female or
+    # special-needs employee cannot board before a marshal signs in, so 99% is
+    # not "nearly compliant", it is a safety failure.
+    Metric("marshal_compliance", "Marshal compliance (dark hours)", "%",
+           Direction.HIGHER, _MARSHAL_SQL,
+           (ReferenceKind.TARGET,), "trips", ("marshal_signed_in", "marshal_required"),
            target=100.0, hard_target=True),
     Metric("experience", "Employee experience", "score", Direction.HIGHER, _EXPERIENCE_SQL,
            (ReferenceKind.TREND,), "feedback", ("rating",)),
 )
 
-TIER_1_METRICS = ("ota", "sla_breach", "vendor_ota")
+TIER_1_METRICS = ("ota", "otd", "sla_breach", "vendor_ota")
 
 
 def by_id(metric_id: str) -> Metric:
@@ -1038,7 +1087,7 @@ def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:
 Assert, at minimum:
 
 ```python
-def test_all_six_metrics_are_defined_with_ota_first()
+def test_all_seven_metrics_are_defined_with_ota_first()
 def test_every_metric_declares_at_least_one_reference_point()
     # The mandatory bar is contextualisation against at least one reference
     # point. Satisfied by construction, not by a feature.
@@ -1736,6 +1785,12 @@ Capability 3 of Amendment 1.1, and the cheapest large win here: it turns the bri
 
 Given a finding with a gap, attribute that gap across a dimension: for each value of the dimension, compute the metric and its share of trips, and report how many points of the shortfall that value owns. Pure arithmetic, no model, no I/O beyond the registry.
 
+**Decompose by MoveInSync's own delay taxonomy first, and by vendor/site/shift second.** They already classify every delay in a defined precedence — **Trip Delay → Driver Delay → Employee Delay → Traffic Delay** — where a driver delay means Driver Reporting Time exceeded the first employee's planned sign-in plus grace, an employee delay means actual pickup exceeded planned pickup plus grace, and traffic delay is the residual. See [`docs/moveinsync-domain-vocabulary.md`](../../moveinsync-domain-vocabulary.md) §1.
+
+"OTA is 7 points below trend; 4.1 of those points are driver delay, concentrated in two vendors" is a sentence a MoveInSync transport manager already thinks in. Decomposing only by vendor answers a weaker question and uses our words instead of theirs.
+
+At 10:00, check whether the real dataset carries a delay-reason column and **map its values onto those four buckets** rather than inventing categories. Our fixture's `reason_code` (`TRAFFIC`, `DRIVER_LATE`, `VEHICLE_BREAKDOWN`, `WEATHER`, `GATE_HOLD`) is a usable stand-in but is not their taxonomy. Note the precedence is a cascade, not independent causes: a trip lands in exactly one bucket and the order breaks ties.
+
 ```python
 def decompose(con, finding, dim) -> list[dict]:
     """Attribute a finding's shortfall across one dimension.
@@ -1820,7 +1875,8 @@ This is the beat the demo is built around: *"I am not going to tell you it sense
 
 - **Counterfactual** — "move this vendor's routes to that one" → projected OTA and cost delta. Builds directly on Task 8's decomposition.
 - **Second-persona export** — one-click leadership markdown/PDF, forwardable without rework. Directly targets the bonus criterion.
-- **Multi-tenancy made visible** — thresholds already live in `constants.py`; lift them to a per-tenant YAML and show two tenants with different SLAs. Cheap, and it answers the bonus criterion with a demo rather than an argument.
+- **Multi-tenancy made visible** — thresholds already live in `constants.py`; lift them to a per-tenant YAML and show two tenants with different SLAs. **`DARK_HOURS_BY_SITE` is already this shape**, because MoveInSync configures dark hours per city — so the first tenant-scoped setting is done and the pattern is theirs, not ours.
+- **Route efficiency against `reference_km`** — if the real dataset carries MoveInSync's `reference_km` (the Google-fastest route computed at trip end), then `actual_km / reference_km` is a metric whose **reference point ships with the data** rather than being derived from trend or peers. The mandatory bar asks for contextualisation against a reference point; this is the strongest possible form of that. Cheap if the column exists, impossible if it does not — check at 10:00.
 
 **Explicitly NOT Tier 3, and say so if asked:** predictive/forecast risk scoring. It cannot be done credibly in the budget and it invites a question the build cannot answer. Spec §2.2 stands.
 
