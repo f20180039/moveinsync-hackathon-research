@@ -8,3 +8,6 @@ coverage/
 .mcp.json
 .env
 .env.local
+
+# Agent scratch workspace (SDD ledger, briefs, review packages). Never content.
+.superpowers/
