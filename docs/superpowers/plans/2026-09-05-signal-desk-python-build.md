@@ -2022,9 +2022,410 @@ Do not start Tier 2 until every line is true. If it is 13:30 and this is red, **
 
 # TIER 2 — pick in this order (13:00 → 16:00)
 
-Ordered by payoff per hour. Take them in order and stop when the clock says so. **Do not start something at 15:30 that takes an hour.**
+**Reordered 2026-09-04 after judging the proposal against the statement.** The
+first four items each close a *named* sub-criterion or solution form. The AWS
+deploy has moved **down**: it is ~50 minutes for a story the laptop demo does not
+depend on, and it was previously ahead of three things worth more.
+
+Take them in order. **Do not start something at 15:30 that takes an hour.**
+
+---
 
 ### Task 8: Root-cause gap decomposition (~30 min)
+
+*Closes: criterion 1's "surface decisions that would otherwise be missed".*
+
+Unchanged from the earlier plan — see the task text below. It stays first because
+`delay_reason` is a real column, so this is a `GROUP BY` rather than a
+derivation, and it is what turns the brief from *what* into *why*.
+
+---
+
+### Task 8b: Latency instrumentation (~15 min) — **cheapest point on the board**
+
+*Closes: criterion 2 names **"inference cost per interaction, latency, efficiency
+at enterprise volumes"**. We had cost measured cold and latency merely asserted.*
+
+**Files:** `service/signaldesk/telemetry.py`, `service/tests/test_telemetry.py`,
+plus three call sites and one console panel.
+
+A judge reading criterion 2 sees three words: cost, latency, efficiency. Saying
+"DuckDB is sub-millisecond" is a claim. **A p95 on 615k real rows is evidence**,
+and it is the single highest ratio of points to minutes left in this build.
+
+- [ ] **Step 1: Write the meter**
+
+```python
+"""Query and sweep latency, measured rather than asserted.
+
+Criterion 2 names latency explicitly. The DuckDB choice was justified ON
+latency -- Athena's ~2s floor per query against sub-millisecond in-process --
+so not measuring it leaves the load-bearing argument unevidenced.
+"""
+from __future__ import annotations
+
+import statistics
+import time
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+
+
+@dataclass
+class LatencyMeter:
+    samples: dict[str, list[float]] = field(default_factory=dict)
+
+    @contextmanager
+    def measure(self, label: str):
+        t0 = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.samples.setdefault(label, []).append(
+                (time.perf_counter() - t0) * 1000.0)
+
+    def stats(self, label: str) -> dict | None:
+        xs = sorted(self.samples.get(label, []))
+        if not xs:
+            return None
+        return {
+            "n": len(xs),
+            "p50Ms": round(statistics.median(xs), 3),
+            # index, not interpolation: with n<20 an interpolated p95 invents a
+            # value between two real samples. Report a real observation.
+            "p95Ms": round(xs[min(len(xs) - 1, int(len(xs) * 0.95))], 3),
+            "maxMs": round(xs[-1], 3),
+        }
+
+    def snapshot(self) -> dict:
+        return {k: v for k, v in
+                ((label, self.stats(label)) for label in self.samples) if v}
+
+
+LATENCY = LatencyMeter()
+```
+
+- [ ] **Step 2: Instrument exactly three places**
+
+`registry.evaluate` (label `"metric_query"`), `sweep()` (label `"sweep"`), and
+`SarvamClient.complete` (label `"model_call"`). Three, not everywhere — a
+profiler is not the goal; answering criterion 2 is.
+
+- [ ] **Step 3: Expose it and show it**
+
+Add `"latency": LATENCY.snapshot()` to the `/api/cost` payload (the console's
+existing cost panel), and render one line per label: `metric_query p50 0.4ms /
+p95 1.2ms (n=312)`.
+
+- [ ] **Step 4: Tests**
+
+```
+records a sample per measured call
+p95 is greater than or equal to p50
+stats() returns None for a label never measured, not a zero
+a raising call still records its sample        <- the contextmanager's finally
+the sweep label records exactly one sample per sweep
+```
+
+The fourth matters: if an exception skips the measurement, your p95 silently
+excludes every slow failing query — which is precisely the population you care
+about.
+
+- [ ] **Step 5: Get the number that goes on the slide**
+
+Run a full sweep against `data/real` and record `metric_query` p50/p95 and total
+sweep duration on 615k trips. **Put those figures in the deck.** If p95 is worse
+than a few milliseconds, say the real number anyway — a measured 8ms still
+demolishes a 2000ms floor, and an invented 0.2ms is the one number a judge can
+catch.
+
+- [ ] **Step 6: Commit** — `feat(telemetry): measure query and sweep latency, which criterion 2 asks for by name`
+
+---
+
+### Task 8c: Sev-1 anomaly detection (~30 min) — closes the last solution form
+
+*Closes: **"insight & anomaly detection"**, the one solution form of six we miss.*
+
+**Files:** `service/signaldesk/references.py` (extend), `schemas.py` (one enum
+value), `service/tests/test_anomaly.py`.
+
+The alerts feed is the most differentiated material in the dataset — 52k events,
+Sev-1/2/3, `WOMAN_TRAVELLING_ALONE`, `OVER_SPEEDING`. A Sev-1 rate two standard
+deviations above its own four-week mean **is** anomaly detection, and the trend
+machinery to compute it already exists.
+
+- [ ] **Step 1: Add the reference kind**
+
+`ReferenceKind.TREND_SIGMA`. `_trend()` already evaluates the metric over the
+four preceding windows; it currently averages them and throws the spread away.
+Keep the spread:
+
+```python
+def _trend_sigma(con, metric, slc, window) -> Reference | None:
+    """The 4-week mean AND its standard deviation, so deviation can be measured
+    in sigmas rather than as a fraction.
+
+    This is what makes it anomaly detection rather than another threshold: a
+    Sev-1 rate of 15 per 1k means nothing on its own, and everything if the
+    same tenant has run 9.6 +/- 1.1 for a month.
+    """
+    values = [v for v in (registry.evaluate(con, metric, slc, window.shifted_back(b))
+                          for b in range(1, TREND_WINDOWS + 1)) if v is not None]
+    # Three points is the floor for a standard deviation that means anything.
+    # With two, sigma is the gap between them and every observation is an anomaly.
+    if len(values) < 3:
+        return None
+    mean = sum(values) / len(values)
+    sigma = statistics.stdev(values)
+    if sigma == 0:
+        return None          # a flat history makes every deviation infinite
+    return Reference(ReferenceKind.TREND_SIGMA, mean,
+                     f"4-week mean {mean:.2f} +/- {sigma:.2f}")
+```
+
+Carry `sigma` on the `Reference` (a new optional field, defaulting to `None`) so
+the rule can read it without a second query.
+
+- [ ] **Step 2: The rule — sigmas, not fractions**
+
+In `verdict.py`, when the firing reference is `TREND_SIGMA`, tier on the z-score
+instead of the delta bands:
+
+```python
+def tier_for_sigma(z: float) -> Tier:
+    """|z| thresholds, chosen to match how an ops team reads a control chart.
+
+    Deliberately NOT the delta bands: a fractional threshold on a rate that
+    normally sits at 9.6 would fire on a move to 10.1, while 2 sigma on a
+    +/-1.1 history means "this has not happened in a month".
+    """
+    az = abs(z)
+    if az < 1.5:
+        return Tier.PASS
+    if az < 2.0:
+        return Tier.WATCH
+    if az < 3.0:
+        return Tier.CONCERN
+    return Tier.BREACH
+```
+
+`cause` becomes `Cause.ANOMALY` (new enum value). `gap` stays signed
+worse-is-positive: `z * sigma`, so it remains "how far off, in the metric's own
+units" and the `PASS`-cannot-carry-a-positive-gap invariant still holds.
+
+- [ ] **Step 3: Apply it to the alerts metrics only, at first**
+
+`sev1_alert_rate` declares `(TREND_SIGMA, PEER)`. Do **not** retrofit
+`TREND_SIGMA` onto the on-time metrics in the same sitting — you would be
+re-calibrating four metrics at once thirty minutes before freeze.
+
+- [ ] **Step 4: Tests**
+
+```
+a value two sigmas above a stable history is a CONCERN
+the same absolute value against a volatile history is a PASS   <- the point
+sigma of zero omits the reference rather than dividing by it
+fewer than three prior windows omits the reference
+the z-score sign follows worse-is-positive for a LOWER-is-better metric
+gap remains negative for a PASS
+```
+
+The second test is the whole idea: **the same number is an anomaly or is not,
+depending on the history.** A test that only checks the first case would pass
+under a plain threshold and prove nothing.
+
+- [ ] **Step 5: Break-it-to-prove-it**
+
+Replace `statistics.stdev(values)` with a constant `1.0`, rerun. Expected: the
+volatile-history test FAILS — it is now just a threshold again. Restore.
+
+- [ ] **Step 6: Say it correctly on stage.** This is "insight & anomaly
+detection", the sixth solution form, and it is worth naming as such — but call it
+what it is: **a control-chart deviation on a four-week baseline.** Do not call it
+machine learning. A judge who asks "what model?" and hears "two standard
+deviations" respects the honesty; one who hears "AI-powered anomaly detection"
+starts probing.
+
+- [ ] **Step 7: Commit** — `feat(verdict): control-chart anomaly detection on the alerts feed`
+
+---
+
+### Task 8d: The line manager's shift-readiness view (~40 min)
+
+*Closes: persona 3, which the statement names and we were barely serving.*
+
+The statement asks for *"shift-level visibility into who made it, who was late,
+and how delays ripple into floor/ops readiness."* That is **per-employee**, and
+`emp_legs` carries exactly it across **1.6M rider legs** — `boarding_status`,
+`is_no_show`, `not_boarding_reason`, `planned_pickup_at`, `actual_pickup_at`. It
+is the largest under-used asset in the dataset.
+
+**Files:** `service/signaldesk/readiness.py`, `api.py` (one endpoint),
+`console/src/components/ShiftReadiness.tsx`, tests for both.
+
+- [ ] **Step 1: The roll-up**
+
+One aggregate per shift band per site, for the window:
+
+```sql
+SELECT
+  t.shift_band,
+  t.site_id,
+  count(*)                                                   AS legs_planned,
+  count(*) FILTER (WHERE e.boarding_status = 'Boarded')       AS boarded,
+  count(*) FILTER (WHERE e.is_no_show)                        AS no_shows,
+  count(*) FILTER (WHERE e.actual_pickup_at > e.planned_pickup_at + 300000)
+                                                              AS late_pickups,
+  -- The "ripple into floor readiness" the statement asks for: the latest
+  -- actual pickup in the band is when the floor was actually complete.
+  max(e.actual_pickup_at)                                     AS last_arrival_at
+FROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+GROUP BY 1, 2
+ORDER BY late_pickups DESC
+```
+
+`readiness_pct = boarded / legs_planned`. Findings route to
+`Audience.LINE_MANAGER`, which `audiences_for` already assigns to anything
+sliced by shift.
+
+- [ ] **Step 2: `GET /api/readiness?runId=latest`** returning that table.
+
+- [ ] **Step 3: `ShiftReadiness.tsx`** — one row per shift band: planned,
+boarded, no-shows, late pickups, readiness %, and last arrival as a clock time.
+Amber the row when readiness is below 90%.
+
+- [ ] **Step 4: Tests**
+
+```
+a boarded leg counts toward readiness and a no-show does not
+a pickup exactly on the grace boundary is not late          <- off-by-one
+last_arrival_at is the maximum, not the last row scanned
+a shift band with no legs is omitted, not rendered as 0%
+stwid = 0 placeholder rows are excluded
+readiness is null-safe when actual_pickup_at is missing     <- 190k such rows
+```
+
+That last one is not hypothetical: `emp_data` has **190,009 null
+`actual_pickup_epoch`** values. A leg that was never picked up must not count as
+an on-time pickup, and must not crash the comparison.
+
+- [ ] **Step 5: Commit** — `feat(readiness): per-shift floor readiness for the line manager`
+
+---
+
+### Task 9: The four tools and `/api/ask` (~45 min)
+
+*Unchanged. Closes the conversational-agent solution form.* Task text as before.
+
+### Task 10: Replay controls in the console (~20 min)
+
+*Unchanged. The demo's opening beat.*
+
+### Task 11: Remaining metrics (~30 min)
+
+`marshal_compliance`, `cost_per_km`, `experience`. Each is a registry entry plus
+a re-calibration — no new machinery.
+
+### Task 12: AWS deployment (~50 min) — **moved down**
+
+*Unchanged in content, demoted in priority.* Everything above closes a named
+sub-criterion or solution form; this closes half of one bonus bullet, for a story
+the laptop demo does not depend on. Do it if the clock allows, and cut it without
+regret if it does not — S3 + `httpfs` behind the source seam is already the
+*architecture* of the deployability answer, and that is what criterion 3 grades.
+
+---
+
+## RESERVE — ready to pick up on short notice
+
+Each of these is scoped to be startable cold, in the stated time, by whoever is
+free. **Ordered by points per minute.** Do not start one before Tier 2 is done;
+do not hesitate if it is.
+
+### R1. Sustainability metric (~15 min) — a gap in the statement's own framing
+
+The statement's background says the transport manager is *"accountable for cost,
+safety, experience, **and sustainability**"*. We answer three of those four and
+say nothing about the fourth. `trips.actual_cab_fuel_type` ∈ `Diesel`,
+`Electric`, `Petrol`.
+
+```
+ev_share = 100.0 * count(*) FILTER (WHERE actual_cab_fuel_type = 'Electric')
+           / nullif(count(*), 0)          -- references: trend + peer
+```
+
+One registry entry, no new machinery, and it completes the persona's own list of
+accountabilities. **Best reserve item on this list.**
+
+### R2. Industry benchmark reference kind (~15 min)
+
+The statement lists four reference types — *historical trend, SLA/goal, **industry
+benchmark**, peer* — and we implement three. Add `ReferenceKind.BENCHMARK`,
+sourced from one config dict with a **cited** published figure per metric, and
+render the citation in the evidence panel.
+
+**Cite or omit.** An uncited "industry average 88%" is worse than having no
+benchmark at all, because it is the one claim a judge can neither verify nor
+forgive.
+
+### R3. Multi-tenant SLA demo (~20 min)
+
+`business_unit` has five real values. Give two of them different targets in
+config, run one sweep, and show it producing different findings per tenant.
+`DARK_HOURS_BY_SITE` is already this shape. Turns the multi-tenancy bonus from an
+argument about interfaces into a screen.
+
+### R4. Capacity utilisation (~15 min)
+
+`actualemployee_cnt / actual_cab_capacity`, target-referenced. A direct cost
+lever a facilities head acts on, and it pairs with `no_show_rate` — under-filled
+cabs plus no-shows is one story, not two.
+
+### R5. Alert acknowledgement SLA (~20 min)
+
+`acknowledge_time − start_time` on `alerts`, with 54 nulls that mean
+*unacknowledged* rather than missing. An ops SLA about responsiveness rather than
+outcomes, which nothing else here measures.
+
+### R6. Driver / cab non-compliance (~15 min)
+
+`is_driver_nc`, `is_cab_nc`, hard target 0 — reusing the `hard_target` path
+already built for `marshal_compliance`. Note these are the columns whose dtype
+drifts across the three monthly files, so it also demonstrates `union_by_name`
+earning its place.
+
+### R7. Second-persona export (~30 min)
+
+One-click markdown or PDF of the brief for the facilities head. Directly targets
+the *"forward to leadership without rework"* bonus. Lower priority only because
+the Slack brief already largely satisfies it.
+
+### R8. Counterfactual (~45 min)
+
+"Move this vendor's volume to that one" → projected OTA and cost delta, built on
+Task 8's decomposition. Memorable, and the most likely of these to overrun —
+**do not start after 15:00.**
+
+---
+
+## Deliberately NOT on the reserve list
+
+- **Forecasting / predictive risk scoring.** Cannot be done credibly in the time
+  and invites a question we cannot answer. Anomaly detection (Task 8c) is the
+  honest version of the same instinct.
+- **Vernacular feedback translation.** No free-text in the dataset. Cut for
+  absence of data.
+- **Anything requiring a schema change after 14:00.**
+
+---
+
+## Appendix — full text of the tasks Tier 2 refers to by name
+
+These are the unchanged task bodies. Tier 2 above lists them in the order to
+execute; the numbers here match that order, not the order they were written in.
+
+### Task 8 (full text) — Root-cause gap decomposition
 
 Capability 3 of Amendment 1.1, and the cheapest large win here: it turns the brief from *what* into *why*.
 
@@ -2056,25 +2457,9 @@ Tests: contributions sum to the whole; a value with tiny volume cannot dominate;
 
 Wire it into the finding detail endpoint and the console's expanded row as a small table (`CauseBreakdown.tsx`), and add one clause to the composer's prompt so the narrative can use it.
 
-### Task 9: AWS deployment (~50 min, hand to whoever is free at 13:00)
+---
 
-**Files:** `infra/Dockerfile`, `infra/apprunner.yaml`, `infra/README.md`
-
-Budget ~$100 of credits, expected to cover two days. **Set a budget alarm at $50 first** — credits do not stop charges by themselves.
-
-- [ ] **Trip logs to S3.** `aws s3 sync data/real s3://<bucket>/trips/`. DuckDB reads them directly via `httpfs`, which is what `source_for()` already abstracts — this is an argument to a function, not a rewrite. That is the multi-tenancy answer made demonstrable.
-- [ ] **Service on App Runner** from the `Dockerfile` (python:3.12-slim, `pip install -r requirements.txt`, `uvicorn signaldesk.api:app --host 0.0.0.0 --port $PORT`). App Runner is the shortest path from a working container; Lambda + an ASGI adapter is cheaper at idle. **Pick whichever is already working at 14:00 and stop.**
-- [ ] `PORT` must come from the environment. A hardcoded port deploys and then fails its health check with no obvious cause.
-- [ ] `healthCheckPath: /api/health`, which reports `degraded` when no metrics are active rather than a 200 that means nothing.
-- [ ] **Console to S3 + CloudFront.** `npm run build` with `VITE_API_BASE` set to the App Runner URL, `aws s3 sync dist/ s3://<bucket>/`, CloudFront in front, SPA rewrite to `/index.html` so a refresh on a client-side route does not 404.
-- [ ] Set `SIGNALDESK_CORS_ORIGINS` on the service to the CloudFront domain, and **verify with a preflight before opening a browser**: `curl -i -X OPTIONS <api>/api/runs/latest/findings -H 'Origin: <cloudfront>' -H 'Access-Control-Request-Method: GET' | grep -i access-control-allow-origin`
-- [ ] **Prove the deployed pair with the laptop service stopped**, so there is no chance of reading a local API.
-- [ ] Write `infra/README.md` with the exact commands. If it is not repeatable it is not a deployment story.
-- [ ] Confirm no secret and no bucket name reached the repo.
-
-**The scored demo still runs on the laptop.** The AWS URLs exist to make deployability real and to put sponsor infrastructure visibly in use.
-
-### Task 10: The four tools and `/api/ask` (~45 min)
+### Task 9 (full text) — The four tools and `/api/ask`
 
 **Files:** `service/signaldesk/tools.py`, `service/tests/test_tools.py`
 
@@ -2092,106 +2477,35 @@ Then `InterrogationPanel.tsx` + `ToolTrace.tsx`: a question box, the answer, and
 
 **Then ask it something the tools cannot answer** — "what will OTA be next month?" — and confirm it declines rather than inventing a forecast. Forecasting is explicitly out of scope and a judge asking exactly this is likely.
 
-### Task 11: Vernacular feedback and the experience metric (~45 min)
+---
 
-**Files:** `service/signaldesk/normalise.py`, `service/tests/test_normalise.py`
-
-**⚠ CUT THIS TASK'S TRANSLATION. The real dataset has no free-text feedback.**
-
-`trip_feedback` carries five numeric ratings (0-5) — `route_rating`,
-`driver_rating`, `cab_rating`, `safety_rating`, `marshal_rating` — and **no
-comment column and no language column.** The Sarvam translation capability is
-verified working, but there is nothing in this dataset to translate. The
-lexicon, `normalise()`, the parquet cache and the whole
-`comment → comment_en → sentiment` path are dead code against real data.
-
-**Do not keep it running on synthetic comments beside the real data.** Mixing
-fabricated rows into a real dataset for a demo is the one genuinely dishonest
-option on the table, and "where did that Hindi comment come from" is a question
-with no good answer.
-
-`experience` becomes ratings-based, which is better founded anyway:
-
-```sql
--- The dictionary flags that 0 may mean "unrated" rather than "terrible".
--- Check the distribution before averaging; excluding 0s is likely right.
-SELECT avg((route_rating + driver_rating + cab_rating + safety_rating) / 4.0)
-FROM feedback f JOIN trips t ON t.trip_id = f.trip_id
-WHERE t.scheduled_at >= ? AND t.scheduled_at < ? AND f.route_rating > 0
-  {{SLICE}}
-```
-
-**This frees ~45 minutes**, which is roughly what Step 3b's normalisation costs.
-Net neutral on the clock. Spend the saved time on the alerts feed instead — see
-mapping doc §8; `sev1_alert_rate` and `no_show_rate` are stronger than anything
-this task was going to produce.
-
-*The original task text follows, retained only because the translation path may
-matter if a later dataset carries comments:*
-
-The one thing a general-purpose competitor cannot easily copy, and it **must degrade rather than fail**.
-
-**Translation must cache to disk, and cost is the least of the reasons.**
-
-This is the only place in the design where model calls scale with *rows* rather than with briefs: ~1,118 non-English comments, ~134k tokens, ~₹6.40 a pass. Credits are topped up on request so the money does not bite — but three things do, and all of them are fixed by the same cache:
-
-- **Determinism.** The sweep must produce identical findings from identical data. Translation does not, so a fresh translation on every restart means `experience` moves under you and the golden tier distribution stops holding. The plan already says the normalised table is "cached"; that was wrong — `feedback_normalised` is a DuckDB table, so it is **in-memory only and dies with the process.**
-- **Speed.** 1,118 sequential API calls at startup is minutes of dead time on every restart, during a six-hour build where you will restart dozens of times. That is the real cost.
-- **Test hygiene.** A suite that hits a live API is slow, flaky offline, and non-deterministic. Every test must use a stub.
-
-- [ ] **Persist the cache before the first real run:**
-
-```python
-CACHE = Path("data/cache/feedback_normalised.parquet")
-
-def normalise(con, translator, *, allow_api: bool = True) -> None:
-    # Translate only what is not already cached, then persist. Keyed on
-    # (trip_id, employee_id) so a re-run is free and a new comment still gets
-    # picked up. Re-running this must cost nothing and change nothing.
-    if CACHE.exists():
-        con.execute(
-            f"CREATE OR REPLACE TABLE feedback_normalised AS "
-            f"SELECT * FROM read_parquet('{CACHE}')")
-        missing = con.sql(
-            "SELECT count(*) FROM feedback f "
-            "LEFT JOIN feedback_normalised n USING (trip_id, employee_id) "
-            "WHERE n.trip_id IS NULL").fetchone()[0]
-        if missing == 0:
-            return
-    if not allow_api:
-        raise RuntimeError("translation cache is cold and allow_api=False")
-    # ... translate ONLY the missing rows ...
-    CACHE.parent.mkdir(parents=True, exist_ok=True)
-    con.execute(f"COPY feedback_normalised TO '{CACHE}' (FORMAT PARQUET)")
-```
-
-- [ ] **Commit the parquet once it is warm.** Small, deterministic, and it means a teammate pulling the repo gets a working `experience` metric instantly instead of waiting on 1,118 API calls.
-- [ ] **Every test passes `allow_api=False`** with a stub translator, so no test can reach the network.
-- [ ] **Confirm determinism after caching:** two consecutive sweeps must produce identical `experience` findings. That assertion is what proves the cache is doing its job.
-
-`SENTIMENT_LEXICON` scores a translated comment in `{-1, 0, +1}` deterministically — negative and positive marker lists, stronger side wins, neutral on a tie or on `None`.
-
-**Seed the markers from what Sarvam actually returns, not from what the Hindi says.** Measured 2026-09-04: `"Cab bahut late tha, koi soochna nahi mili"` came back as *"The cab was really late, and I didn't get any notice."* Only `late` matched the draft marker list — `"didn't get any notice"` matched nothing, because the drafted markers were `no update` / `not inform` / `information`. One marker was enough to score it correctly here, but a comment whose only complaint is phrased that way would score **neutral**, and `experience` would quietly under-report.
-
-Add at minimum: `notice`, `no notice`, `without notice`, `no information`, `never came`, `waited`. Then **run the lexicon over the real translated corpus once and print the score distribution.** If most rows land on 0, the markers do not match Sarvam's register and the fix is to widen the list — never to hand-tune the translations, which would make the pipeline non-reproducible. `translate()` sends non-English comments to Sarvam (`purpose="translate"` so the cost meter attributes them separately) and returns `None` on failure. `normalise()` materialises `feedback_normalised(trip_id, employee_id, rating, comment, comment_en, language, sentiment)` **once at startup, then caches** — translation is not deterministic and the sweep must be.
-
-The original comment is retained verbatim so the narrative can quote it alongside the translation.
-
-Untranslated rows contribute sentiment `0` and count as null-critical, so confidence falls and the rule caps at `WATCH`. **Run the whole suite with `SARVAM_API_KEY` unset and confirm it passes** — every non-English comment untranslated, `experience` at low confidence, the metric degrading rather than failing the sweep. That is the behaviour spec §5.2 demands, and it is also the venue-network insurance.
-
-English comments must not be sent to the model at all — translating English to English burns credits for nothing. Assert it.
-
-Then activate the remaining metrics (`cost_per_trip`, `night_compliance`, `experience`), **re-measure the tier distribution, and re-pin it.** Three more metrics means more findings; do not widen the pinned bands to swallow both cases.
-
-Check specifically that `night_compliance` produces a `BREACH` somewhere — its target is a hard 100, so any escort failure should breach. If it does not, `hard_target` is not wired and deviation 2 was implemented wrongly.
-
-### Task 12: Replay controls in the console (~20 min)
+### Task 10 (full text) — Replay controls in the console
 
 `ReplayControls.tsx`: start, stop, the current simulated date, and the speed. Poll `/api/runs/latest/findings` while running so **new findings appear on screen as the clock advances.**
 
 This is the beat the demo is built around: *"I am not going to tell you it senses. Watch."* Rehearse it — 60× means a 90-day dataset replays in 90 seconds, which is roughly the right length for a stage.
 
 ---
+
+---
+
+### Task 12 (full text) — AWS deployment
+
+**Files:** `infra/Dockerfile`, `infra/apprunner.yaml`, `infra/README.md`
+
+Budget ~$100 of credits, expected to cover two days. **Set a budget alarm at $50 first** — credits do not stop charges by themselves.
+
+- [ ] **Trip logs to S3.** `aws s3 sync data/real s3://<bucket>/trips/`. DuckDB reads them directly via `httpfs`, which is what `source_for()` already abstracts — this is an argument to a function, not a rewrite. That is the multi-tenancy answer made demonstrable.
+- [ ] **Service on App Runner** from the `Dockerfile` (python:3.12-slim, `pip install -r requirements.txt`, `uvicorn signaldesk.api:app --host 0.0.0.0 --port $PORT`). App Runner is the shortest path from a working container; Lambda + an ASGI adapter is cheaper at idle. **Pick whichever is already working at 14:00 and stop.**
+- [ ] `PORT` must come from the environment. A hardcoded port deploys and then fails its health check with no obvious cause.
+- [ ] `healthCheckPath: /api/health`, which reports `degraded` when no metrics are active rather than a 200 that means nothing.
+- [ ] **Console to S3 + CloudFront.** `npm run build` with `VITE_API_BASE` set to the App Runner URL, `aws s3 sync dist/ s3://<bucket>/`, CloudFront in front, SPA rewrite to `/index.html` so a refresh on a client-side route does not 404.
+- [ ] Set `SIGNALDESK_CORS_ORIGINS` on the service to the CloudFront domain, and **verify with a preflight before opening a browser**: `curl -i -X OPTIONS <api>/api/runs/latest/findings -H 'Origin: <cloudfront>' -H 'Access-Control-Request-Method: GET' | grep -i access-control-allow-origin`
+- [ ] **Prove the deployed pair with the laptop service stopped**, so there is no chance of reading a local API.
+- [ ] Write `infra/README.md` with the exact commands. If it is not repeatable it is not a deployment story.
+- [ ] Confirm no secret and no bucket name reached the repo.
+
+**The scored demo still runs on the laptop.** The AWS URLs exist to make deployability real and to put sponsor infrastructure visibly in use.
 
 # TIER 3 — only if Tier 2 finished before 15:00
 

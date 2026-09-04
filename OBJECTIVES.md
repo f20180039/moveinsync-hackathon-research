@@ -50,7 +50,7 @@ disqualifying, so they come first and Tier 1 exists to satisfy exactly them.
 |---|---|---|---|
 | M1 | Working prototype **on the provided dataset** | 615k real trips from `data/real/`, not the synthetic fixture | A sweep over real May–July 2026 data returns ranked findings |
 | M2 | **Senses, reasons, acts** — not a passive dashboard or query-only tool | Scheduled sweep fires with no prompt → pure rules emit findings → real Slack/email dispatch | The startup log shows a sweep nobody asked for, and a brief arrives in Slack |
-| M3 | Serves a **named persona** | Transport manager operates it; transport & facilities head receives the brief; line manager gets shift-sliced findings | Every brief is addressed to a named role, and audience is assigned by rule |
+| M3 | Serves a **named persona** | Transport manager operates it; facilities head receives the brief; **line manager gets a per-shift floor-readiness view** (Task 8d) — the statement asks for "who made it, who was late, and how delays ripple into floor readiness", which is per-employee, and `emp_legs`' 1.6M rider legs carry exactly that | Every brief is addressed to a named role, audience is assigned by rule, and all three personas have a surface |
 | M4 | **Contextualises** each metric against a reference point | Every metric declares ≥1 of trend / target / peer, enforced in `Metric.__post_init__` | A metric with no computable reference emits **nothing** rather than a bare number |
 | M5 | **Handles messy or missing data gracefully** | Rejects quarantine + per-feed confidence + null-safe arithmetic, against the dataset's *own* documented quirks | Feed health shows non-zero quarantined rows, and a confidence below 0.9 is disclosed in the brief itself |
 
@@ -109,6 +109,9 @@ and driver delay at two vendors owns 4.1 of the 7 points" is a decision.
   does the opposite, and that contrast is this criterion in one slide.
 - **O3.5** The model reaches data only through **four validated tools**. There is
   no `run_sql` tool, and a test enforces that.
+- **O3.6** **Latency measured, not asserted.** The criterion names it alongside
+  cost, and the DuckDB choice was justified *on* latency — so a p50/p95 over
+  615k real rows goes in the cost panel and on the slide. Task 8b.
 
 ### 4. Architecture & code quality — 20 points
 
@@ -180,6 +183,25 @@ in the dataset and most teams will ignore it.
 
 ---
 
+## Reserve — held back, ready on short notice
+
+Eight items are scoped and ready in the plan's RESERVE section, ordered by points
+per minute. Do not start one before Tier 2 is done; do not hesitate if it is.
+
+The first is the one to know about: **R1, sustainability.** The statement's own
+background says the transport manager is accountable for *"cost, safety,
+experience, **and sustainability**"*. We answer three of those four and say
+nothing about the fourth, and `actual_cab_fuel_type` (Diesel / Electric / Petrol)
+makes EV share a single registry entry. Fifteen minutes to complete the persona's
+own list of accountabilities.
+
+Then: R2 industry benchmark (the fourth reference type the statement lists and we
+do not implement — **cite it or omit it**), R3 the two-tenant SLA demo, R4
+capacity utilisation, R5 alert acknowledgement SLA, R6 driver/cab
+non-compliance, R7 second-persona export, R8 counterfactual.
+
+---
+
 ## What we are deliberately NOT building
 
 Named so scope creep has to argue against a decision, and so we can say it on
@@ -214,9 +236,13 @@ The statement offers six and asks for two. We hit **five**:
    lists *separately* from automated reporting. An earlier count of four missed
    this.
 
-**Not hit: insight & anomaly detection.** The alerts feed makes it cheap — a
-Sev-1 rate 2σ above its own 4-week mean, using the trend machinery that already
-exists. It is the highest-value remaining addition and it closes the last form.
+**All six are now planned.** *Insight & anomaly detection* was the gap; Task 8c
+closes it with a control-chart deviation on the alerts feed — a Sev-1 rate 2σ
+above its own 4-week mean, using the trend machinery that already exists.
+
+Call it what it is on stage: **a control-chart deviation on a four-week
+baseline**, not machine learning. A judge who asks "what model?" and hears "two
+standard deviations" respects the answer.
 
 ---
 
