@@ -204,12 +204,19 @@ stage as judgement rather than have it found as a gap.
 
 ## Solution forms covered
 
-The statement offers six and asks for two. We hit four:
+The statement offers six and asks for two. We hit **five**:
 
-1. **Proactive alerting** — the unprompted sweep and its dispatch
-2. **Automated narrative** — the validated brief
+1. **Proactive alerting & triggers** — the unprompted sweep
+2. **Automated reporting & narratives** — the validated brief
 3. **Conversational agent** — the interrogation panel over four tools
-4. **Decision-support console** — ranked findings expandable to evidence
+4. **Decision-support dashboard** — ranked findings expandable to evidence
+5. **Automated communications** — the Slack and SES dispatch, which the statement
+   lists *separately* from automated reporting. An earlier count of four missed
+   this.
+
+**Not hit: insight & anomaly detection.** The alerts feed makes it cheap — a
+Sev-1 rate 2σ above its own 4-week mean, using the trend machinery that already
+exists. It is the highest-value remaining addition and it closes the last form.
 
 ---
 

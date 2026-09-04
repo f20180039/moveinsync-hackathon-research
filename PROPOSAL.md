@@ -7,336 +7,245 @@ manager needs to know before they ask, and sends it — with the reasoning attac
 |---|---|
 | Statement | Agentic Intelligence & Reporting Layer for Enterprise Mobility |
 | Theme | Agentic AI (Enterprise Mobility / Operations Intelligence) |
-| Timebox | ~14 hours |
-| Stack | Java · Spring Boot · React |
-| Data | Embedded DuckDB (JDBC), no backing services |
-| Model | Sarvam-105B (free credits from the organisers) |
-| Status | **Proposal — awaiting team sign-off. No code written yet.** |
+| Build day | 5 September 2026 · clock 10:00 · **feature freeze 16:00** · submit 17:00 |
+| Usable build time | **~6 hours**, plus ~1 hour deck and rehearsal |
+| Stack | Python 3.12 · FastAPI · React 19 · embedded DuckDB · Sarvam `sarvam-105b` · AWS |
+| Data | The provided dataset: 615k trips, 1.6M rider legs, 620k bill lines, 513k ratings, 52k alerts (May–July 2026) |
+| Team | 3 people, working in parallel from 10:05 against a frozen contract |
+
+**Read alongside:** [`OBJECTIVES.md`](OBJECTIVES.md) for what we are targeting and
+how we know it is met; [`docs/real-dataset-mapping.md`](docs/real-dataset-mapping.md)
+for what the data actually contains. This file is the *argument*; those two are
+the *specifics*.
 
 ---
 
-## 1. What changed
+## 1. The problem, in the statement's own words
 
-We prepared against a guess: a cab-pooling and route-optimisation engine. The
-statement that arrived is a different problem. It asks for an **agentic
-intelligence and reporting layer** over mobility operations data, and the
-mandatory bar explicitly rules out *"a passive dashboard or query-only tool"*.
+> *A metric without context is just a number.* "OTA is 78%" matters far less
+> than "it was 85% last month, SLA is 90%, and two vendors are responsible for
+> the gap."
 
-So the solver work — savings heuristics, corridor indexing, pickup ordering — is
-not the product. It is archived at the git tag `prep/pooling-prototype` and
-recoverable, but it is not coming with us.
-
-What survives is one pattern worth more than the code it came from: a
-**four-tier verdict engine** that scores something, names the cause, and records
-its reasoning. That becomes the part of this build the model does *not* do.
-
----
-
-## 2. The product, in one loop
-
-A transport manager's day goes into assembling data rather than acting on it.
-The pain named in the statement is sharper than that: *a metric without context
-is just a number.* "OTA is 78%" means little; "it was 85% last month, SLA is
-90%, and two vendors own the gap" is a decision.
+Transport managers are accountable for cost, safety, experience and
+sustainability, and most of their time goes into **assembling** data rather than
+acting on it. The signal is rich; the insight is missing; the actions are manual.
 
 Signal Desk runs that second sentence on its own, unprompted, delivers it to the
 person who can act, and then defends its answer if challenged.
 
 ---
 
-## 3. Architecture
+## 2. The product, in one loop
 
 ```
-LAYER 1 — INGEST                    schema-tolerant, loud about what it can't read
-  ├─ Trip logs .......... cab / nodal / shuttle CSV; mismatched columns merged
-  │                       read_csv_auto(union_by_name = true)
-  │                       source is pluggable: local files for the demo,
-  │                       S3 via httpfs in production — same engine either way
-  ├─ Quarantine ......... unparseable rows + reason, so bad data is a visible
-  │                       number, not silent loss   store_rejects -> reject_errors
-  ├─ Gap register ....... GPS holes, unmatched vendor records, roster gaps
-  │                       counted per feed as a confidence figure
-  └─ Vernacular feedback  employee feedback in mixed languages, normalised for
-                          scoring, original kept verbatim   [Sarvam Mayura]
-                                    |
-                                    v
-LAYER 2 — METRIC REGISTRY           the governed vocabulary; nothing queries raw tables
-  ├─ Metric definitions   on-time arrival, SLA breach rate, cost per trip,
-  │                       vendor on-time share, night-trip compliance
-  ├─ Reference points ... each metric declares what it is judged against:
-  │                       own trend | SLA target | peer comparison
-  └─ Slice dimensions ... vendor, site, shift, mode, route (enumerated, validated)
-                                    |
-                                    v
-LAYER 3 — THE AGENT LOOP
-  SENSE  ->  REASON  ->  COMPOSE  ->  ACT
-    |          |           |            |
-    |          |           |            └─ delivers by severity, logs what it
-    |          |           |               sent, to whom, on what evidence
-    |          |           └─ Sarvam-105B writes the brief over findings already
-    |          |              computed — prose only, never arithmetic   [MODEL]
-    |          └─ rules compare each metric to its reference points, emit ranked
-    |             findings: severity, cause, audience   (four-tier verdict engine)
-    └─ fires on a clock tick or fresh upload — no human prompt
-                                    |
-                                    v
-LAYER 4 — SURFACES                  two personas, one artifact
-  ├─ Manager console .... findings ranked by severity, expandable to the numbers
-  │                       and the rule that fired
-  ├─ Interrogation panel  "why is this vendor flagged?" answered through the same
-  │                       registry, exposed as model tools   [MODEL]
-  └─ Leadership brief ... the sent artifact: a dated summary a facilities head can
-                          forward upward without editing it first
+SENSE  ──▶  REASON  ──▶  COMPOSE  ──▶  ACT
+  │           │            │             │
+  │           │            │             └─ Slack + email, routed by severity,
+  │           │            │                logging what was sent and on what evidence
+  │           │            └─ Sarvam writes the brief over findings already
+  │           │               computed — prose only, never arithmetic   [MODEL]
+  │           └─ pure rules compare each metric to its reference points and emit
+  │              ranked findings: severity, cause, audience, and the SQL behind it
+  └─ fires on a clock tick — no human prompt
 ```
 
 Everything is deterministic and unit-testable except the two blocks marked
 `[MODEL]`, which produce language only.
 
-### Why this data layer, and not a managed AWS one
+---
 
-The question a judge will ask is "why an embedded database?". The answer is
-measured, not aesthetic.
+## 3. The one decision that determines everything
 
-**Latency is the deciding factor, and it is scored.** Athena has a **~2 second
-floor per query**. The interrogation panel issues *several* tool calls per user
-question — read a metric, slice it by vendor, compare against trend — so a 2s
-floor becomes 6–10 seconds before the model writes its first word. DuckDB runs
-in-process, sub-millisecond at this data size. Criterion 2 names latency
-explicitly.
+**The model never computes a number and never writes SQL.**
+
+Rules decide what is wrong and who cares. A metric registry answers what the
+figures are. Sarvam turns settled findings into language, and answers open
+questions through four validated tools — there is **no `run_sql` tool**, and a
+test enforces that.
+
+That split buys three things at once:
+
+- **Nothing on screen can be a hallucinated figure.** The narrative is validated
+  against the findings before it is sent; a figure that is not in the findings
+  means the brief goes out from a deterministic template instead.
+- **The reasoning is unit-testable**, because the verdict engine has no I/O, no
+  clock and no model in it.
+- **Cost is flat in data volume**, because the model sees aggregates rather than
+  rows — which is the cost-at-scale story criterion 2 asks for by name.
+
+It also makes the model layer swappable, which turned out to matter: we run on
+Sarvam rather than a frontier model, and because arithmetic never passes through
+it, that changes the prose and nothing else.
+
+---
+
+## 4. Why this data layer
+
+Embedded **DuckDB**, no backing services. The question a judge will ask is "why
+an embedded database?", and the answer is measured, not aesthetic.
+
+**Latency is the deciding factor, and criterion 2 names it.** Athena has a ~2
+second floor per query. The interrogation panel issues several tool calls per
+question, so a 2s floor becomes 6–10 seconds before the model writes its first
+word. DuckDB runs in-process, sub-millisecond at this size.
 
 **The messy-data feature depends on it.** `read_csv_auto(union_by_name = true,
 store_rejects = true)` is what turns "handles messy or missing data gracefully"
-into a visible screen. Athena needs a schema declared up front and malformed
-rows silently become NULLs; Aurora needs a `CREATE TABLE` and a bespoke loader
-per file shape. Either way we lose the feature, not merely the convenience.
+into a visible number. Athena needs a schema up front and turns malformed rows
+into NULLs; Aurora needs a `CREATE TABLE` and a bespoke loader per file shape.
+Either way we lose the feature, not merely the convenience.
 
-**Setup time we do not get back.** DuckDB is a Maven dependency. Athena needs an
-S3 bucket, a Glue table, an IAM policy and a results bucket; Aurora needs a VPC,
-subnet group and security group. That is 30–60 minutes producing nothing
-demoable.
+`union_by_name` is not hypothetical here: the three monthly trip files **drift in
+dtype** — `is_driver_nc` is `bool` in June/July and `object` in May, `planned_km`
+is `float` in May/June and `object` in July. That flag is the reason concatenating
+them is a non-event.
 
-**The venue network.** DuckDB queries run with the WiFi off. Managed services do
-not.
+**Setup time we do not get back.** DuckDB is one pip install. Athena needs an S3
+bucket, a Glue table, an IAM policy and a results bucket. That is 30–60 minutes
+producing nothing demoable, out of six.
 
-| Alternative | Free? | Why not here |
+**The honest weakness** is that an in-process engine is a weak multi-tenancy
+story on its own. Two things address it: the query layer sits behind a repository
+seam, so swapping engines is an adapter rather than a rewrite; and the dataset
+carries **`business_unit` with five real values on every feed**, so tenancy is a
+dimension we can demonstrate rather than an interface we can point at.
+
+---
+
+## 5. Where we deviate from the statement's preferences, and why
+
+The statement says: *"Open / participant's choice — preferably **Java, Angular,
+AWS** resources, but not restrictive."* We are 1 for 3, and it is worth being
+straight about that rather than hoping nobody notices.
+
+| Preference | Ours | Honest reasoning |
 |---|---|---|
-| Aurora PostgreSQL Serverless | Yes — now in AWS Free Tier ($100 credits + $100 earnable) | Strongest AWS-native option and Postgres would cope at this scale, but it is OLTP, needs provisioning, and gives no tolerant-CSV ingestion |
-| Amazon Athena | **No free tier** — 10 MB minimum charge per query | The natural serverless-analytics answer, ruled out by the 2s floor and schema-up-front. Our pattern is many small queries, which is Athena's worst pricing shape |
-| Redshift Serverless | $300 credit, 90 days | A data warehouse for a few thousand rows. Over-scaled, slow to start |
-| DynamoDB | Generous free tier | Key-value. Every aggregation hand-rolled in Java. Wrong tool |
+| **Java** | Python 3.12 | An earlier version of this proposal chose Java precisely *because* it is the platform's own language, which converts "deployable into an existing platform" from an argument into a fact. **We gave that up for build speed** when the real ~6-hour budget became clear. It is a real cost under criterion 3, and the mitigation is that the architecture — not the language — is what is portable: a stateless service, a repository seam, no backing stores. |
+| **Angular** | React 19 | Team familiarity. Lower cost than the Java swap, since the console is a thin client over a documented HTTP contract and could be rewritten in Angular without touching the service. |
+| **AWS** | **Yes** | S3 for the trip logs read directly by DuckDB's `httpfs`, App Runner or Lambda for the service, S3 + CloudFront for the console, SES for email. |
 
-New AWS accounts get up to $200 in credits across 90+ services, so **cost is not
-the deciding factor for any of these.** Setup time and query latency are.
-
-### The honest weakness, and what we do about it
-
-An embedded in-process engine is a **weak multi-tenancy story**, and the bonus
-criterion names multi-tenancy. Two things address it without changing engines:
-
-1. **The query layer sits behind a repository interface.** Swapping DuckDB for
-   Athena or Aurora is an adapter, not a rewrite. Say this on stage and it is
-   demonstrable in the code.
-2. **The trip logs live in S3, read directly by DuckDB** via its `httpfs`
-   extension. Sponsor infrastructure is visibly in use (S3, plus ECS / App
-   Runner / Lambda for the service), queries stay sub-millisecond, and the
-   deployability answer becomes concrete: *same engine, data in S3, one reader
-   per tenant request — or swap the adapter if you want it fully managed.*
-
-**Demo from local files, keep S3 as the documented production path.** `httpfs`
-autoloads by fetching from DuckDB's extension repository on first use, so an S3
-query on a bad venue network fails at exactly the wrong moment. If we do want to
-show the S3 path live, `INSTALL httpfs;` must be run once beforehand so the
-extension is cached locally.
-
-### The one architectural decision that matters
-
-**The model never computes a number and never writes raw SQL.** Rules decide
-what is wrong and who cares; the registry answers what the figures are; Sarvam
-turns settled findings into language and handles open-ended questions through
-validated tools.
-
-That split buys three things at once: nothing on screen can be a hallucinated
-figure, the reasoning is unit-testable, and prompts stay small because the model
-sees aggregates rather than rows — which is the cost story the rubric asks for
-by name.
-
-It also makes the model layer swappable, which turned out to matter. We are
-running on Sarvam rather than a frontier model, and because the arithmetic never
-passes through it, that changes the prose and nothing else. A weaker model
-narrating settled findings is safe; a stronger model computing figures would not
-be.
+If asked "why not Java?", the answer is six hours, said plainly — not a
+retrofitted technical argument.
 
 ---
 
-## 4. Why this scores
+## 6. Requirement coverage
 
-| Criterion | Weight | How this build answers it |
-|---|---:|---|
-| Business impact & experience | 35 | The manager stops assembling and starts deciding. Output is addressed to a named persona and is forwardable as-is — which also takes the bonus. |
-| Functionality | 25 | End to end on the provided dataset, with a real delivery at the end of the loop rather than a mocked one. |
-| Agentic design & cost at scale | 20 | The loop starts without a prompt. Aggregation happens in DuckDB, so tokens per interaction stay flat as row counts grow. One model call per brief, not one per row — which is why a 60 req/min tier is ample. |
-| Architecture & code quality | 20 | One stateless Spring Boot service, no backing stores, clean seams between registry, rules and model — and it drops into a Java platform without a rewrite, which is what "deployable into an existing platform" is asking. |
+### Mandatory — all four
 
-We combine **four** of the six solution forms — proactive alerting, automated
-narrative, conversational agent, decision-support console — against a
-good-to-have that asks for two.
+| Requirement | How |
+|---|---|
+| Working prototype on the provided dataset | 615k real trips, not a synthetic stand-in |
+| Senses, reasons, acts — not passive or query-only | Unprompted scheduled sweep → pure rules → real Slack/email dispatch |
+| Serves ≥1 named persona | Transport manager operates; facilities head receives; line manager gets shift-banded findings |
+| Contextualises against ≥1 reference point | Every metric declares **trend**, **target** or **peer**, enforced in the type. A metric with no computable reference emits *nothing* rather than a bare number |
+
+### Good-to-have
+
+| | Status |
+|---|---|
+| Combines ≥2 solution forms | **Five of six** — proactive alerting, automated narrative, conversational agent, decision-support console, automated communications |
+| Handles messy/missing data gracefully | Rejects quarantine, per-feed confidence, null-safe arithmetic — against the dataset's *own* documented quirks |
+| Proactive triggers rather than on-demand | The sweep fires on a clock tick; a 60× replay clock makes it visible on stage |
+
+**Not hit: insight & anomaly detection.** The sixth solution form. See §8.
+
+### Bonus
+
+| | Status |
+|---|---|
+| Deployability — multi-tenancy, latency, cost | Multi-tenancy via `business_unit`; cost measured (~₹0.10/brief, ~₹9.50/month per client, flat in headcount); **latency asserted but not yet measured — see §8** |
+| Output a facilities head could forward without rework | The brief is the artifact, addressed to the named role |
 
 ---
 
-## 5. Build order
+## 7. Why this scores
 
-Sequenced so the demo exists early and only widens.
-
-| # | Item | Est. |
+| Criterion | Weight | How this answers it |
 |---|---|---|
-| 1 | Synthetic dataset with **planted faults** — GPS gaps, unmatched records, roster holes injected deliberately, so the agent has something real to find and swapping in the provided file is a config change | ~1.5 h |
-| 2 | Ingest and quarantine — CSV into embedded DuckDB, rejected rows surfaced with reasons | ~1 h |
-| 3 | Metric registry, **three metrics only**, each with its reference point. Adding a fourth later costs minutes; getting the shape wrong costs the day | ~2 h |
-| 4 | Verdict engine and findings — rules, severity tiers, cause, audience. Unit-tested, no model involved | ~2 h |
-| **5** | **VERTICAL SLICE COMPLETE — STOP AND DEMO IT.** One trigger, one rule, one composed brief, one real Slack message. Every remaining item is additive: if we run out of time we still have a working agentic demo rather than four unfinished halves | **~7 h elapsed** |
-| 6 | Compose and dispatch — Sarvam writes the brief; Slack webhook and SES to verified addresses | ~1.5 h |
-| 7 | Manager console — ranked findings, expandable to evidence and the rule that fired | ~2.5 h |
-| 8 | Interrogation panel — registry as model tools. *First thing cut if time runs short* | ~1.5 h |
-| 9 | Vernacular feedback — multilingual employee feedback into an experience metric. *Droppable, but highest payoff per hour: the one thing a GPT/Claude competitor cannot easily copy* | ~1 h |
-| 10 | Deck, architecture diagram, README, demo drill (one rehearsal offline in case the venue network fails). **Non-negotiable — these are scored deliverables** | ~1.5 h |
+| Business impact & experience | **35** | The manager stops assembling and starts deciding. Output is addressed to a named persona, cites what each figure was compared against, decomposes *why* using the operator's own `delay_reason` taxonomy, and is forwardable as-is — which also takes the bonus. |
+| Functionality | **25** | End to end on the real dataset with a real send rather than a mock. Every figure traceable to the SQL that produced it. |
+| Agentic design & cost at scale | **20** | The loop starts without a prompt. Aggregation happens in DuckDB, so tokens stay flat as rows grow. One model call per brief, not one per row — measured, and on screen. |
+| Architecture & code quality | **20** | One stateless service, no backing stores, clean seams between registry, rules and model, SQL confined to two modules by a test. Weakened by not being Java (§5). |
 
 ---
 
-## 6. Do these tonight
+## 8. Known gaps — what we are not covering, and what it costs
 
-**These three cannot wait until hour zero.**
+Named here so they are decisions rather than discoveries.
 
-1. **Create the Slack incoming webhook.** Minutes, no approval. This is our
-   primary delivery channel.
-
-2. **Verify 2–3 team email addresses in AWS SES.** SES in sandbox delivers only
-   to *verified* addresses. Leaving sandbox now requires SPF, DKIM and DMARC
-   records in place *before* the request can be filed, and approval runs 4–24 h
-   for established domains and 1–3 business days for new ones — so
-   **production SES is not achievable by tomorrow.** Slack is the primary
-   channel; SES-to-verified-addresses is the real email proof. Both are genuine
-   delivery.
-
-3. **Fire one real Sarvam call with a tool in it.** Not a hello-world. Send a
-   request to `sarvam-105b` declaring a `tools` array and confirm the response
-   returns `finish_reason: "tool_calls"`. **Tool calling is the one capability
-   the interrogation panel cannot be built without** — the difference between
-   learning that tonight and learning it at hour ten is the whole feature. While
-   there, note the credit balance and confirm the key authenticates over
-   `Authorization: Bearer`, since that is the path the OpenAI Java SDK takes.
-
-4. **Only if we plan to show the S3 path live: run `INSTALL httpfs;` once.**
-   The extension autoloads by downloading from DuckDB's extension repository on
-   first use, so a cold S3 query on a poor venue network fails at the worst
-   possible moment. Running it once beforehand caches it locally. **The demo
-   itself should read local files anyway** — no network, nothing to fail.
-
----
-
-## 7. Settled decisions
-
-- **Personas** — transport manager operates it; the transport & facilities head
-  receives the brief. Two of the three personas covered by one artifact.
-- **Real delivery, not drafts** — the agent genuinely sends, chosen over an
-  approval queue for demo impact, with the SES constraint handled by channel
-  choice.
-- **Java + Spring Boot, React console** — Java is the platform's own language,
-  which converts criterion 3's "deployable into an existing platform" from an
-  argument we have to make into a fact. The cost-at-scale story never depended
-  on the runtime; it comes from calling the model once per brief instead of once
-  per row.
-- **Sarvam as the model layer** — free credits, and the API is OpenAI-compatible
-  with real tool calling, so the official OpenAI Java SDK works against it with
-  a base-URL override. Use `sarvam-105b`; **the older Sarvam-M is deprecated and
-  no longer served.** Its Indic language stack is a genuine advantage for this
-  domain, not a consolation.
-- **Embedded DuckDB, no backing services** — official JDBC driver from DuckDB
-  Labs (MIT, Maven Central) with platform natives bundled in the jar, so no
-  cross-compilation step and no database to stand up. Chosen on latency and
-  tolerant ingestion, not convenience; §3 carries the comparison against Athena,
-  Aurora and Redshift, and the answer to the multi-tenancy objection.
-- **Trip logs in S3, behind a repository interface** — DuckDB reads them
-  directly, so sponsor infrastructure is in use and the production story is an
-  adapter swap rather than a rewrite. The live demo still runs from local files;
-  see the `httpfs` caveat in §6.
+1. **Latency is unmeasured.** Criterion 2 names latency explicitly and we
+   currently only *assert* sub-millisecond queries. **Cheap fix:** log p50/p95
+   query time and put it in the cost panel. Do this — it is minutes.
+2. **No anomaly detection.** The one solution form of six we miss. The alerts
+   feed makes it cheap: a Sev-1 rate that is 2σ above its own 4-week mean is an
+   anomaly, computed with the same trend machinery we already have. **Highest-value
+   remaining addition.**
+3. **No industry benchmark.** The statement lists four reference-point types and
+   we implement three (trend, target, peer). We satisfy the mandatory requirement
+   without it, but citing a published industry OTA norm would cost one config
+   line and strengthen the "benchmarking is absent today" narrative.
+4. **Persona 3 is thin.** The line manager gets shift-banded findings, but the
+   statement asks for *"who made it, who was late, and how delays ripple into
+   floor readiness"* — which is per-employee, and `emp_data`'s 1.6M rider legs
+   carry exactly that (`boarding_status`, `is_no_show`, `actual_pickup_epoch`).
+   We barely touch it. The largest under-used asset in the dataset.
+5. **"GPS traces" are promised by the statement but absent from the data.** There
+   is no GPS ping feed, so the good-to-have's "GPS gaps" example cannot be
+   demonstrated literally. Substitutes that *are* real: 190k null actual pickup
+   times, `DEVICE_NOT_REACHABLE` and `VEHICLE_STOPPAGE` alerts, 24 negative
+   distances. Say this plainly if asked — the data does not contain what the
+   statement advertises, and noticing that is itself a point in our favour.
+6. **The 90% OTA target does not fit the data.** Measured OTA is 59.1%, so a 90%
+   target makes every slice a BREACH and the ranking meaningless. Lean on trend
+   and peer, which are derived from the data and cannot be miscalibrated.
 
 ---
 
-## 7a. Decisions taken after the first review
+## 9. Build order
 
-- **Six metrics, not three**, in a strict build order. The registry holds all
-  six from the start; the first three get rules and golden tests before the
-  hour-seven checkpoint, the rest land after it.
-  1. On-time arrival — *trend + SLA target*. The statement's own worked example.
-  2. SLA breach rate — *target*.
-  3. Vendor on-time share — *peer comparison*. Drives the "two vendors own the
-     gap" line that makes the brief a decision rather than a readout.
-  4. Cost per trip — *trend + peer*.
-  5. Night-trip compliance — *target*.
-  6. Employee experience — *trend*, from multilingual feedback.
-  Between them these cover all three reference-point types the mandatory bar
-  asks for, and all three personas. **Metric 6 depends on the vernacular
-  feedback pipeline, which was previously droppable** — it is now on the
-  critical path, so it must degrade: absent or untranslated feedback reports
-  low confidence rather than failing the sweep.
+Tiered against ~6 hours, not sequenced against a full day. Full detail in
+[`docs/superpowers/plans/2026-09-05-signal-desk-python-build.md`](docs/superpowers/plans/2026-09-05-signal-desk-python-build.md).
 
-- **React 19**, isolated per-project. Node is pinned to 22 via `.nvmrc` with the
-  global default left at 18, so there is no collision with other React 18 work.
+| Tier | Contents | Gate |
+|---|---|---|
+| **Prep** (done, 4 Sep) | Contracts, venv, console scaffold, dataset downloaded and mapped, Sarvam/Slack/SES/AWS verified | ✅ |
+| **1** | Ingest + normalisation, registry, verdict engine, sweep, template brief, real Slack send, console | **13:00** |
+| **2** | Cause decomposition, AWS deploy, four tools + interrogation, replay controls, remaining metrics | 16:00 freeze |
+| **3** | Anomaly detection, counterfactual, second-persona export | only if 2 completes by 15:00 |
 
-- **Deploy to Render and Vercel, demo from the laptop.**
-  **Vercel cannot host Spring Boot — it has no Java runtime.** It takes the
-  React console. Render takes the service via Docker on 750 free
-  instance-hours, but its free tier spins down after 15 minutes idle and a JVM
-  cold start is 30–90 seconds: fine for a link, fatal if a judge clicks it live.
-  So the deployed URLs exist to make the deployability story demonstrable, while
-  the scored demo runs locally and depends on neither venue WiFi nor a warm JVM.
-  Warm the Render URL a few minutes before presenting. Trip logs are read-only,
-  so bake them into the image — no persistent disk, and no AWS spend.
+**Tier 1 alone satisfies every mandatory requirement.** That is the point of
+tiering: at any moment after 13:00 there is a complete, demonstrable product and
+everything after only widens it.
 
-- **Deck: drafted here from the proposal and the real build output, presented by
-  a teammate.** The risk this leaves open is that nobody is holding the
-  narrative during the build, so the teammate presenting should read
-  `PROPOSAL.md` early rather than meeting the story at the end.
+---
 
-- **Repo owned by @f20180039.** Private; collaborators still to be added.
+## 10. Settled decisions
 
-## 8. PENDING — needs a decision or an owner
-
-**These are the open items. Nothing below has been decided.**
-
-- [ ] **Approve the shape.** Does *rules decide, model narrates* hold as the
-      core split? This is the load-bearing decision — everything else follows
-      from it.
-- [ ] **Approve the hour-seven vertical slice** as the checkpoint we protect
-      above all else.
-- [ ] **React for the console — any objection?** Java is settled. Nothing in the
-      rubric asks for Angular, but say so if you want full stack alignment.
-- [ ] **Add teammates as repo collaborators.** Making the repo private revoked
-      their access. `PROPOSAL.md` is self-contained, so it can be shared
-      directly in the meantime.
-- [ ] **Who holds the API keys.** The Sarvam key and the Slack webhook URL both
-      live in environment variables, with only an `.env.example` in the repo.
-      **A Slack webhook URL is a credential** — anyone holding it can post to
-      the channel — so it must not reach a commit, a screenshot, or the deck.
-
-### Live risk
-
-- [ ] **The provided dataset is still unseen.** We design against synthetic data
-      built to the described shape and keep ingestion schema-tolerant. If the
-      real file diverges badly, the cost lands in the registry's metric
-      definitions — which is exactly why they stay declarative and few. Whoever
-      gets the dataset first should post the column headers immediately.
+- **Personas** — transport manager operates it; facilities head receives the
+  brief; line manager gets shift-banded findings. Two covered well, one thinly (§8).
+- **Real delivery, not drafts** — the agent genuinely sends. SES is in sandbox to
+  verified addresses, which is a deliberate channel choice, not a limitation:
+  leaving sandbox needs DNS records in place before the request can even be filed.
+- **Sarvam as the model layer** — free credits, OpenAI-compatible, and **tool
+  calling verified against the live API** before the build. `sarvam-105b`;
+  Sarvam-M is deprecated.
+- **Demo from the laptop.** Deployed URLs exist to make deployability
+  demonstrable; the scored demo depends on neither venue WiFi nor a warm
+  container.
+- **The fixture is a real slice.** 2.89 MB carved from the provided 572 MB,
+  stratified across all five tenants and 23 vendors, join-consistent, with every
+  documented quirk preserved. The earlier synthetic fixture was deleted — it was
+  built to a guessed schema and would have pinned the wrong contract in tests.
 
 ---
 
 ## Notes
 
-No implementation has started and the design spec is not yet written — the
-sequencing is deliberate, since it is far cheaper to overturn the shape now than
-after a spec argues from it.
-
-Every dependency, model ID and timing above was verified against upstream
-documentation rather than recalled, which caught three stale facts worth knowing:
-the community DuckDB Go driver was archived and handed to the DuckDB team,
-Sarvam-M was deprecated in favour of the 105B models, and SES sandbox now
-demands DNS records before a production request can even be filed.
+Every dependency, model id and figure above was verified against upstream
+documentation or measured against the real data rather than recalled. That
+practice has now caught, among others: `duckdb_jdbc:1.5.5` not existing on Maven
+Central, Sarvam-M being deprecated, SES requiring DNS records before a production
+request can be filed, epoch timestamps being seconds rather than milliseconds,
+`trip_id` appearing in three incompatible formats, and 160 billing rows worth
+₹44.6 lakh that belong to no trip at all.
