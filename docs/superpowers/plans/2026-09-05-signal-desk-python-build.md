@@ -1107,11 +1107,12 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{{{SLICE}}}}
 """
 
-# The committed fixture predates this research and carries `night_escort` with a
-# 22:00 window. At 10:00, map whatever the real data calls it onto
-# marshal_required / marshal_signed_in in ONE place — ingest, not here. If the
-# real data has no marshal column at all, coverage goes to 0.0, the rule caps at
-# WATCH, and the metric degrades instead of lying. That path is already tested.
+# The real column is `actual_escort` (bool). There is no marshal_required
+# column, so the required POPULATION is derived at ingest: dark hours AND a
+# female rider on the trip (join emp_legs.gender), or a WOMAN_TRAVELLING_ALONE
+# alert -- the two conditions MoveInSync itself raises alerts for. Do that in
+# ONE place, in ingest, not here. Absent the column, coverage goes to 0.0, the
+# rule caps at WATCH, and the metric degrades instead of lying. Already tested.
 
 # Deviation 7: sentiment comes from a deterministic Python lexicon over the
 # TRANSLATED comment. The model does language; this arithmetic is tested Python.
