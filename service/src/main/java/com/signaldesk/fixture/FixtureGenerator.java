@@ -6,11 +6,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -34,7 +34,6 @@ public final class FixtureGenerator {
     static final String[] SHIFTS = {"S1", "S2", "S3"};
     static final String[] MODES = {"cab", "nodal", "shuttle"};
     static final String[] DIRECTIONS = {"login", "logout"};
-    static final long DAY_MS = 86_400_000L;
     static final LocalDate DAY_ZERO = LocalDate.parse("2026-06-07");
 
     private FixtureGenerator() {}
@@ -48,6 +47,14 @@ public final class FixtureGenerator {
         return dayStartMs(DAYS);
     }
 
+    /**
+     * All six writers below share this single Random draw-for-draw: inserting
+     * or removing any nextInt/nextDouble call anywhere in this sequence shifts
+     * every subsequent draw and changes the committed fixture's bytes. The pin
+     * test (theCommittedFixtureMatchesWhatTheGeneratorProducesNow) will catch
+     * it, but expect a byte diff across every remaining feed, not just the one
+     * you touched.
+     */
     public static void generate(Path outDir, long seed) throws IOException {
         Files.createDirectories(outDir);
         Random rnd = new Random(seed);
@@ -262,7 +269,7 @@ public final class FixtureGenerator {
             for (int day = 0; day < DAYS; day++) {
                 for (int i = 0; i < 40; i++) {
                     // Planted fault: ~5% of roster rows name employees with no trip.
-                    boolean orphan = rnd.nextDouble() < 0.05;
+                    boolean orphan = rnd.nextDouble() < FaultInjector.ORPHAN_ROSTER_RATE;
                     String employeeId = orphan
                             ? String.format("E9%04d", rnd.nextInt(1000))
                             : String.format("E%05d", rnd.nextInt(4000));
@@ -281,11 +288,11 @@ public final class FixtureGenerator {
     }
 
     private static String fmt(double d) {
-        return String.format("%.2f", d);
+        return String.format(Locale.ROOT, "%.2f", d);
     }
 
     private static String fmt6(double d) {
-        return String.format("%.6f", d);
+        return String.format(Locale.ROOT, "%.6f", d);
     }
 
     private static String quote(String s) {
@@ -295,7 +302,6 @@ public final class FixtureGenerator {
     public static void main(String[] args) throws IOException {
         Path out = Path.of(args.length > 0 ? args[0] : "../data/fixture");
         generate(out, SEED);
-        System.out.println("fixture written to " + out.toAbsolutePath().normalize()
-                + " (seed " + SEED + ", generated " + Instant.EPOCH + "-independent)");
+        System.out.println("fixture written to " + out.toAbsolutePath().normalize() + " (seed " + SEED + ")");
     }
 }

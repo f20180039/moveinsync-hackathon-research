@@ -14,6 +14,8 @@ public final class FaultInjector {
     public static final double UNMATCHED_RATE = 0.03;
     /** ~40% of feedback comments are not in English. */
     public static final double NON_ENGLISH_RATE = 0.40;
+    /** ~5% of roster rows name an employee who never took a trip. */
+    public static final double ORPHAN_ROSTER_RATE = 0.05;
 
     private FaultInjector() {}
 

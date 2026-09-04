@@ -59,11 +59,19 @@ class FixtureGeneratorTest {
         long nonEnglish = feedback.stream().skip(1).filter(r -> !r.endsWith(",en")).count();
         assertThat(nonEnglish / (double) (feedback.size() - 1)).as("non-English").isBetween(0.30, 0.50);
 
+        long unmatchedFeedback = feedback.stream().skip(1).filter(r -> r.startsWith("T99")).count();
+        assertThat(unmatchedFeedback / (double) (feedback.size() - 1))
+                .as("unmatched feedback").isBetween(0.02, 0.045);
+
         List<String> pings = Files.readAllLines(dir.resolve(Feed.GPS_PINGS.fileName()));
         Map<String, Long> perTrip = pings.stream().skip(1)
                 .collect(Collectors.groupingBy(r -> r.split(",")[0], Collectors.counting()));
         long gapped = perTrip.values().stream().filter(n -> n < 20).count();
         assertThat(gapped / (double) perTrip.size()).as("gapped GPS traces").isBetween(0.09, 0.16);
+
+        List<String> roster = Files.readAllLines(dir.resolve(Feed.ROSTER.fileName()));
+        long orphan = roster.stream().skip(1).filter(r -> r.startsWith("E9")).count();
+        assertThat(orphan / (double) (roster.size() - 1)).as("orphan roster").isBetween(0.03, 0.07);
     }
 
     @Test
