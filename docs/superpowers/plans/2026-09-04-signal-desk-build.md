@@ -1068,18 +1068,31 @@ Restore.
 
 - [ ] **Step 10: Generate and commit the fixture**
 
-Run:
+**Pass the output directory explicitly.** Unlike Surefire, `exec:java` does *not*
+default its working directory to `${basedir}` — it inherits the shell's cwd, which
+is the repo root when you invoke `./scripts/mvn.sh`. `main()`'s default argument of
+`../data/fixture` is written for a `service/`-relative cwd, so running this
+command bare writes the fixture **one level above the repository**. That was
+observed, not theorised.
+
+Run, from the repo root:
 ```bash
 ./scripts/mvn.sh -q compile
-./scripts/mvn.sh -q exec:java -Dexec.mainClass=com.signaldesk.fixture.FixtureGenerator
+./scripts/mvn.sh -q exec:java \
+  -Dexec.mainClass=com.signaldesk.fixture.FixtureGenerator \
+  -Dexec.args=data/fixture
 wc -l data/fixture/*.csv
 du -sh data/fixture
 ```
-Expected: six files; `trips.csv` 8,001 lines; the directory a few MB, small
-enough for git.
+Expected: six files; `trips.csv` 8,001 lines; `gps_pings.csv` around 153,600
+lines; the whole directory under 10 MB, small enough for git.
 
-Add `exec-maven-plugin` to the POM's `<build><plugins>` if `exec:java` is not
-available:
+`main()` prints the absolute path it wrote to. **Read that line** rather than
+assuming — if it names anything outside this repository, delete what it wrote and
+re-run with the explicit `-Dexec.args`.
+
+Add `exec-maven-plugin` to the POM's `<build><plugins>` (it is not there after
+Task 1):
 
 ```xml
       <plugin>
