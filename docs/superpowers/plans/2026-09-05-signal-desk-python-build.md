@@ -120,14 +120,26 @@ Every task's requirements implicitly include this section.
 Not optional, and none of it needs the dataset. Every one of these is something that fails badly at 10:15 if left.
 
 - [ ] `python3.12 -m venv service/.venv && service/.venv/bin/pip install -U pip`
-- [ ] `service/.venv/bin/pip install "fastapi[standard]" uvicorn duckdb openai boto3 pytest httpx` then `pip freeze > service/requirements.txt`. **Install tonight — do not fight venue wifi at 10:05.**
+- [ ] `service/.venv/bin/pip install "fastapi[standard]" uvicorn duckdb openai boto3 pytest httpx python-dotenv` then `pip freeze > service/requirements.txt`. **Install tonight — do not fight venue wifi at 10:05.**
+- [ ] **Make something actually read `.env`.** A `.env` file is inert on its own: the code calls `os.environ.get(...)`, which does not see it. Two lines, both worth having:
+  - `load_dotenv()` (from `python-dotenv`) as the first statement of the API's startup function, so `uvicorn` picks it up.
+  - the same call in `service/tests/conftest.py`, so pytest and the live-API tests see the same values.
+
+  Without this, `SARVAM_API_KEY` is `None`, the composer silently falls back to the template brief, and you spend twenty minutes tomorrow wondering why the model never runs. The fallback working correctly is exactly what makes this hard to notice.
+
+  The shell alternative is `set -a && source .env && set +a`, which needs no dependency but has to be remembered every new terminal. Do the code version and keep the shell one for one-off scripts.
 - [ ] `service/.venv/bin/python -c "import duckdb; duckdb.sql('INSTALL httpfs; LOAD httpfs;')"` — caches the extension so an S3 read cannot try to download it mid-demo.
 - [ ] `cd console && nvm use && npm install` — the console's dependency tree, tonight.
 - [ ] **Create the Slack incoming webhook** and `curl` one message to it. Minutes, no approval. This is the primary delivery channel and Tier 1 needs it.
-- [ ] **Verify 2–3 team emails in SES sandbox.** Sandbox delivers only to verified addresses; leaving sandbox needs SPF/DKIM/DMARC in place before the request can even be filed, so production SES is not achievable. This is the email proof.
+- [ ] **Verify 2–3 team emails in SES sandbox — and note this one has human latency.** Each address gets a confirmation email that *the recipient has to click*. That is not a config step you can do at 14:00 tomorrow and have finished at 14:05; if a teammate does not check their inbox, the address stays unverified. Send the verification requests tonight and chase the clicks.
+
+  Sandbox delivers only to verified addresses. Leaving sandbox needs SPF/DKIM/DMARC in place *before* the request can even be filed, and approval runs 4–24 h, so production SES is not achievable — sandbox-to-verified-addresses is the real email proof.
+
+  **If SES is not configured, nothing breaks.** `slack_send` is the primary channel and `ses_send` reports `delivered=false, detail="not configured"`, which the dispatch log shows honestly. That path is tested (`test_a_channel_failure_is_recorded_and_does_not_lose_the_finding`). Email is a second delivery proof, not a dependency.
 - [ ] **Fire one real Sarvam call with a `tools` array** and confirm the response carries `finish_reason: "tool_calls"`. Tool calling is the one capability the interrogation panel cannot be built without, and learning it fails at 10:00 is survivable — at 15:00 it is not. Note the credit balance while you are there.
 - [ ] **Write `schemas.py` tonight** (Task 1 below). At 10:05 it should be a paste, not a debate.
 - [ ] **Everyone reads [`docs/moveinsync-domain-vocabulary.md`](../../moveinsync-domain-vocabulary.md).** It is MoveInSync's own vocabulary for their own concepts, pulled from their help centre, and it corrected two things this plan had guessed wrong (the escort column is called a **marshal**, and dark hours default to **19:00–06:00**, not 22:00). The judges are MoveInSync — using their words is free credibility and using invented ones is an avoidable signal.
+- [ ] **Confirm `aws sts get-caller-identity` returns something tonight.** Account access, MFA and SSO device flows are the other human-latency item: Task 9 needs working credentials, and discovering at 13:30 that your session expired or the account needs an owner's approval costs the whole AWS story. `AWS_REGION` and the credential chain are only needed for Tasks 9 and SES — not for Tier 1.
 - [ ] Set an AWS budget alarm at $50 of the $100. Credits do not stop charges by themselves.
 - [ ] Add the teammates as repo collaborators — they cannot read any of this otherwise.
 - [ ] Whoever is presenting reads `PROPOSAL.md` and spec §15 tonight, not at 18:00.
