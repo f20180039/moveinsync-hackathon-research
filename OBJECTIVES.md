@@ -7,7 +7,13 @@ it is met.
 
 Where any other document disagrees with this one about *what we are building*,
 this one wins. For *how the data actually looks*, `docs/real-dataset-mapping.md`
-wins.
+wins. For *the order we build it in on the day*, the plan's Tier 2 running order
+wins — `docs/superpowers/plans/2026-09-05-signal-desk-python-build.md`.
+
+**Revised 05 Sep 00:50** against `docs/judge-review-2026-09-05.md`, an adversarial
+judge's read of the plan against the PDF (likely delivered state: 64/100). The
+Tier 2 metric order, the reserve and the clock below changed; the product
+sentence, the one decision and the mandatory bar did not.
 
 ---
 
@@ -43,14 +49,15 @@ the change is wrong.
 
 ## Mandatory bar — pass/fail, not scored
 
-The problem statement rules these in. Missing any one of them is
-disqualifying, so they come first and Tier 1 exists to satisfy exactly them.
+The problem statement rules M1–M4 in as **mandatory**; M5 is listed under its
+**good-to-have** items, and we hold ourselves to it anyway because the dataset's
+messiness is deliberate. They come first, and Tier 1 exists to satisfy exactly them.
 
 | # | Requirement | How we meet it | Done when |
 |---|---|---|---|
 | M1 | Working prototype **on the provided dataset** | 615k real trips from `data/real/`, not the synthetic fixture | A sweep over real May–July 2026 data returns ranked findings |
 | M2 | **Senses, reasons, acts** — not a passive dashboard or query-only tool | Scheduled sweep fires with no prompt → pure rules emit findings → real Slack/email dispatch | The startup log shows a sweep nobody asked for, and a brief arrives in Slack |
-| M3 | Serves a **named persona** | Transport manager operates it; facilities head receives the brief; **line manager gets a per-shift floor-readiness view** (Task 8d) — the statement asks for "who made it, who was late, and how delays ripple into floor readiness", which is per-employee, and `emp_legs`' 1.6M rider legs carry exactly that | Every brief is addressed to a named role, audience is assigned by rule, and all three personas have a surface |
+| M3 | Serves a **named persona** | Transport manager operates it; facilities head receives the brief and the leadership export (R7); line manager receives shift-sliced findings by rule (`audiences_for` → `LINE_MANAGER`). The per-shift floor-readiness *screen* (was Task 8d) is reserve R9 — the statement's "who made it, who was late" is per-employee, `emp_legs` carries it, and the honest line is "next sprint" | Every brief is addressed to a named role and audience is assigned by rule; two personas have a surface, the third has a routed brief |
 | M4 | **Contextualises** each metric against a reference point | Every metric declares ≥1 of trend / target / peer, enforced in `Metric.__post_init__` | A metric with no computable reference emits **nothing** rather than a bare number |
 | M5 | **Handles messy or missing data gracefully** | Rejects quarantine + per-feed confidence + null-safe arithmetic, against the dataset's *own* documented quirks | Feed health shows non-zero quarantined rows, and a confidence below 0.9 is disclosed in the brief itself |
 
@@ -63,7 +70,9 @@ merely survive these — we **count them and put the number on screen**.
 
 ## Scored criteria, and what we are doing for each
 
-Weights from `PROPOSAL.md` §4.
+Weights from the PDF §9 (also in `PROPOSAL.md` §7). Note the PDF numbers them
+1 Business impact 35 · 2 Agentic & cost at scale 20 · 3 Architecture 20 ·
+4 Functionality 25; the order below is ours.
 
 ### 1. Business impact & experience — 35 points
 
@@ -94,7 +103,11 @@ and driver delay at two vendors owns 4.1 of the 7 points" is a decision.
 
 ### 3. Agentic design & cost at scale — 20 points
 
-`PROPOSAL.md` calls this "20 free points" because most teams will ignore it.
+Twenty points most teams will leave on the table by treating "agentic" as a
+word on a slide. The judge review's sharpest question lands here: *"the model
+never computes a number and the template ships without it — why is this not a
+cron job with mail-merge?"* Task 9 (the tool-mediated interrogation, refusing a
+forecast) is the answer, which is why it is Tier 2 item 2 with an owner.
 
 **Objectives:**
 - **O3.1** The loop starts **without a prompt**. The manual trigger exists so a
@@ -155,20 +168,28 @@ screen, which is not a thing.
 
 ### Tier 2 — after 13:00, in this order
 
-| # | id | What | Source | References |
-|---|---|---|---|---|
-| 5 | `sev1_alert_rate` | Sev-1 safety alerts per 1,000 trips | `alerts.severity = 'Sev-1'` | trend + peer |
-| 6 | `marshal_compliance` | Escort present where required | `actual_escort` over dark-hours trips carrying a female rider, or with a `WOMAN_TRAVELLING_ALONE` alert | target 100%, **hard** |
-| 7 | `cost_per_km` | Billed cost per km | `trip_cost / nullif(total_trip_km, 0)` | trend + peer |
-| 8 | `experience` | Rider experience | mean of `route/driver/cab/safety_rating`, excluding unrated `0`s | trend |
+| # | id | What | Source | References | Plan item |
+|---|---|---|---|---|---|
+| 5 | `marshal_compliance` | Escort present where required | `actual_escort` over dark-hours trips carrying a female rider, or with a `WOMAN_TRAVELLING_ALONE` alert | target 100%, **hard** | Task 11, 14:00 |
+| 6 | `cost_per_km` | Billed cost per km | `trip_cost / nullif(total_trip_km, 0)` | trend + peer | Task 11, 14:00 |
+| 7 | `ev_share` | Electric share of trips — the manager's fourth accountability | `actual_cab_fuel_type = 'Electric'` | trend + peer | R1 → Tier 2, 14:30 |
+| 8 | `sev1_alert_rate` | Sev-1 safety alerts per 1,000 trips, with a 2σ control-chart deviation | `alerts.severity = 'Sev-1'` | trend + peer | 8c, **only before 15:10** |
 
-`marshal_compliance` is the only **hard target**: a female or special-needs
-employee cannot board before a marshal signs in, so 99% is not "nearly
-compliant", it is a safety failure.
+**Order changed on review.** At 13:00 every live metric is timeliness; the
+statement's strategic persona wants "a coherent cost/safety/experience story",
+so cost and safety come first. `marshal_compliance` is the only **hard target**:
+a female or special-needs employee cannot board before a marshal signs in, so
+99% is not "nearly compliant", it is a safety failure. `ev_share` is one registry
+entry and closes the fourth of the four accountabilities the statement lists.
 
-`sev1_alert_rate` is the most differentiated metric available. The alerts feed
-(SOS, geofence, over-speeding, `WOMAN_TRAVELLING_ALONE`) is the richest material
-in the dataset and most teams will ignore it.
+`sev1_alert_rate` is the most differentiated metric available — the alerts feed
+is the richest material in the dataset and most teams will ignore it — but it is
+the sixth solution form when two are required, so it runs last and only if the
+lane is green.
+
+**`experience` is dropped.** Its ratings include `0` values that may mean
+*unrated*; it is the weakest of the candidates and the only one needing a
+judgement call about its own data.
 
 ### Dimensions
 
@@ -183,22 +204,29 @@ in the dataset and most teams will ignore it.
 
 ---
 
-## Reserve — held back, ready on short notice
+## Reserve — what it is now
 
-Eight items are scoped and ready in the plan's RESERVE section, ordered by points
-per minute. Do not start one before Tier 2 is done; do not hesitate if it is.
+The old rule was "do not start a reserve item before Tier 2 is done". The judge
+review did the arithmetic — ~390 usable person-minutes after 13:00 against ~390
+of planned Tier 2 at a 1.5× multiplier — and showed that rule meant **no reserve
+item would ever be built**, including the two that answer things the statement
+names by name. So the reserve was swapped, not appended:
 
-The first is the one to know about: **R1, sustainability.** The statement's own
-background says the transport manager is accountable for *"cost, safety,
-experience, **and sustainability**"*. We answer three of those four and say
-nothing about the fourth, and `actual_cab_fuel_type` (Diesel / Electric / Petrol)
-makes EV share a single registry entry. Fifteen minutes to complete the persona's
-own list of accountabilities.
+- **Promoted into Tier 2:** R1 sustainability (`ev_share`), R3 two-tenant SLA
+  demo (the multi-tenancy bonus, as a screen), R7 leadership export (criterion
+  1's "leadership-ready output, shareable without rework").
+- **Swapped out to make room:** 8d shift-readiness view → R9. 8c anomaly
+  detection stays in Tier 2 but last, behind cost and safety.
+- **Dropped, with reasons recorded in the plan:** R2 industry benchmark (nothing
+  citable — "cite or omit" resolves to omit), R5 alert-ack SLA (0.1% of alerts
+  unacknowledged; a 99.9% metric has no story), R8 counterfactual (an
+  unvalidatable projection in a product whose argument is traceability).
+- **New:** R10 vendor escalation draft — a BREACH finding sliced by vendor
+  produces a vendor-addressed draft from the same composer; turns *act* from
+  informing into acting, ~20 min.
 
-Then: R2 industry benchmark (the fourth reference type the statement lists and we
-do not implement — **cite it or omit it**), R3 the two-tenant SLA demo, R4
-capacity utilisation, R5 alert acknowledgement SLA, R6 driver/cab
-non-compliance, R7 second-persona export, R8 counterfactual.
+**The reserve proper is now R0 (AWS), R4, R6, R9, R10** — pick one only when your
+lane is green and it is before 15:10.
 
 ---
 
@@ -236,9 +264,12 @@ The statement offers six and asks for two. We hit **five**:
    lists *separately* from automated reporting. An earlier count of four missed
    this.
 
-**All six are now planned.** *Insight & anomaly detection* was the gap; Task 8c
-closes it with a control-chart deviation on the alerts feed — a Sev-1 rate 2σ
-above its own 4-week mean, using the trend machinery that already exists.
+**The sixth is planned but conditional.** *Insight & anomaly detection* is
+Task 8c — a control-chart deviation on the alerts feed, a Sev-1 rate 2σ above its
+own 4-week mean, using the trend machinery that already exists — and it runs
+last in Tier 2, only if the lane is green before 15:10. The statement asks for
+two forms; five is already a distinction, and cost and safety metrics are worth
+more than a sixth form.
 
 Call it what it is on stage: **a control-chart deviation on a four-week
 baseline**, not machine learning. A judge who asks "what model?" and hears "two
@@ -251,8 +282,14 @@ standard deviations" respects the answer.
 | Time | Gate |
 |---|---|
 | 10:00 | Point `SIGNALDESK_DATA` at `data/real`; post the real headers to the channel |
-| **13:00** | **Tier 1 done.** M1–M5 all satisfied. If not, drop everything else. |
-| **16:00** | **Feature freeze.** Deck and rehearsal only. |
+| 12:30 | Pre-check: if the 13:00 gate will not be green by 13:15, only 8b and R1 may be touched after it |
+| **13:00** | **Tier 1 done.** M1–M5 all satisfied, the OTA target is data-derived or absent, every Tier 2 item has a name, the Task 9 write grant is said in the channel. If not, drop everything else. |
+| 14:30 | Hard start for the three deliverables (diagram, README, sample I/O) in Lane C |
+| 15:05 | Deck starts |
+| **15:30** | **Abort line.** Anything not green is reverted, not finished. |
+| **16:00** | **Feature freeze.** `PROPOSAL.md` §5 AWS row corrected. Deck and rehearsal only. |
+| 16:15 | Offline rehearsal, beats 1–6, timed |
+| 16:30 | **Demo video** — raised to Anshuman once every earlier gate is green; not recorded otherwise |
 | 17:00 | Submit — the early window is worth points by itself |
 | 18:00 / 19:30 | Semifinal / final |
 

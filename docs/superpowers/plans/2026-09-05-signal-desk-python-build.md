@@ -12,6 +12,8 @@
 
 **Authority above both:** [`docs/MoveInSync-problem-statement.pdf`](../../MoveInSync-problem-statement.pdf).
 
+**Revised 05 Sep 00:50 IST against [`docs/judge-review-2026-09-05.md`](../../judge-review-2026-09-05.md).** An adversarial judge's read of this plan against the PDF scored the *likely 17:00 state* **64/100** — a probable semifinalist, not a finalist. Tier 1 is untouched. What changed: Tier 2 is re-ordered a third time and split into three owned lanes with a **15:30 abort line**; the three PDF deliverables with no task body get one (8e diagram, **8f README**, **8g sample I/O**); 8d moves to reserve in favour of R1 + R3; Task 9 gets an owner; the OTA target becomes a named gate line; a **gated demo-video task (Task 13) is handed to Anshuman** once every earlier gate is green. Where this file and the review disagree on *what to build*, this file wins — it has already absorbed the review.
+
 **⚠ READ [`docs/real-dataset-mapping.md`](../../real-dataset-mapping.md) FIRST.** The dataset arrived early on 2026-09-04 and is downloaded to `data/real/`. It has **five feeds, not six**, timestamps in **epoch seconds not milliseconds**, `trip_id` in **three different formats**, and **no free-text feedback at all**. Where that file and this plan disagree, that file wins — it is derived from the actual data.
 
 **Supersedes:** [`2026-09-04-signal-desk-build.md`](2026-09-04-signal-desk-build.md) — the 24-task Java plan. Do not execute it. Read it only for the reasoning behind the carried-over decisions below.
@@ -154,8 +156,18 @@ Not optional, and none of it needs the dataset. Every one of these is something 
 - [ ] **Fire one real Sarvam call with a `tools` array** and confirm the response carries `finish_reason: "tool_calls"`. Tool calling is the one capability the interrogation panel cannot be built without, and learning it fails at 10:00 is survivable — at 15:00 it is not. Note the credit balance while you are there.
 - [ ] **Write `schemas.py` tonight** (Task 1 below). At 10:05 it should be a paste, not a debate.
 - [ ] **Everyone reads [`docs/moveinsync-domain-vocabulary.md`](../../moveinsync-domain-vocabulary.md).** It is MoveInSync's own vocabulary for their own concepts, pulled from their help centre, and it corrected two things this plan had guessed wrong (the escort column is called a **marshal**, and dark hours default to **19:00–06:00**, not 22:00). The judges are MoveInSync — using their words is free credibility and using invented ones is an avoidable signal.
-- [ ] **Confirm `aws sts get-caller-identity` returns something tonight.** Account access, MFA and SSO device flows are the other human-latency item: Task 9 needs working credentials, and discovering at 13:30 that your session expired or the account needs an owner's approval costs the whole AWS story. `AWS_REGION` and the credential chain are only needed for Tasks 9 and SES — not for Tier 1.
+- [ ] **Confirm `aws sts get-caller-identity` returns something tonight.** Account access, MFA and SSO device flows are the other human-latency item: the AWS deploy (R0, the former Task 12) needs working credentials, and discovering at 13:30 that your session expired or the account needs an owner's approval costs the whole AWS story. `AWS_REGION` and the credential chain are only needed for R0 and SES — not for Tier 1.
 - [ ] Set an AWS budget alarm at $50 of the $100. Credits do not stop charges by themselves.
+- [ ] **Make a bare `pytest -q` work from `service/`.** Today only `PYTHONPATH=. pytest -q` passes; a bare `pytest` dies at collection with two errors, nothing documents the incantation, and the 13:00 gate line reads `pytest -q`. Two lines, committed tonight:
+
+  ```ini
+  # service/pytest.ini
+  [pytest]
+  pythonpath = .
+  testpaths = tests
+  ```
+
+  Verify: `cd service && .venv/bin/pytest -q` → `25 passed, 1 skipped`. Commit — `chore(test): pytest.ini so a bare pytest works`. Task 8f's README then documents the command a stranger will actually type.
 - [ ] Add the teammates as repo collaborators — they cannot read any of this otherwise.
 - [ ] Whoever is presenting reads `PROPOSAL.md` and spec §15 tonight, not at 18:00.
 
@@ -163,22 +175,36 @@ Not optional, and none of it needs the dataset. Every one of these is something 
 
 ## Work split from 10:05
 
-The contracts in Task 1 exist so four people work in parallel without blocking. **Agree them at 10:05 and do not renegotiate them at 12:00.**
+The contracts in Task 1 exist so three people work in parallel without blocking. **Agree them at 10:05 and do not renegotiate them at 12:00.** The lanes below are the same three as [`handoff/README.md`](../../../handoff/README.md) — one person, one directory, and the letters A/B/C are used in the Tier 2 running order.
 
-| Owner | Scope |
-|---|---|
-| **Lead (data)** | Tasks 2–4: ingest, registry, verdict engine. The critical path — nothing downstream is real until `Finding` objects flow. |
-| **SDE 1 (frontend)** | Task 7 onward, built against **hardcoded fake `Finding` dicts from minute one.** Do not wait for real data. |
-| **SDE 2 (model)** | Tasks 5–6: composer, validator, delivery, tools — also against fakes. |
-| **SDE 3 / whoever is free** | **Owns the deck and the architecture diagram from 13:00** — both are named deliverables and neither had an owner. Then Task 8b (latency) and R3 (tenant SLA demo), which are short and self-contained. |
+| Lane | Owner | Scope | Directory |
+|---|---|---|---|
+| **A** | **Anshuman** (data spine) | Tasks 2–5: ingest, registry, verdict engine, sweep. The critical path — nothing downstream is real until `Finding` objects flow. From 13:00: 8a → 8 → 11 → R1 → 8b → R3 → (8c only before 15:10). | `service/signaldesk/` |
+| **B** | **Teammate A** (console) | Task 7 against **`handoff/fake-findings.json` from minute one** — do not wait for real data. From 13:00: CostMeter/BriefPreview → Task 10 replay controls → CauseBreakdown → latency line → InterrogationPanel/ToolTrace → tenant selector → **screenshots of every beat**. | `console/` |
+| **C** | **Teammate B** (delivery → tools → deliverables → deck) | Task 6 delivery in Tier 1. **From 13:00: Task 9** (tools + `/api/ask`) → R7 leadership export → **8e diagram + 8f README + 8g sample I/O** (must start by 14:30) → deck from 15:05. | `service/signaldesk/delivery.py`, `tools.py`, `deck/`, `docs/` |
 
-The person on the deck starts at 15:00 at the latest, whatever is unfinished.
+The person on the deck starts at 15:05 at the latest, whatever is unfinished.
 
-**Every Tier 2 item needs a name against it by 13:05.** An independent review of
-this plan found that the two items with no clean owner — the AWS deploy and the
-shift-readiness view — were the real schedule risk, not the raw minute count.
-Three people × 180 minutes is 540 person-minutes against ~200 of planned work, so
-the arithmetic fits twice over; **unowned work is what does not get done.**
+**Task 9 now has an owner, and it needs a write grant to go with it.** The judge
+review found the conversational agent — the only feature where the model
+*reasons* rather than narrates, and the whole of criterion 2's "AI solving a
+genuine problem rather than decorating" — sat in nobody's lane: `handoff/README.md`
+gives Anshuman `service/signaldesk/`, and rule 1 forbids editing outside your
+directory. So at **13:00, in the channel, Anshuman says explicitly**: *Teammate B
+owns `tools.py`, the ask-path in `model.py`, and one route in `api.py` from now
+until freeze.* Said out loud so rule 1 is waived rather than broken.
+
+**Every Tier 2 item needs a name against it by 13:05.** Two independent reviews
+of this plan agreed on this and disagreed on the arithmetic. The first said
+540 person-minutes against ~200 of work "fits twice over". The second did the
+subtraction: 540 − 60 (deck lane from 15:05) − ~90 (Tier 1 slippage, since the
+critical path is ~140 sequential minutes on one person) ≈ **390 usable**, against
+260 estimated minutes of Tier 2 that run to **~390 at the 1.5× hackathon
+multiplier**. So under the old rule "no reserve item before Tier 2 is done",
+**no reserve item was ever going to be built** — including the two (R1, R3) that
+answer things the PDF names. That is why the Tier 2 order below *swaps* rather
+than appends. Unowned work is what does not get done; so is work behind a rule
+that never fires.
 
 **And revise the Tier 1 target to 13:30.** The critical path (Tasks 2→5) is ~185
 minutes, not the ~2h50 stated earlier. Task 2 is already done, which buys some of
@@ -246,7 +272,7 @@ infra/
 
 **Interfaces produced:** everything downstream. Agree these at 10:05 and do not renegotiate at 12:00.
 
-This is the task that lets four people work at once. It carries five of the eight resolved spec ambiguities directly in code.
+This is the task that lets three people work at once. It carries five of the eight resolved spec ambiguities directly in code.
 
 - [ ] **Step 1: Write `constants.py`**
 
@@ -2020,6 +2046,8 @@ Do not start Tier 2 until every line is true. If it is 13:30 and this is red, **
 - [ ] `POST /api/dispatch/{runId}` puts a brief **in the real Slack channel**
 - [ ] That brief names a specific vendor, cites a reference point, and discloses confidence where it is below 0.9
 - [ ] The tier distribution covers **all four tiers**, and the measured figures are written into `constants.py` — with real numbers, not placeholders
+- [ ] **The OTA/OTD target is data-derived or absent — not the spec's 90%.** `docs/real-dataset-mapping.md` §10b measured 59.1% on-time arrival against a 90% target, which makes *every* slice BREACH and the ranking meaningless — the first question a judge asks becomes "is your data broken?". Either drop `TARGET` from `ota`/`otd` and rank on TREND + PEER (option 1 there, preferred), or set `target=` to the measured P75 of `vendor_ota` and label it *data-derived* in the brief (option 2). Whichever: the constant carries the measured distribution in a comment, and the brief never prints "target 90%" unless this customer's contract says so. Task 5 Step 4 is where this happens; this line is here so it is *checked*, not assumed.
+- [ ] **Every Tier 2 item has a name against it**, and the Task 9 write grant to Teammate B has been said in the channel (see "Work split")
 - [ ] The console opens on a **completed sweep**, rows expand to `evidence_sql`, feed health shows a non-zero quarantined count
 - [ ] No credential in `git log -p`:
       `git log -p | grep -iE 'hooks\.slack\.com/services/[A-Z0-9]{5,}|sk-[A-Za-z0-9]{10,}|AKIA[0-9A-Z]{16}' | grep -v REPLACE`
@@ -2032,44 +2060,82 @@ Do not start Tier 2 until every line is true. If it is 13:30 and this is red, **
 
 # TIER 2 — pick in this order (13:00 → 16:00)
 
-**Reordered twice.** Once by me against the statement, then again after an
-independent review scored the plan 77/100 and found three prioritisation errors.
-The order below is the second revision and it is the one to follow.
+**Reordered three times.** Once by me against the statement; once after an
+independent review scored the plan 77/100; and once more after an adversarial
+judge's read against the PDF ([`docs/judge-review-2026-09-05.md`](../../judge-review-2026-09-05.md))
+scored the *likely delivered* state 64/100 and showed that the reserve rule
+guaranteed R1 and R3 would never be built. **The order below is the third
+revision and it is the one to follow.** Three changes from the second:
 
-| # | Task | Min | Closes |
-|---|---|---:|---|
-| 1 | **8a Action lines** | 15 | criterion 1 (35pts) asks it to surface *decisions*; nothing said what to do |
-| 2 | 8 Root-cause decomposition | 30 | answers *why*, from `delay_reason` |
-| 3 | 9 Four tools + `/api/ask` | 45 | criterion 2 says "cost per **interaction**"; the tools are the proof of the no-`run_sql` claim |
-| 4 | 8b Latency instrumentation | 15 | criterion 2 names latency |
-| 5 | 8c Sev-1 anomaly detection | 30 | the sixth solution form |
-| 6 | 10 Replay controls | 20 | proactive triggers, visibly |
-| 7 | **R7 Leadership export** | 30 | the 35-pt criterion's own words: "leadership-ready output, shareable without rework" |
-| 8 | 8d Shift readiness — *reduced scope* | 22 | persona 3. Roll-up + endpoint + plain table only |
-| 9 | 11 `cost_per_km` only | 15 | `experience` dropped — see below |
-| 10 | **R1 Sustainability** | 15 | the statement's own list of manager accountabilities |
-| 11 | **R3 Tenant SLA demo** | 20 | the multi-tenancy bonus, as a screen |
-| 12 | **8e Architecture diagram** | 15 | a **named deliverable** with no owner and no minutes |
+- **8d is out of Tier 2** (→ R9). ~50 real minutes for ~2 points, and as scoped it
+  aggregates by shift band when the PDF asks "*who* made it, *who* was late". M3
+  is already met; `audiences_for` already routes `LINE_MANAGER`. Its minutes buy
+  **R1 + R3**, which answer two things the PDF names — sustainability (§3 *and*
+  §4) and multi-tenancy (bonus) — for fewer minutes and more points.
+- **8c drops behind Task 11.** 8c is the nicer story (sixth solution form, when
+  two are required); Task 11 is the one whose *absence a judge asks about* —
+  "where is cost? where is safety?" — because at 13:00 the product is
+  timeliness-only and the T&F head's "coherent cost/safety/experience story" has
+  no cost and no safety in it. 8c runs only if Lane A is green before 15:10.
+- **The three PDF deliverables get task bodies and a lane.** 8e diagram already
+  had one; **8f README rewrite** and **8g sample inputs/outputs** are new. The
+  README currently says *"No application code yet … Java · Spring Boot"* — a judge
+  who clones the repo reads a false README. All three are in Lane C, **must start
+  by 14:30**, and are done before the deck starts.
 
-**Four changes from the previous order, each with a reason:**
+Unchanged from the second revision: 8a first, Task 9 third, AWS out (R0),
+`experience` dropped from Task 11, R7 promoted.
 
-- **8a and 8e are new.** The first closes the largest gap on the largest
-  criterion. The second is a deliverable the statement lists and we had not
-  allocated a minute to.
-- **Task 9 (tools) moved up to third.** Criterion 2 asks for cost *per
-  interaction* — the interrogation path is what an interaction *is*, and it is
-  the demonstration that the no-`run_sql` claim is real rather than asserted.
-- **R7 and R1 promoted out of reserve, `experience` dropped.** R7 produces the
-  forwardable document the 35-point criterion asks for by name; we had demoted it
-  as "already satisfied by the Slack brief", which was the biggest prioritisation
-  error in the plan. R1 completes the statement's own list of what the manager is
-  accountable for. `experience` gave way because its ratings include `0` values
-  that may mean *unrated*, so it is the weakest metric of the three and the only
-  one needing a judgement call about its own data.
-- **The AWS deploy is out of Tier 2 entirely** — moved to reserve. It is 50
-  minutes and it answers **none** of the three words its own bonus bullet names:
-  multi-tenancy is R3, latency is 8b, cost is the cost meter. See the note under
-  the reserve list before deciding.
+| # | Task | Lane | Min | Closes |
+|---|---|---|---:|---|
+| 1 | **8a Action lines** | A | 15 | criterion 1 (35pts) asks it to surface *decisions*; nothing said what to do |
+| 2 | **9 Four tools + `/api/ask`** | **C, from 13:00** | 45–60 | criterion 2's "AI solving a genuine problem rather than decorating"; the only place the model *reasons* |
+| 3 | 8 Root-cause decomposition | A | 30 | answers *why*, from `delay_reason` |
+| 4 | **11 `marshal_compliance` + `cost_per_km`** | A | 30 | cost and safety exist; the T&F head's story has three legs, not one |
+| 5 | 10 Replay controls | B | 20 | proactive triggers, visibly |
+| 6 | **R1 Sustainability** | A | 15 | the manager's fourth accountability, named twice in the PDF |
+| 7 | **R7 Leadership export** | C | 30 | criterion 1's own words: "leadership-ready output, shareable without rework" |
+| 8 | 8b Latency instrumentation | A | 15 | criterion 2 names latency; numbers for the deck |
+| 9 | **8e Diagram + 8f README + 8g Sample I/O** | **C, start ≤14:30** | 45 | three named deliverables, zero current coverage |
+| 10 | **R3 Tenant SLA demo** | A (+ B selector, 15) | 20 | the multi-tenancy bonus, as a screen |
+| 11 | 8c Sev-1 anomaly detection | A, **only before 15:10** | 30 | the sixth solution form |
+| — | 8d Shift readiness | **→ R9** | — | swapped out; see above |
+| — | 12 AWS deployment | **→ R0** | — | unchanged; 16:00 step edits `PROPOSAL.md` §5 to the truth if it did not happen |
+
+### The running order, by lane
+
+**Pre-condition, checked at 12:30:** if the 13:00 gate will not be fully green by
+13:15, the only Tier 2 items anyone may touch are **8b and R1** — single-file,
+fifteen minutes each. Everything else waits for the gate.
+
+| Time | **Lane A — Anshuman** (`service/signaldesk/`) | **Lane B — Teammate A** (`console/`) | **Lane C — Teammate B** (delivery → tools → deliverables → deck) |
+|---|---|---|---|
+| 13:00 | **Gate.** Confirm the OTA target line (data-derived or absent). Say the Task 9 write grant in the channel. | `CostMeter` + `BriefPreview` (console-brief Tier 2 #1–2) | **Task 9** tools + `/api/ask` (45–60) |
+| 13:15 | **8a action lines** (15) | | |
+| 13:30 | **Task 8 decomposition** (30) | `ReplayControls` (Task 10, 20) | |
+| 14:00 | **Task 11** `marshal_compliance`, `cost_per_km` (30) | `CauseBreakdown` (20) | **R7 leadership export** (30) |
+| 14:20 | | Latency line in the cost panel from `/api/cost` (10) | |
+| 14:30 | **R1 EV share** (15) | `InterrogationPanel` + `ToolTrace` against a fake trace (45) | **8e diagram + 8f README + 8g sample I/O** (45). Hard start — if R7 is not done, R7 stops here. |
+| 14:45 | **8b latency** (15) — full sweep on `data/real`; p50/p95 and sweep-seconds into the channel for the deck | | |
+| 15:00 | **R3 two-tenant SLA** (20) — two `business_unit`s, two targets, one sweep | Tenant selector on the findings list (15) — makes R3 a screen | |
+| 15:05 | | | **Deck starts** (screenshots come from B) |
+| 15:10 | 8c anomaly **only if** A is green and it is not yet 15:10; else R4/R6 filler or help B/C | | |
+| **15:30** | **⛔ ABORT LINE — see below** | **Screenshots of every beat, in order** | Deck, script, screenshot fallbacks |
+| 16:00 | **Freeze.** Edit `PROPOSAL.md` §5 AWS row to the truth. Push. | | |
+| 16:15 | Offline rehearsal (beats 1–6 WiFi off) | | |
+| 16:30 | **Task 13 — demo video: raised to Anshuman** once its gates are green | | |
+| 17:00 | **Submit.** | | |
+
+### ⛔ 15:30 abort line
+
+Anything not green at 15:30 is **`git revert`ed, not finished.** A half-landed
+feature at 16:00 is a broken demo path, a diagram box that lies, and a deck slide
+with no screenshot. Allowed after 15:30, and nothing else:
+
+- bug fixes on the eight-beat demo path,
+- numbers for slides (latency, cost, cardinalities),
+- the `git log -p` credential grep,
+- the offline rehearsal.
 
 **Do not start something at 15:30 that takes an hour.** And put a name against
 every item by 13:05 — unowned work is what does not get done.
@@ -2253,6 +2319,143 @@ demo does not have is worse than a smaller diagram, and it is the artifact a
 judge studies while someone else is talking.
 
 - [ ] **Step 4: Commit** — `docs: architecture diagram of what was built`
+
+---
+
+### Task 8f: README rewrite (~15 min) — a named deliverable that is currently false
+
+*Closes: §10 of the statement lists **"README + setup instructions"**. The current
+`README.md` L20–29 says "No application code yet … Java · Spring Boot · React".
+`AGENTS.md` L36 still points at `data/fixture/`, which was deleted. A judge who
+clones the repo reads a false README before they read anything else.*
+
+**Files:** `README.md` (rewrite), `AGENTS.md` (three lines), `OBJECTIVES.md`
+(three factual corrections).
+
+- [ ] **Step 1: Rewrite `README.md` top to bottom, in this order.** Every command
+  below must be one you have actually run in the last hour — if it is not, run it.
+
+  ````markdown
+  # Signal Desk
+
+  An agent that watches enterprise commute operations, works out what a transport
+  manager needs to know before they ask, and sends it — with the reasoning and the
+  originating SQL attached. **The model never computes a number and never writes SQL.**
+
+  Built for the MoveInSync hackathon (Agentic Intelligence & Reporting Layer for
+  Enterprise Mobility), 5 September 2026.
+
+  ## What it does
+  Sense → Reason → Compose → Act, on a clock, with no prompt:
+  1. A scheduled sweep loads the provided dataset (615k trips, 1.6M rider legs,
+     620k bill lines, 513k ratings, 52k alerts) into embedded DuckDB, quarantining
+     malformed rows and counting them.
+  2. Pure rules compare every metric to its trend, target and peers and emit ranked
+     findings with severity, cause, audience and the SQL that produced the number.
+  3. Sarvam turns settled findings into a short brief — prose only; the narrative
+     is validated against the findings and falls back to a template if it invents a figure.
+  4. The brief is routed by severity to Slack and email, and the dispatch is logged.
+  A transport manager can then interrogate any finding through four validated
+  tools. There is no `run_sql` tool, and a test enforces that.
+
+  ## Architecture
+  See [`docs/architecture.md`](docs/architecture.md). One stateless Python service,
+  embedded DuckDB, a React console, no backing database or queue.
+
+  ## Prerequisites
+  - Python 3.12, Node 22 (`nvm use` reads `.nvmrc`)
+  - A Slack incoming webhook (primary delivery), optionally SES sandbox credentials
+  - A Sarvam API key (without it the brief ships from the deterministic template)
+
+  ## Run it
+  ```sh
+  cp .env.example .env          # fill SLACK_WEBHOOK_URL, SARVAM_API_KEY; SES vars optional
+  cd service && python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+  SIGNALDESK_DATA=../data/real .venv/bin/uvicorn signaldesk.api:app --port 8080
+  # in another terminal
+  cd console && npm install && npm run dev      # http://localhost:5173, proxies /api to :8080
+  ```
+  The service sweeps once on startup — watch the log line — and again on its
+  schedule. `POST /api/sweep` triggers one by hand; `POST /api/dispatch/{runId}` sends the brief.
+
+  ## Test it
+  ```sh
+  cd service && .venv/bin/pytest -q      # pytest.ini puts the package on the path
+  cd console && npm test
+  ```
+
+  ## Data
+  `data/real/` — the provided dataset (not committed; see `docs/real-dataset-mapping.md`
+  for what is in it and its documented quirks). `data/sample/` — a stratified sample
+  the tests run on. Point `SIGNALDESK_DATA` at either.
+
+  ## Sample inputs and outputs
+  [`docs/samples/`](docs/samples/) — a real brief, the findings JSON behind it, and
+  an excerpt of each input feed.
+
+  ## Repository layout
+  `service/signaldesk/` the agent · `console/` the React console · `docs/` design,
+  plan, dataset mapping, architecture · `handoff/` the per-lane build briefs · `scripts/` setup.
+
+  ## What we deliberately did not build
+  Forecasting, vernacular feedback (the dataset has no free text), auth, a
+  historical pipeline, vendor-system integration. See `OBJECTIVES.md`.
+  ````
+
+  Delete the "prep that was cleared" section — the tag `prep/pooling-prototype`
+  is git history, not README material. Keep the exact env-var names from
+  `.env.example`.
+
+- [ ] **Step 2: `AGENTS.md`** — replace the paragraph at L36–39 that describes
+  `data/fixture/` (six feeds, 177,072 rows) with one sentence pointing at
+  `data/sample/` and `docs/real-dataset-mapping.md`, and delete the "do not
+  regenerate the fixture" section (L106 onward) — there is no fixture to regenerate.
+
+- [ ] **Step 3: `OBJECTIVES.md` — verify only.** The three misquotes the judge
+  review found (weights cited to `PROPOSAL.md` §4 instead of §7 / PDF §9; M5
+  called "disqualifying" when the PDF lists messy-data under good-to-have; a
+  "20 free points" quotation that does not exist in `PROPOSAL.md`) were corrected
+  on 05 Sep at 00:50 along with the Tier 2 / reserve / clock sync. Grep to confirm
+  none crept back: `grep -n 'disqualifying\|20 free points\|PROPOSAL.md. §4' OBJECTIVES.md` → no output.
+
+- [ ] **Step 4: Prove it** — from a fresh clone in `/tmp`, follow the README
+  literally. If any command differs from what you typed, the README is wrong, not you.
+
+- [ ] **Step 5: Commit** — `docs: README that describes what exists, with the commands that run it`
+
+---
+
+### Task 8g: Sample inputs and outputs (~10 min) — a named deliverable with nothing behind it
+
+*Closes: §10 lists **"Sample inputs/outputs"**. `handoff/fake-findings.json` exists
+but is a fabricated fixture, and a judge can tell. The sample must be real output
+from the real dataset.*
+
+**Files:** `docs/samples/README.md`, `docs/samples/input-*.csv`,
+`docs/samples/findings.json`, `docs/samples/brief.md`, `docs/samples/dispatch-log.json`
+
+- [ ] **Step 1: Inputs** — the first 25 rows of each of the five real feeds, header
+  included, one file per feed, named after the feed (`input-trips.csv`,
+  `input-emp-legs.csv`, `input-bill.csv`, `input-feedback.csv`, `input-alerts.csv`).
+  Pick rows that show the quirks: at least one `trip_id` in each of the three
+  formats, one comma-string epoch, the stray `"False"` severity if it is in the
+  first month. `head -26` is not good enough if the first 25 rows are clean —
+  `grep` for them.
+
+- [ ] **Step 2: Outputs, from one real run.** After a sweep on `data/real`:
+  `curl -s localhost:8080/api/runs/latest/findings > docs/samples/findings.json`;
+  the brief as sent, pasted verbatim into `brief.md` with a one-line header saying
+  which run and which audience; the dispatch log entry for that send. **Redact the
+  webhook URL and any address** before committing — grep the three files for
+  `hooks.slack.com` and `@`.
+
+- [ ] **Step 3: `docs/samples/README.md`** — five lines: what each file is, which
+  run produced the outputs (runId, window, data path), and the one sentence a judge
+  needs: *"Every figure in `brief.md` appears in `findings.json`, and every finding
+  carries the `evidence_sql` that produced it — run it in the DuckDB CLI against
+  `data/real` to reproduce the number."*
+
+- [ ] **Step 4: Commit** — `docs: sample inputs and outputs from a real sweep`
 
 ---
 
@@ -2475,9 +2678,20 @@ starts probing.
 
 ---
 
-### Task 8d: The line manager's shift-readiness view (~22 min, reduced scope)
+### Task 8d: The line manager's shift-readiness view (~22 min, reduced scope) — **MOVED TO RESERVE, see R9**
 
 *Closes: persona 3, which the statement names and we were barely serving.*
+
+**Swapped out in the third revision.** The judge review priced it at ~50 real
+minutes (roll-up + endpoint + console table, three files across two lanes) for
+~2 points, and noted that as scoped it aggregates by shift band while the PDF's
+need is "*who* made it, *who* was late" — per-employee. Those minutes buy R1 + R3
+(35 minutes, ~4.5 points, both answering things the PDF names). M3 is already
+met — the transport manager operates it, the facilities head receives it, and
+`audiences_for` already routes shift-sliced findings to `LINE_MANAGER`. The
+honest stage line is: *"shift-banded findings route to the line manager today;
+the per-employee roll-up is the next sprint, and the 1.6M rider legs are already
+loaded for it."* The body below is kept intact so R9 can be started cold.
 
 The statement asks for *"shift-level visibility into who made it, who was late,
 and how delays ripple into floor/ops readiness."* That is **per-employee**, and
@@ -2553,10 +2767,22 @@ an on-time pickup, and must not crash the comparison.
 
 *Unchanged. The demo's opening beat.*
 
-### Task 11: Remaining metrics (~30 min)
+### Task 11: Cost and safety metrics (~30 min) — **moved up to Tier 2 item 4**
 
-`marshal_compliance`, `cost_per_km`, `experience`. Each is a registry entry plus
-a re-calibration — no new machinery.
+`marshal_compliance` and `cost_per_km`. Each is a registry entry (marshal is
+already defined in Task 3's `METRICS`; it needs activating past `TIER_1_METRICS`
+and its required-population derivation from `docs/real-dataset-mapping.md` §7)
+plus a re-calibration — no new machinery. **`experience` is dropped**: its
+ratings include `0` values that may mean *unrated*, so it is the weakest of the
+three and the only one needing a judgement call about its own data.
+
+Why this moved ahead of 8c: at 13:00 every live metric is timeliness. The PDF's
+strategic persona wants *"a coherent cost/safety/experience story"* — without
+this task the story has one leg. `cost_per_km` is `trip_cost / nullif(total_trip_km, 0)`
+with trend + peer; marshal is the one hard target in the product. Both columns
+exist (`trip_cost`, `total_trip_km`, `actual_escort`, `gender`,
+`WOMAN_TRAVELLING_ALONE` alerts). Do `marshal_compliance` first — it is the
+safety story and the demo's most quotable finding.
 
 ### Task 12: AWS deployment (~50 min) — **MOVED TO RESERVE, see R0**
 
@@ -2571,8 +2797,16 @@ regret if it does not — S3 + `httpfs` behind the source seam is already the
 ## RESERVE — ready to pick up on short notice
 
 Each of these is scoped to be startable cold, in the stated time, by whoever is
-free. **Ordered by points per minute.** Do not start one before Tier 2 is done;
-do not hesitate if it is.
+free. **Ordered by points per minute.**
+
+**The rule changed in the third revision.** It used to read "do not start one
+before Tier 2 is done" — and the judge review showed that, on the arithmetic,
+that rule meant none of these would ever be built. So: **R1, R3 and R7 are no
+longer reserve — they are Tier 2 items 6, 10 and 7** and their bodies below are
+the task text. **R2, R5 and R8 are dropped** — reviewed twice, not worth the
+minutes, reasons kept below so nobody re-litigates them at 15:00. What remains
+(R0, R4, R6, R9, R10) is the true reserve: pick one only when your lane is green
+and it is before 15:10; R4 and R6 are the 15-minute fillers for whoever is idle.
 
 ### R0. AWS deployment (~50 min) — **demoted here, and this is a call for the team**
 
@@ -2594,7 +2828,7 @@ and the call belongs to whoever is running the day, not to this document. If it
 goes ahead: give it to the person who is *not* on the critical path, and it must
 not displace items 1–7 above.
 
-### R1. Sustainability metric (~15 min) — a gap in the statement's own framing
+### R1. Sustainability metric (~15 min) — **PROMOTED to Tier 2 item 6**
 
 The statement's background says the transport manager is *"accountable for cost,
 safety, experience, **and sustainability**"*. We answer three of those four and
@@ -2607,9 +2841,18 @@ ev_share = 100.0 * count(*) FILTER (WHERE actual_cab_fuel_type = 'Electric')
 ```
 
 One registry entry, no new machinery, and it completes the persona's own list of
-accountabilities. **Best reserve item on this list.**
+accountabilities. The PDF names sustainability twice — §3 in the manager's
+accountabilities and §4 as one of seven data domains — and until this lands the
+plan answers with silence. **Owner: Lane A, 14:30.**
 
-### R2. Industry benchmark reference kind (~15 min)
+### R2. Industry benchmark reference kind (~15 min) — *reviewed as not worth doing. Dropped.*
+
+M4 is already met three ways (trend, target, peer). The team's own rule below is
+"cite or omit", and there is no citable, judge-verifiable published OTA norm for
+Indian employee-transport operations — so it resolves to *omit*. Fifteen minutes
+of citation hunting for half a point and a liability. Say on stage, if asked:
+*"we implement the three reference kinds the data can support; a benchmark we
+cannot cite is a number we will not show."*
 
 The statement lists four reference types — *historical trend, SLA/goal, **industry
 benchmark**, peer* — and we implement three. Add `ReferenceKind.BENCHMARK`,
@@ -2620,12 +2863,15 @@ render the citation in the evidence panel.
 benchmark at all, because it is the one claim a judge can neither verify nor
 forgive.
 
-### R3. Multi-tenant SLA demo (~20 min)
+### R3. Multi-tenant SLA demo (~20 min) — **PROMOTED to Tier 2 item 10**
 
 `business_unit` has five real values. Give two of them different targets in
 config, run one sweep, and show it producing different findings per tenant.
 `DARK_HOURS_BY_SITE` is already this shape. Turns the multi-tenancy bonus from an
-argument about interfaces into a screen.
+argument about interfaces into a screen — and `PROPOSAL.md` §4 itself calls the
+in-process engine "a weak multi-tenancy story on its own", so this is the plan
+answering its own admitted weakness. **Owner: Lane A at 15:00; Lane B adds the
+tenant selector on the findings list (15 min) so it is visibly a screen.**
 
 ### R4. Capacity utilisation (~15 min)
 
@@ -2650,11 +2896,15 @@ already built for `marshal_compliance`. Note these are the columns whose dtype
 drifts across the three monthly files, so it also demonstrates `union_by_name`
 earning its place.
 
-### R7. Second-persona export (~30 min)
+### R7. Second-persona export (~30 min) — **PROMOTED to Tier 2 item 7**
 
-One-click markdown or PDF of the brief for the facilities head. Directly targets
-the *"forward to leadership without rework"* bonus. Lower priority only because
-the Slack brief already largely satisfies it.
+One-click markdown of the brief for the facilities head — a "Copy for
+leadership" button on `BriefPreview` and a `GET /api/runs/{runId}/brief.md`
+route. Directly targets the *"forward to leadership without rework"* bonus **and**
+criterion 1's own wording, "leadership-ready output, shareable without rework".
+"The Slack brief already satisfies it" was the biggest prioritisation error in
+the earlier plan: a Slack post is thin as a leadership artifact. **Owner: Lane C
+at 14:00, after Task 9; if Task 9 runs long, R7 stops at 14:30 for 8e/8f/8g.**
 
 ### R8. Counterfactual (~45 min) — *reviewed as NOT worth doing. Do not build it.*
 
@@ -2668,6 +2918,26 @@ A judge who asks "how do you know moving that volume gives that result?" gets an
 answer that undermines §1.1.
 
 Cut on principle, not on time. Consistency is worth more than the memorability.
+
+### R9. Shift-readiness view (~22 min service, ~50 real with console) — *moved here from Tier 2 (8d)*
+
+The full body is under **Task 8d** above, unchanged. Start it only if Lane A and
+Lane B are both green before 15:00, and only together — a roll-up endpoint with
+no table is not a persona surface. If it is built, the stage line stays honest:
+shift-banded, not per-employee.
+
+### R10. Vendor escalation draft (~20 min) — *new; the judge's one addition*
+
+The transport manager persona "owns vendor coordination, escalations". Any
+BREACH finding sliced by `vendor_id` can produce a **vendor-addressed escalation
+draft** from the same composer: add `Audience.VENDOR`, one template ("Your
+on-time share for LOGIN trips at {site} was {value}% against a peer median of
+{peer}% over {window}; the top cause in our data is {cause} …"), and a "Draft
+escalation" button next to the finding. Nothing is sent — it is a draft, copied
+to the clipboard. It turns *act* from **informing** into **acting**, which is the
+verb criterion 2 uses, for ~20 minutes after Task 6 exists. Worth ~2 points; not
+in the running order because Lane A has no slot for it. Whoever is idle after
+15:00 with a green lane takes it over R4/R6.
 
 ---
 
@@ -2769,20 +3039,29 @@ Budget ~$100 of credits, expected to cover two days. **Set a budget alarm at $50
 
 **The scored demo still runs on the laptop.** The AWS URLs exist to make deployability real and to put sponsor infrastructure visibly in use.
 
-# TIER 3 — only if Tier 2 finished before 15:00
+# TIER 3 — only if every lane is green before 15:00
 
-- **Counterfactual** — "move this vendor's routes to that one" → projected OTA and cost delta. Builds directly on Task 8's decomposition.
-- **Second-persona export** — one-click leadership markdown/PDF, forwardable without rework. Directly targets the bonus criterion.
-- **Multi-tenancy made visible** — thresholds already live in `constants.py`; lift them to a per-tenant YAML and show two tenants with different SLAs. **`DARK_HOURS_BY_SITE` is already this shape**, because MoveInSync configures dark hours per city — so the first tenant-scoped setting is done and the pattern is theirs, not ours.
-- **Route efficiency against `reference_km`** — if the real dataset carries MoveInSync's `reference_km` (the Google-fastest route computed at trip end), then `actual_km / reference_km` is a metric whose **reference point ships with the data** rather than being derived from trend or peers. The mandatory bar asks for contextualisation against a reference point; this is the strongest possible form of that. Cheap if the column exists, impossible if it does not — check at 10:00.
+There is no separate Tier 3 list any more; it duplicated the reserve and
+contradicted it (it listed the counterfactual that R8 says not to build, and the
+export and tenant demo that are now Tier 2). **Tier 3 is the reserve**: R10, then
+R4, R6, R9 — in that order, and only before 15:10.
 
-**Explicitly NOT Tier 3, and say so if asked:** predictive/forecast risk scoring. It cannot be done credibly in the budget and it invites a question the build cannot answer. Spec §2.2 stands.
+One check that costs nothing and is worth doing at 10:00: if the real dataset
+carries MoveInSync's `reference_km` (the Google-fastest route computed at trip
+end), then `actual_km / reference_km` is a metric whose **reference point ships
+with the data**. Cheap if the column exists, impossible if it does not.
+`docs/real-dataset-mapping.md` §1 says the trips feed has `total_trip_km` — look
+for a second km column before assuming.
+
+**Explicitly NOT Tier 3, and say so if asked:** predictive/forecast risk scoring.
+It cannot be done credibly in the budget and it invites a question the build
+cannot answer. Spec §2.2 stands.
 
 ---
 
 # 16:00 — FEATURE FREEZE. Deck and rehearsal only.
 
-### The demo script — six beats
+### The demo script — eight beats
 
 1. **"It swept without being asked."** The startup log line.
 2. **"Watch it sense."** Start the 60× replay; findings appear live.
@@ -2799,19 +3078,61 @@ Delete any beat whose feature was cut. **A script promising something the build 
 
 - [ ] **One full rehearsal with the WiFi off.** Beats 1–6 must work entirely offline; 7 and 8 need the network, so the script must say so and an earlier Slack message must already be in the channel as the fallback.
 - [ ] **A screenshot of every beat in the deck**, in order, as the fallback if the live demo dies.
-- [ ] Warm the App Runner URL a few minutes before presenting.
+- [ ] **Edit `PROPOSAL.md` §5's AWS row to the truth** if R0 did not happen — it currently says **Yes**, and a judge holding the proposal against a laptop demo will notice. The honest row: *"Planned — S3 + `httpfs` behind `source_for()` is the deployability seam; the deploy itself was cut for time."*
+- [ ] Warm the App Runner URL a few minutes before presenting — **only if R0 happened**.
 - [ ] Fill in the real Sarvam pricing, or state that the rupee figure is unconfigured.
+- [ ] **Three slides the judge review says will be asked about, and that the build cannot answer without them:**
+  1. *"Where is the AI?"* — one slide: sense = scheduled rules; reason = verdict engine + tool-mediated Q&A; act = routed dispatch. The model is the interface and the narrator, and here is why that is the only trustworthy place for it in a system that touches money and safety. Beat 8 (the tool trace, and the refused forecast question) is the demonstration.
+  2. *"Why is everything red against 90%?"* — the delay-minutes distribution and the measured OTA, with the sentence: *"90% is the statement's example, not this customer's contract; we rank against trend and peers because those cannot be miscalibrated."*
+  3. *"How does this deploy into a Java/Angular multi-tenant platform?"* — the diagram with both seams labelled (`source_for()` → local / S3 `httpfs`; registry → DuckDB today / warehouse adapter tomorrow), the R3 two-tenant screen, and 8b's latency and cost extrapolated to 5k and 50k employees. Then the one-line Java answer from `PROPOSAL.md` §5: six hours, said plainly.
 - [ ] Re-check `git log -p` for credentials, **and the deck and every screenshot in it.** A screenshot showing a webhook URL has leaked it.
+
+### Task 13: Demo video (~15 min) — ⏸ **HANDED TO ANSHUMAN, gated**
+
+*Closes: §10 lists **"Demo video (if requested)"**. Zero mentions anywhere in the
+team's documents until now. It is conditional in the PDF, so it is worth 0–2
+points — but it is also the only insurance against the live demo dying at 19:30
+in front of the final jury, and it costs fifteen minutes after the freeze.*
+
+> **For agentic workers: do not execute this task.** When — and only when — every
+> gate below is green, **stop and raise it to Anshuman** in one message: the gate
+> list with each line ticked, the rehearsal timing, and the sentence "Task 13 is
+> ready to record." Then wait. Recording a screen with a live Slack channel and a
+> real webhook in it is a human's call, and so is what gets published.
+
+**Gates — all of them, in order, before this is raised:**
+
+- [ ] 16:00 feature freeze has passed and the last push is on `origin`
+- [ ] The 13:00 gate is still green on the frozen build (`pytest -q`, `npm test`, unprompted sweep on startup, real Slack send)
+- [ ] The offline rehearsal (beats 1–6, WiFi off) has been run once, end to end, and timed
+- [ ] Screenshots of every beat are in the deck, in order
+- [ ] The credential grep is clean on `git log -p`, **the deck, and every screenshot** — a webhook URL in a frame leaks it
+- [ ] `PROPOSAL.md` §5's AWS row says the truth
+- [ ] 8e diagram, 8f README and 8g sample I/O are committed (the video will point at them)
+
+**When Anshuman picks it up (16:30, budget 15 min):**
+
+- [ ] **Step 1: Frame.** Console at full window, browser zoom 110% so text survives compression, Slack channel in a second window, no notifications (Do Not Disturb on), no other tabs visible. Run `pytest -q` in a terminal that stays on screen for beat 1's log line.
+- [ ] **Step 2: Record with QuickTime (⌘⇧5 → Record Entire Screen, microphone on)**, and talk the eight beats in the demo-script wording, in order. Target **≤ 3 minutes**. One take is fine; two at most — this is insurance, not a product.
+- [ ] **Step 3: Check the file** for anything that should not be in it: scrub for the webhook URL, `.env`, email addresses, the Sarvam key in any terminal. If any appears, re-record; do not trim around it.
+- [ ] **Step 4: Publish.** Export as `signal-desk-demo-2026-09-05.mp4` at 1080p. Do **not** commit the file — upload it to the team's shared drive and put the link under a `## Demo video` heading at the bottom of `README.md`, with the date and the sentence "recorded from the frozen build at 16:30". Commit that one-line README change. Push.
+- [ ] **Step 5: Tell the channel** the link exists, so whoever submits at 17:00 includes it.
+
+If 16:30 arrives and any gate above is red, the video is **not** recorded — the
+minutes go to fixing the gate. A video of a broken demo is a liability, not insurance.
 
 ### Deliverables checklist
 
-- [ ] Source repository, pushed, collaborators added
-- [ ] Architecture diagram — reflecting **what was built**, not what was planned. Do not diagram a cut feature.
-- [ ] README with setup instructions that someone else can follow
-- [ ] Sample inputs and outputs (a fixture CSV excerpt and a real brief)
-- [ ] The deck, with screenshot fallbacks
-- [ ] Live demo rehearsed once offline
-- [ ] `infra/README.md` if Task 9 happened
+Every line names the task that produces it and the lane that owns it.
+
+- [ ] Source repository, pushed, collaborators added — **Lane A**
+- [ ] Architecture diagram reflecting **what was built**, not what was planned; no box for a cut feature — **Task 8e, Lane C, ≤14:30**
+- [ ] README with setup instructions a stranger can follow from a fresh clone — **Task 8f, Lane C, ≤14:30**
+- [ ] Sample inputs and outputs from a real sweep, redacted — **Task 8g, Lane C, ≤14:30**
+- [ ] The deck, with screenshot fallbacks for every beat and the three judge-question slides — **Lane C from 15:05, screenshots from Lane B**
+- [ ] Live demo rehearsed once offline, timed — **all, 16:15**
+- [ ] Demo video, recorded from the frozen build, linked from the README — **Task 13, Anshuman, 16:30, gated**
+- [ ] `infra/README.md` **only if R0 happened**; otherwise `PROPOSAL.md` §5 corrected
 - [ ] **Submitted at 17:00** for the early-submission points
 
 ---
@@ -2823,5 +3144,7 @@ Delete any beat whose feature was cut. **A script promising something the build 
 **Scoring coverage.** Business impact (35): the manager stops assembling and starts deciding; the brief is forwardable as-is, which also takes the bonus. Functionality (25): end to end on the real dataset with a real send. Agentic design and cost at scale (20): the loop starts unprompted, aggregation happens in DuckDB, one model call per brief, and the cost meter puts the number on screen. Architecture and code quality (20): one stateless service, no backing stores, clean seams, and the invariant enforced by a grep test.
 
 **Where this plan is weaker than the Java one it replaces**, stated plainly: it has 12 tasks instead of 24, so less of the code is written out in advance and more judgment sits with the implementer on the day. That is the correct trade at six hours — but it means the tests matter more, not less, and `docs/TESTING-LESSONS.md` should be read before Task 2 rather than after something goes wrong.
+
+**What the judge review changed, and what it did not.** It did not touch Tier 1 — the mandatory bar was already covered, and the review's Functionality score is pure execution risk that no plan edit buys down. It changed Tier 2 from a list into three owned lanes with an abort line, because its arithmetic (~390 usable person-minutes against ~390 of planned work at 1.5×) showed the reserve rule was a promise that could not be kept. It gave the three PDF deliverables with no coverage a task each, because a false README is read before any code is. And it added the one task no plan had mentioned — the demo video — as a gated hand-off rather than a build item, because it is insurance for the final jury and a human's call. If a fourth review arrives tonight, the test is the same as for the previous three: does the change answer something the PDF names, and does it fit before 15:30?
 
 **The one thing I would cut first if 13:00 arrives with Tier 1 unfinished:** the Sarvam brief in Task 6. The template brief clears the mandatory bar on its own, and a validated-but-absent narrative costs far less than an incomplete data path. Cut it, ship Tier 1, and add it back at 14:00.

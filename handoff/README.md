@@ -23,7 +23,12 @@ hallucinated figure.
 |---|---|---|
 | **Anshuman** (Claude Code) | The data spine: ingest → metrics → verdict engine → sweep. Deepest, most interdependent, and where every known bug lives. | `service/signaldesk/` |
 | **Teammate A** (has a ChatGPT agent) | [`console-brief.md`](console-brief.md) — the whole React console | `console/` |
-| **Teammate B** | [`delivery-brief.md`](delivery-brief.md) — Slack + email delivery, then the deck and demo script | `service/signaldesk/delivery.py`, `deck/` |
+| **Teammate B** | [`delivery-brief.md`](delivery-brief.md) — Slack + email delivery. **From 13:00: the four tools + `/api/ask`** (Anshuman hands you `tools.py`, the ask-path in `model.py` and one route in `api.py` — he will say so in the channel), then the leadership export, then **by 14:30 at the latest** the architecture diagram, the README rewrite and the sample inputs/outputs, then the deck from 15:05 | `service/signaldesk/delivery.py`, `tools.py`, `docs/`, `deck/` |
+
+The 13:00 hand-off to Teammate B is the one deliberate exception to rule 1 below;
+it is said out loud so nobody is editing someone else's file by surprise. Full
+running order, by lane and by quarter-hour:
+`docs/superpowers/plans/2026-09-05-signal-desk-python-build.md` → "TIER 2".
 
 **Nobody is blocked on anybody.** That is the point of
 [`fake-findings.json`](fake-findings.json) — it is exactly what the API returns,
@@ -50,8 +55,12 @@ frozen. Build against it and you never need the backend running.
 | 10:00 | Dataset arrives. Anshuman posts the real column headers to the channel immediately. |
 | 10:05 | Everyone starts. Do **not** wait for real data — build against `fake-findings.json`. |
 | **13:00** | **Everything in your brief marked "Tier 1" must be done.** If it is not, drop everything else and finish it. |
-| 13:00–15:00 | Working lunch, keep building. Tier 2 items. |
+| 13:00–15:00 | Working lunch, keep building. Tier 2 items, in the plan's lane order. |
+| 14:30 | Teammate B starts the diagram + README + sample I/O, whatever else is unfinished. |
+| 15:05 | Deck starts. Teammate A starts screenshotting every demo beat, in order. |
+| **15:30** | **Abort line.** Anything not green is reverted, not finished. After this: demo-path bug fixes, numbers for slides, rehearsal — nothing else. |
 | **16:00** | **Feature freeze. No new code.** Deck and rehearsal only. |
+| 16:30 | Demo video — Anshuman records it from the frozen build, once the rehearsal and screenshots are done. |
 | 17:00 | Submit — this window is worth points on its own. |
 | 18:00 | Semifinal, presenting to partner companies. |
 | 19:30 | Final jury. |
