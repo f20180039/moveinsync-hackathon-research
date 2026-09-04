@@ -270,11 +270,27 @@ MIN_TRUSTED_CONFIDENCE = 0.5
 # Below this, the narrative must disclose the uncertainty.
 DISCLOSE_CONFIDENCE_BELOW = 0.9
 
-# Sarvam pricing, for the cost meter. Replace with the real published figures
-# before the demo; a made-up number on stage is worse than no number.
-INR_PER_1K_INPUT_TOKENS = 0.0
-INR_PER_1K_OUTPUT_TOKENS = 0.0
+# Sarvam pricing for the cost meter.
+#
+# MEASURED 2026-09-04 from the Sarvam dashboard: 629 tokens billed at Rs 0.03,
+# i.e. ~Rs 0.048 per 1k tokens blended (~Rs 48 per million).
+#
+# Two honest caveats that belong on the slide, not just in this comment:
+#   1. Rs 0.03 is the dashboard's rounded display, so the true rate is somewhere
+#      in Rs 0.040-0.056 per 1k. That is +/-17%, which is fine for "fractions of
+#      a rupee" and NOT fine for quoting three significant figures.
+#   2. It is a BLENDED rate. We do not have the input/output split, so both
+#      constants below carry the same value. If Sarvam publishes separate
+#      figures, use those instead of this measurement.
+INR_PER_1K_INPUT_TOKENS = 0.048
+INR_PER_1K_OUTPUT_TOKENS = 0.048
 EMPLOYEES_AT_SCALE = 5_000
+
+# Reasoning tokens ARE billed even when content comes back empty -- the 629
+# tokens above were spent on three calls that returned nothing, truncated by a
+# max_tokens that was too low. If the API reports reasoning tokens separately,
+# the cost meter must add them, or it will under-report.
+COUNT_REASONING_TOKENS = True
 ```
 
 - [ ] **Step 2: Write `schemas.py`**
@@ -1612,21 +1628,40 @@ class CostMeter:
         return (self.input_tokens / 1000 * C.INR_PER_1K_INPUT_TOKENS
                 + self.output_tokens / 1000 * C.INR_PER_1K_OUTPUT_TOKENS)
 
+    @property
+    def inr_per_org_per_month(self) -> float:
+        """The figure that makes the argument: cost per ORGANISATION, not per
+        employee, because the model sees aggregates rather than rows.
+
+        Measured against the real rate, one brief is ~1,900 tokens ~ Rs 0.09;
+        three audiences daily is ~Rs 8/month -- and that total is FLAT whether
+        the client has 500 employees or 50,000. Per-employee cost therefore
+        falls as the client grows, which is the opposite of how a per-row
+        pipeline behaves.
+        """
+        if not self.calls:
+            return 0.0
+        return self.inr / self.calls * 3 * 30
+
     def snapshot(self) -> dict:
         per_call = (self.input_tokens + self.output_tokens) / self.calls if self.calls else 0
+        org_month = self.inr_per_org_per_month
         return {
             "calls": self.calls,
             "inputTokens": self.input_tokens,
             "outputTokens": self.output_tokens,
             "tokensPerCall": round(per_call),
             "inr": round(self.inr, 4),
-            "inrPerManagerPerDay": round(self.inr, 4),
+            "inrPerOrgPerMonth": round(org_month, 2),
             "employeesAtScale": C.EMPLOYEES_AT_SCALE,
-            # One call per brief, not per row: the figure below is the honest
-            # extrapolation, and it does NOT grow with the dataset.
-            "inrAtScalePerDay": round(self.inr, 4),
+            # The number that carries the argument: per-employee cost FALLS as
+            # the client grows, because one brief covers the whole org.
+            "inrPerEmployeePerMonth": round(org_month / C.EMPLOYEES_AT_SCALE, 6),
             "byPurpose": dict(self.by_purpose),
             "pricingConfigured": C.INR_PER_1K_INPUT_TOKENS > 0,
+            # Rs 0.03/629 tokens is a rounded dashboard figure: +/-17%. Show
+            # "fractions of a rupee", never three significant figures.
+            "rateIsApproximate": True,
         }
 
 
@@ -1654,7 +1689,12 @@ class SarvamClient:
         return (r.choices[0].message.content or "").strip()
 ```
 
-**`pricingConfigured` is deliberate.** `INR_PER_1K_*` start at zero. Fill them from Sarvam's published pricing before the demo; if you cannot find it, show tokens and say the rupee figure is unconfigured. **A made-up price on stage is worse than no price** — it is the one number a judge can check.
+**The rate is measured, not invented.** 629 tokens billed at ₹0.03 on 2026-09-04 gives ~₹0.048 per 1k blended. Two things follow:
+
+- **Say "fractions of a rupee", not three significant figures.** ₹0.03 is a rounded dashboard display, so the rate is really ₹0.040–0.056 per 1k — ±17%. `rateIsApproximate` is in the payload so the console can hedge honestly. A precise-looking made-up number is the one thing a judge can check and catch.
+- **The credit budget is a non-issue.** $100 ≈ ₹8,800 ≈ **185 million tokens** at that rate. Nothing in this build's design can spend that. Stop treating cost as a constraint and treat it as a selling point.
+
+**The number that carries the argument is per-organisation, not per-interaction.** One brief is ~1,900 tokens ≈ ₹0.09; three audiences daily is **~₹8 per month for the entire client** — and that total is *flat* whether they have 500 employees or 50,000, because the model sees aggregates rather than rows. So per-employee cost **falls** as the client grows: ₹0.016/employee/month at 500, ₹0.0002 at 50,000. A per-row pipeline behaves the opposite way, and that contrast is the whole of criterion 2.
 
 - [ ] **Step 2: `compose.py` — the validator is the load-bearing part**
 
@@ -1871,6 +1911,8 @@ Then `InterrogationPanel.tsx` + `ToolTrace.tsx`: a question box, the answer, and
 **Files:** `service/signaldesk/normalise.py`, `service/tests/test_normalise.py`
 
 The one thing a general-purpose competitor cannot easily copy, and it **must degrade rather than fail**.
+
+**Affordability is settled: this costs about ₹6.** Translation is the only place in the design where model calls scale with rows rather than with briefs — ~1,118 non-English comments at ~120 tokens each is ~134k tokens ≈ ₹6.40, one-off, and the result is cached in `feedback_normalised` so a re-sweep costs nothing. Against ~₹8,800 of credits that is noise. Earlier caution about this was misplaced; go ahead.
 
 `SENTIMENT_LEXICON` scores a translated comment in `{-1, 0, +1}` deterministically — negative and positive marker lists, stronger side wins, neutral on a tie or on `None`. `translate()` sends non-English comments to Sarvam (`purpose="translate"` so the cost meter attributes them separately) and returns `None` on failure. `normalise()` materialises `feedback_normalised(trip_id, employee_id, rating, comment, comment_en, language, sentiment)` **once at startup, then caches** — translation is not deterministic and the sweep must be.
 
