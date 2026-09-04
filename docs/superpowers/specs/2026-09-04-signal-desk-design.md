@@ -451,7 +451,7 @@ Stateless. No session, no auth (§2.2).
 
 ### 9.2 Console
 
-React 19 + Vite 7 (Node ≥20.19, pinned to 22 via `.nvmrc`). Recharts for
+React 19 + Vite 8 (Node ≥22.12, pinned via `.nvmrc`). Recharts for
 sparklines.
 
 - **Findings list** — ranked, severity encoded in form as well as colour (a
@@ -591,7 +591,7 @@ Two consequences, and they are the reason this amendment exists:
 | Service | Java 21 · Spring Boot 3.5 | **Python 3.12 · FastAPI · uvicorn** |
 | Data | DuckDB via JDBC | **DuckDB via the `duckdb` Python package** |
 | Model client | OpenAI **Java** SDK, base-URL override | **OpenAI *Python* SDK**, `base_url` override |
-| Console | React 19 · Vite 7 · TypeScript | **unchanged** |
+| Console | React 19 · Vite 7 · TypeScript | React 19.2 · **Vite 8** · TypeScript 6 (what `create-vite` actually installs; same Node floor) |
 | Tests | JUnit 5 · AssertJ | **pytest** · Vitest + Testing Library |
 
 Everything in §1.1 survives unchanged: **the model never computes a number and
