@@ -269,6 +269,38 @@ bet** — none of it depended on the schema.
 measured against the fixture. On 615k real trips they mean nothing until
 re-measured — and the calibration step exists precisely for this.
 
+## 10b. ⚠️ The 90% OTA target would make everything a BREACH
+
+**Measured on `data/sample`: overall on-time arrival on LOGIN trips is 59.1%**
+(1,401 trips, 5-minute grace). Against the spec's 90% target that is
+`delta = (90 − 59.1) / 90 = 0.34`, which is more than double the 0.15 BREACH
+threshold — **so every slice of every on-time metric comes out BREACH**, and the
+ranking becomes meaningless.
+
+That is precisely the failure spec §6.3 warns about: *a threshold nobody measured
+either fires on everything or nothing.* Ours would fire on everything.
+
+The worst vendors are at 32%, the best around 60% — so **the spread is real and
+worth reporting**; it is the absolute target that is wrong for this data. Three
+options, in order of preference:
+
+1. **Lean on TREND and PEER, not TARGET.** Both are derived from the data, so
+   they cannot be miscalibrated. "This vendor is 27 points below its peers" is a
+   stronger finding than "everyone misses a target we chose", and `vendor_ota`
+   already declares trend + peer with no target at all.
+2. **Set the target from the data** — e.g. the 75th percentile of vendor OTA — and
+   **say on stage that it is data-derived, not invented.** Honest and defensible.
+3. **Widen the on-time grace** beyond 5 minutes. Only if the grace itself looks
+   wrong for this operator; check the delay distribution before touching it,
+   because moving a threshold to make numbers look better is exactly the wrong
+   instinct.
+
+**Do not simply keep the 90%.** A brief where all 40 findings are BREACH is a
+wall, not a decision, and a judge will ask why nothing is ranked.
+
+Whatever you choose, **record the measured distribution in a comment** next to
+the constant, as the calibration step requires.
+
 ## 11. First thing tomorrow
 
 The fixture has done its job: the code exists, the contracts are pinned, the

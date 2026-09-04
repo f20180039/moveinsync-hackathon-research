@@ -1,158 +1,297 @@
 {
-  "_comment": "The frozen contract, as data. This is EXACTLY the shape GET /api/runs/latest/findings returns. Build the console against this file and you never need the backend running. Do not change the field names — the service is being written against this same file.",
-  "runId": "run-1788480000000-b",
-  "windowLabel": "2026-08-29..2026-09-04",
+  "_comment": "The frozen contract, as data. EXACTLY the shape GET /api/runs/latest/findings returns. Build the console against this file and you never need the backend running. Do not change field names -- the service is written against this same file. Every value below is MEASURED from data/sample (a real 2.89MB slice of the provided dataset): real vendor names, real offices, real business units, real OTA figures. Nothing here is invented.",
+  "runId": "run-1785542400000-8",
+  "windowLabel": "2026-07-25..2026-07-31",
   "findings": [
     {
-      "id": "a3f19c2e4b71",
+      "id": "563931f15cdd",
+      "metricId": "ota",
+      "metricLabel": "On-time arrival",
+      "unit": "%",
+      "sliceLabel": "overall",
+      "tier": "BREACH",
+      "cause": "BELOW_TARGET",
+      "observed": 59.1,
+      "gap": 30.9,
+      "confidence": 0.96,
+      "audiences": [
+        "FACILITIES_HEAD",
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "TARGET",
+          "value": 90.0,
+          "label": "SLA target"
+        },
+        {
+          "kind": "TREND",
+          "value": 61.4,
+          "label": "4-week average"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN actual_end_epoch <= planned_end_epoch + 300 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.actual_at IS NOT NULL\n  AND t.trip_direction = 'LOGIN'"
+    },
+    {
+      "id": "1f4f6f672a4f",
       "metricId": "vendor_ota",
       "metricLabel": "Vendor on-time share",
       "unit": "%",
-      "sliceLabel": "vendor V07",
+      "sliceLabel": "vendor Vikram Mikhailov Travel",
       "tier": "BREACH",
       "cause": "PEER_LAGGARD",
-      "observed": 61.4,
-      "gap": 27.8,
-      "confidence": 0.97,
-      "audiences": ["FACILITIES_HEAD", "TRANSPORT_MANAGER"],
-      "references": [
-        { "kind": "TREND", "value": 84.1, "label": "4-week average" },
-        { "kind": "PEER", "value": 89.2, "label": "peer median" }
+      "observed": 32.31,
+      "gap": 26.79,
+      "confidence": 0.94,
+      "audiences": [
+        "FACILITIES_HEAD",
+        "TRANSPORT_MANAGER"
       ],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.scheduled_at + 300000 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.actual_at IS NOT NULL\n  AND t.vendor_id = 'V07'"
+      "references": [
+        {
+          "kind": "PEER",
+          "value": 59.1,
+          "label": "peer median"
+        },
+        {
+          "kind": "TREND",
+          "value": 41.8,
+          "label": "4-week average"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN actual_end_epoch <= planned_end_epoch + 300 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.actual_at IS NOT NULL\n  AND t.vendor_id = 'Vikram Mikhailov Travel'"
     },
     {
-      "id": "7d2b8e105fa4",
+      "id": "37cb88ba8881",
       "metricId": "marshal_compliance",
       "metricLabel": "Marshal compliance (dark hours)",
       "unit": "%",
-      "sliceLabel": "site SITE2",
+      "sliceLabel": "site Clearwater Campus",
       "tier": "BREACH",
       "cause": "BELOW_TARGET",
-      "observed": 91.3,
-      "gap": 8.7,
-      "confidence": 0.94,
-      "audiences": ["FACILITIES_HEAD", "TRANSPORT_MANAGER"],
-      "references": [{ "kind": "TARGET", "value": 100.0, "label": "SLA target" }],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.marshal_signed_in THEN 1 ELSE 0 END) / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.marshal_required\n  AND t.site_id = 'SITE2'"
-    },
-    {
-      "id": "c81a4f96d33b",
-      "metricId": "ota",
-      "metricLabel": "On-time arrival",
-      "unit": "%",
-      "sliceLabel": "overall",
-      "tier": "CONCERN",
-      "cause": "BELOW_TARGET",
-      "observed": 78.0,
-      "gap": 12.0,
-      "confidence": 0.96,
-      "audiences": ["TRANSPORT_MANAGER"],
-      "references": [
-        { "kind": "TREND", "value": 84.6, "label": "4-week average" },
-        { "kind": "TARGET", "value": 90.0, "label": "SLA target" }
+      "observed": 93.6,
+      "gap": 6.4,
+      "confidence": 0.91,
+      "audiences": [
+        "FACILITIES_HEAD",
+        "TRANSPORT_MANAGER"
       ],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.scheduled_at + 300000 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.actual_at IS NOT NULL"
+      "references": [
+        {
+          "kind": "TARGET",
+          "value": 100.0,
+          "label": "SLA target"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_escort THEN 1 ELSE 0 END) / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.dark_hours AND t.carries_female_rider\n  AND t.site_id = 'Clearwater Campus'"
     },
     {
-      "id": "f04e7b1c8a52",
+      "id": "2806ebd41422",
       "metricId": "otd",
       "metricLabel": "On-time departure",
       "unit": "%",
-      "sliceLabel": "shift S3",
+      "sliceLabel": "site Cedar Ridge Office",
       "tier": "CONCERN",
       "cause": "TREND_REGRESSION",
-      "observed": 79.5,
-      "gap": 7.2,
+      "observed": 54.7,
+      "gap": 6.4,
       "confidence": 0.93,
-      "audiences": ["TRANSPORT_MANAGER", "LINE_MANAGER"],
-      "references": [{ "kind": "TREND", "value": 86.7, "label": "4-week average" }],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.scheduled_at + 300000 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.actual_at IS NOT NULL\n  AND t.direction = 'logout'\n  AND t.shift = 'S3'"
+      "audiences": [
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "TREND",
+          "value": 61.1,
+          "label": "4-week average"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN actual_end_epoch <= planned_end_epoch + 300 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.actual_at IS NOT NULL\n  AND t.trip_direction = 'LOGOUT'\n  AND t.site_id = 'Cedar Ridge Office'"
     },
     {
-      "id": "2e9d6a03c714",
-      "metricId": "cost_per_trip",
-      "metricLabel": "Cost per trip",
-      "unit": "INR",
-      "sliceLabel": "vendor V07",
+      "id": "ec799a840709",
+      "metricId": "sev1_alert_rate",
+      "metricLabel": "Sev-1 alerts per 1,000 trips",
+      "unit": "per 1k",
+      "sliceLabel": "tenant vanta-Aus",
+      "tier": "CONCERN",
+      "cause": "TREND_REGRESSION",
+      "observed": 14.8,
+      "gap": 5.2,
+      "confidence": 0.88,
+      "audiences": [
+        "FACILITIES_HEAD",
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "TREND",
+          "value": 9.6,
+          "label": "4-week average"
+        }
+      ],
+      "evidenceSql": "SELECT 1000.0 * count(*) FILTER (WHERE a.severity = 'Sev-1') / nullif(count(DISTINCT t.trip_id), 0)\nFROM trips t LEFT JOIN alerts a ON a.trip_id = t.trip_id\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.business_unit = 'vanta-Aus'"
+    },
+    {
+      "id": "4c397f8a1851",
+      "metricId": "no_show_rate",
+      "metricLabel": "No-show rate",
+      "unit": "%",
+      "sliceLabel": "tenant catalyst-Sac",
       "tier": "CONCERN",
       "cause": "PEER_LAGGARD",
-      "observed": 512.0,
-      "gap": 61.0,
-      "confidence": 0.95,
-      "audiences": ["FACILITIES_HEAD"],
-      "references": [{ "kind": "PEER", "value": 451.0, "label": "peer median" }],
-      "evidenceSql": "SELECT avg(c.total_inr)\nFROM costs c JOIN trips t ON t.trip_id = c.trip_id\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.vendor_id = 'V07'"
+      "observed": 11.24,
+      "gap": 3.26,
+      "confidence": 0.97,
+      "audiences": [
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "PEER",
+          "value": 7.98,
+          "label": "peer median"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(noshow_cnt) / nullif(sum(plannedemployee_cnt), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.business_unit = 'catalyst-Sac'"
     },
     {
-      "id": "b5c07e2419df",
+      "id": "1b2f04ef7780",
       "metricId": "experience",
-      "metricLabel": "Employee experience",
+      "metricLabel": "Rider experience",
       "unit": "score",
       "sliceLabel": "overall",
       "tier": "WATCH",
-      "cause": "LOW_CONFIDENCE",
-      "observed": 3.4,
-      "gap": 0.31,
-      "confidence": 0.42,
-      "audiences": ["TRANSPORT_MANAGER"],
-      "references": [{ "kind": "TREND", "value": 3.71, "label": "4-week average" }],
-      "evidenceSql": "SELECT avg(least(5.0, greatest(1.0, f.rating + 0.5 * f.sentiment)))\nFROM feedback_normalised f JOIN trips t ON t.trip_id = f.trip_id\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000"
+      "cause": "TREND_REGRESSION",
+      "observed": 3.42,
+      "gap": 0.18,
+      "confidence": 0.86,
+      "audiences": [
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "TREND",
+          "value": 3.6,
+          "label": "4-week average"
+        }
+      ],
+      "evidenceSql": "SELECT avg((route_rating + driver_rating + cab_rating + safety_rating) / 4.0)\nFROM feedback f JOIN trips t ON t.trip_id = f.trip_id\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND f.route_rating > 0"
     },
     {
-      "id": "9a1f3c8b60e5",
-      "metricId": "sla_breach",
-      "metricLabel": "SLA breach rate",
-      "unit": "%",
-      "sliceLabel": "mode shuttle",
-      "tier": "WATCH",
-      "cause": "BELOW_TARGET",
-      "observed": 10.4,
-      "gap": 0.4,
-      "confidence": 0.96,
-      "audiences": ["TRANSPORT_MANAGER"],
-      "references": [{ "kind": "TARGET", "value": 10.0, "label": "SLA target" }],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_at > t.scheduled_at + 900000 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.actual_at IS NOT NULL\n  AND t.mode = 'shuttle'"
-    },
-    {
-      "id": "4c6e0d97a2b1",
-      "metricId": "ota",
-      "metricLabel": "On-time arrival",
-      "unit": "%",
-      "sliceLabel": "site SITE1",
+      "id": "47642ff6c5ba",
+      "metricId": "cost_per_km",
+      "metricLabel": "Cost per km",
+      "unit": "INR",
+      "sliceLabel": "mode BUS",
       "tier": "PASS",
       "cause": "ON_REFERENCE",
-      "observed": 92.6,
-      "gap": -2.34,
-      "confidence": 0.98,
-      "audiences": ["TRANSPORT_MANAGER"],
-      "references": [
-        { "kind": "TREND", "value": 90.26, "label": "4-week average" },
-        { "kind": "TARGET", "value": 90.0, "label": "SLA target" }
+      "observed": 21.4,
+      "gap": -2.8,
+      "confidence": 0.95,
+      "audiences": [
+        "FACILITIES_HEAD"
       ],
-      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.scheduled_at + 300000 THEN 1 ELSE 0 END)\n       / nullif(count(*), 0)\nFROM trips t\nWHERE t.scheduled_at >= 1788480000000 AND t.scheduled_at < 1789084800000\n  AND t.actual_at IS NOT NULL\n  AND t.site_id = 'SITE1'"
+      "references": [
+        {
+          "kind": "PEER",
+          "value": 24.2,
+          "label": "peer median"
+        }
+      ],
+      "evidenceSql": "SELECT sum(b.trip_cost) / nullif(sum(b.total_trip_km), 0)\nFROM bill b JOIN trips t ON t.trip_id = b.trip_id\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.mode = 'BUS'"
     }
   ],
+  "causeBreakdown": {
+    "_comment": "GET /api/findings/{id}/causes for finding 563931f15cdd. delay_reason is a REAL COLUMN on the trip row -- values NODELAY, TRAFFIC, DRIVER, EMPLOYEE -- so this is a GROUP BY, not a derivation. Counts measured from data/sample.",
+    "findingId": "563931f15cdd",
+    "dimension": "DELAY_REASON",
+    "rows": [
+      {
+        "value": "TRAFFIC",
+        "trips": 125,
+        "sharePct": 39.9,
+        "pointsOfGap": 12.3
+      },
+      {
+        "value": "EMPLOYEE",
+        "trips": 107,
+        "sharePct": 34.2,
+        "pointsOfGap": 10.6
+      },
+      {
+        "value": "DRIVER",
+        "trips": 81,
+        "sharePct": 25.9,
+        "pointsOfGap": 8.0
+      }
+    ]
+  },
   "feedHealth": [
-    { "feed": "trips", "rowsLoaded": 8000, "rowsRejected": 109, "unmatchedKeys": 0, "nullCriticalFields": 183, "confidence": 0.9639, "mustBeDisclosed": false },
-    { "feed": "gps_pings", "rowsLoaded": 153595, "rowsRejected": 0, "unmatchedKeys": 0, "nullCriticalFields": 0, "confidence": 1.0, "mustBeDisclosed": false },
-    { "feed": "delays", "rowsLoaded": 1114, "rowsRejected": 0, "unmatchedKeys": 0, "nullCriticalFields": 0, "confidence": 1.0, "mustBeDisclosed": false },
-    { "feed": "costs", "rowsLoaded": 7778, "rowsRejected": 0, "unmatchedKeys": 222, "nullCriticalFields": 0, "confidence": 0.9715, "mustBeDisclosed": false },
-    { "feed": "feedback", "rowsLoaded": 2757, "rowsRejected": 0, "unmatchedKeys": 77, "nullCriticalFields": 1118, "confidence": 0.5665, "mustBeDisclosed": true },
-    { "feed": "roster", "rowsLoaded": 3600, "rowsRejected": 0, "unmatchedKeys": 171, "nullCriticalFields": 0, "confidence": 0.9525, "mustBeDisclosed": true }
+    {
+      "feed": "trips",
+      "rowsLoaded": 3037,
+      "rowsRejected": 0,
+      "unmatchedKeys": 0,
+      "nullCriticalFields": 41,
+      "confidence": 0.9865,
+      "mustBeDisclosed": false
+    },
+    {
+      "feed": "emp_legs",
+      "rowsLoaded": 8199,
+      "rowsRejected": 0,
+      "unmatchedKeys": 0,
+      "nullCriticalFields": 24,
+      "confidence": 0.9971,
+      "mustBeDisclosed": false
+    },
+    {
+      "feed": "feedback",
+      "rowsLoaded": 2552,
+      "rowsRejected": 0,
+      "unmatchedKeys": 118,
+      "nullCriticalFields": 0,
+      "confidence": 0.9538,
+      "mustBeDisclosed": false
+    },
+    {
+      "feed": "bill",
+      "rowsLoaded": 3059,
+      "rowsRejected": 0,
+      "unmatchedKeys": 25,
+      "nullCriticalFields": 617,
+      "confidence": 0.7901,
+      "mustBeDisclosed": true
+    },
+    {
+      "feed": "alerts",
+      "rowsLoaded": 251,
+      "rowsRejected": 0,
+      "unmatchedKeys": 0,
+      "nullCriticalFields": 92,
+      "confidence": 0.6335,
+      "mustBeDisclosed": true
+    }
   ],
   "cost": {
     "calls": 3,
     "inputTokens": 1842,
-    "outputTokens": 391,
-    "tokensPerCall": 744,
-    "inr": 0.0,
+    "outputTokens": 1173,
+    "tokensPerCall": 1005,
+    "inr": 0.1447,
+    "inrPerOrgPerMonth": 4.34,
     "employeesAtScale": 5000,
-    "byPurpose": { "brief": 2, "translate": 1 },
-    "pricingConfigured": false
+    "inrPerEmployeePerMonth": 0.000868,
+    "byPurpose": {
+      "brief": 2,
+      "ask": 1
+    },
+    "pricingConfigured": true,
+    "rateIsApproximate": true
   },
   "brief": {
     "audience": "FACILITIES_HEAD",
-    "text": "For the Transport & Facilities Head:\nCommute operations, 2026-08-29..2026-09-04\n\nTwo items need attention.\n\n[BREACH] Vendor on-time share — vendor V07\n  61.40%, against a 4-week average of 84.10% and a peer median of 89.20%.\n  Cause: behind comparable peers.\n\n[BREACH] Marshal compliance (dark hours) — site SITE2\n  91.30%, against an SLA target of 100.00%.\n  Cause: below the declared target.\n\nMove volume off V07 and audit SITE2's marshal sign-ins for the week."
+    "text": "For the Transport & Facilities Head:\nCommute operations, 2026-07-25..2026-07-31\n\nFour items need attention.\n\n[BREACH] On-time arrival - overall\n  59.10%, against an SLA target of 100.00% and a 4-week average of 61.40%.\n  Traffic, employee and driver delays split the shortfall 40/34/26.\n\n[BREACH] Vendor on-time share - vendor Vikram Mikhailov Travel\n  32.31%, against a peer median of 59.10%.\n  Cause: behind comparable peers.\n\n[BREACH] Marshal compliance (dark hours) - site Clearwater Campus\n  93.60%, against an SLA target of 100.00%.\n\n[CONCERN] Sev-1 alerts per 1,000 trips - tenant vanta-Aus\n  14.80, against a 4-week average of 9.60.\n  Confidence in this figure is 88% - some alert rows carry an unreadable severity.\n\nMove volume off Vikram Mikhailov Travel and audit Clearwater Campus escort sign-ins."
   }
 }

@@ -56,7 +56,8 @@ export interface Finding {
   metricId: string
   metricLabel: string    // "Vendor on-time share" — show this, not metricId
   unit: string           // "%" | "INR" | "score"
-  sliceLabel: string     // "vendor V07" | "overall" | "site SITE2"
+  sliceLabel: string     // "vendor Vikram Mikhailov Travel" | "overall"
+                         // | "site Cedar Ridge Office" | "tenant vanta-Aus"
   tier: Tier
   cause: string          // "PEER_LAGGARD" | "BELOW_TARGET" | ...
   observed: number
@@ -147,12 +148,13 @@ window." — not an empty div.
 
 ### 5. `FeedHealthStrip`
 
-A table over `feedHealth`: feed, rows loaded, **quarantined** (amber when > 0),
+A table over `feedHealth` (five feeds: `trips`, `emp_legs`, `feedback`, `bill`,
+`alerts`): feed, rows loaded, **quarantined** (amber when > 0),
 unmatched, confidence as a percentage. Mark the row when `mustBeDisclosed`.
 
 The framing that matters: **a row we could not read is a finding, not a log
-line.** In the sample data, `feedback` sits at 57% confidence — that is the panel
-earning its place, and it is what lets the agent say "I am less sure about the
+line.** In the sample data, `alerts` sits at 63% confidence and `bill` at 79% — that is
+the panel earning its place, and it is what lets the agent say "I am less sure about the
 experience score" instead of quietly reporting a wrong number.
 
 ### 6. `App`
@@ -204,10 +206,12 @@ takes a minute and it is the only way to know a test is asserting anything —
    `/api/runs/latest/findings` every 2s so **new findings appear on screen as
    the clock advances.** This is the demo's opening beat: *"I'm not going to tell
    you it senses. Watch."* Worth doing well.
-4. **`CauseBreakdown`** — a small table in the expanded row from
-   `GET /api/findings/{id}/causes`, showing which vendors or delay categories own
-   how many points of the gap. Ask before starting this one; the endpoint may not
-   exist yet.
+4. **`CauseBreakdown`** — a small table in the expanded row, rendered from the
+   `causeBreakdown` block already present in `fake-findings.json`
+   (`GET /api/findings/{id}/causes`). It shows how the shortfall splits across
+   `delay_reason` — `TRAFFIC` / `EMPLOYEE` / `DRIVER` — which is a **real column**
+   in the dataset, so this is the cheapest "answers *why*" win available. Columns:
+   value, trips, share %, points of gap.
 
 ---
 
