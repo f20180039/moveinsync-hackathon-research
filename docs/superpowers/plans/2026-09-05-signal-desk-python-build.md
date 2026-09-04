@@ -2032,12 +2032,227 @@ Do not start Tier 2 until every line is true. If it is 13:30 and this is red, **
 
 # TIER 2 — pick in this order (13:00 → 16:00)
 
-**Reordered 2026-09-04 after judging the proposal against the statement.** The
-first four items each close a *named* sub-criterion or solution form. The AWS
-deploy has moved **down**: it is ~50 minutes for a story the laptop demo does not
-depend on, and it was previously ahead of three things worth more.
+**Reordered twice.** Once by me against the statement, then again after an
+independent review scored the plan 77/100 and found three prioritisation errors.
+The order below is the second revision and it is the one to follow.
 
-Take them in order. **Do not start something at 15:30 that takes an hour.**
+| # | Task | Min | Closes |
+|---|---|---:|---|
+| 1 | **8a Action lines** | 15 | criterion 1 (35pts) asks it to surface *decisions*; nothing said what to do |
+| 2 | 8 Root-cause decomposition | 30 | answers *why*, from `delay_reason` |
+| 3 | 9 Four tools + `/api/ask` | 45 | criterion 2 says "cost per **interaction**"; the tools are the proof of the no-`run_sql` claim |
+| 4 | 8b Latency instrumentation | 15 | criterion 2 names latency |
+| 5 | 8c Sev-1 anomaly detection | 30 | the sixth solution form |
+| 6 | 10 Replay controls | 20 | proactive triggers, visibly |
+| 7 | **R7 Leadership export** | 30 | the 35-pt criterion's own words: "leadership-ready output, shareable without rework" |
+| 8 | 8d Shift readiness — *reduced scope* | 22 | persona 3. Roll-up + endpoint + plain table only |
+| 9 | 11 `cost_per_km` only | 15 | `experience` dropped — see below |
+| 10 | **R1 Sustainability** | 15 | the statement's own list of manager accountabilities |
+| 11 | **R3 Tenant SLA demo** | 20 | the multi-tenancy bonus, as a screen |
+| 12 | **8e Architecture diagram** | 15 | a **named deliverable** with no owner and no minutes |
+
+**Four changes from the previous order, each with a reason:**
+
+- **8a and 8e are new.** The first closes the largest gap on the largest
+  criterion. The second is a deliverable the statement lists and we had not
+  allocated a minute to.
+- **Task 9 (tools) moved up to third.** Criterion 2 asks for cost *per
+  interaction* — the interrogation path is what an interaction *is*, and it is
+  the demonstration that the no-`run_sql` claim is real rather than asserted.
+- **R7 and R1 promoted out of reserve, `experience` dropped.** R7 produces the
+  forwardable document the 35-point criterion asks for by name; we had demoted it
+  as "already satisfied by the Slack brief", which was the biggest prioritisation
+  error in the plan. R1 completes the statement's own list of what the manager is
+  accountable for. `experience` gave way because its ratings include `0` values
+  that may mean *unrated*, so it is the weakest metric of the three and the only
+  one needing a judgement call about its own data.
+- **The AWS deploy is out of Tier 2 entirely** — moved to reserve. It is 50
+  minutes and it answers **none** of the three words its own bonus bullet names:
+  multi-tenancy is R3, latency is 8b, cost is the cost meter. See the note under
+  the reserve list before deciding.
+
+**Do not start something at 15:30 that takes an hour.** And put a name against
+every item by 13:05 — unowned work is what does not get done.
+
+---
+
+### Task 8a: Action lines — what to DO (~15 min) — **do this first**
+
+*Closes the gap in criterion 1, which is **35 points** — the largest on the board.*
+
+The criterion asks: *"Does it meaningfully reduce manager effort or **surface
+decisions** that would otherwise be missed?"*
+
+Every finding we produce answers **what** (observed against a reference) and,
+after Task 8, **why** (the delay-reason split). **None of them answers what
+now.** An independent review grepped this plan for `recommend` and found nothing.
+A transport manager reading "vendor X is 27 points below its peers" still has to
+decide what to do about it — which is exactly the effort the statement says we
+are here to remove.
+
+This is the highest points-per-minute item in the whole build and it was on no
+list.
+
+**Files:** `service/signaldesk/actions.py`, `service/tests/test_actions.py`, one
+line in the composer, one line in `FindingDto`.
+
+**It must be deterministic.** An action line is a *recommendation attached to a
+number*, which is the most consequential sentence in the brief — so it comes from
+a table keyed on `(metric_id, tier, cause)`, not from the model. §1.1 holds: the
+model may render an action line into prose, never invent one.
+
+- [ ] **Step 1: Write the table**
+
+```python
+"""What to do about a finding. Deterministic, keyed on the finding's own fields.
+
+The model never writes these. An action line is the sentence a manager acts on,
+and a hallucinated one is worse than none -- so it is a lookup, and the lookup is
+tested. The model may re-word an action line when composing prose; it may not
+originate one.
+"""
+from __future__ import annotations
+
+from .schemas import Cause, Finding, Tier
+
+# (metric_id, cause) -> imperative. Tier selects urgency, not content: the thing
+# to DO about a lagging vendor is the same at CONCERN and BREACH, only sooner.
+_ACTIONS: dict[tuple[str, Cause], str] = {
+    ("vendor_ota", Cause.PEER_LAGGARD):
+        "Move volume off {slice_value} to the top-quartile vendors at this site, "
+        "and put it on the next vendor review.",
+    ("vendor_ota", Cause.TREND_REGRESSION):
+        "Raise {slice_value}'s decline with the account manager before it reaches "
+        "the SLA review -- it is trending, not a one-week blip.",
+    ("ota", Cause.BELOW_TARGET):
+        "Check the delay-reason split below before escalating: driver delay is a "
+        "vendor conversation, employee delay is a comms one, traffic is a routing one.",
+    ("otd", Cause.TREND_REGRESSION):
+        "Compare the affected shift's release time against cab arrival -- logout "
+        "slippage is usually a dispatch-window problem, not a vendor one.",
+    ("no_show_rate", Cause.PEER_LAGGARD):
+        "Share the no-show list with the line managers for {slice_value}; "
+        "confirmed no-shows are billable capacity nobody used.",
+    ("sev1_alert_rate", Cause.ANOMALY):
+        "Review the Sev-1 events for {slice_value} today -- this is outside the "
+        "four-week band, not a normal week.",
+    ("marshal_compliance", Cause.BELOW_TARGET):
+        "Audit escort sign-ins at {slice_value} for the affected trips. A female "
+        "employee cannot board before a marshal signs in, so this is a safety "
+        "breach and not a metric miss.",
+    ("cost_per_km", Cause.PEER_LAGGARD):
+        "Pull {slice_value}'s contract and slab mix against the peer median before "
+        "the next billing cycle closes.",
+    ("ev_share", Cause.TREND_REGRESSION):
+        "Ask the vendor to restore EV allocation at {slice_value}; the fleet mix "
+        "moved without a contract change.",
+}
+
+# Fallback by cause alone, so a metric added later still says something useful
+# rather than nothing.
+_BY_CAUSE: dict[Cause, str] = {
+    Cause.PEER_LAGGARD: "Compare {slice_value} against the peer median with the "
+                        "vendor before the next review.",
+    Cause.TREND_REGRESSION: "Look at what changed for {slice_value} in the last "
+                            "week -- this is a move against its own history.",
+    Cause.BELOW_TARGET: "Escalate {slice_value} against the agreed target.",
+    Cause.ANOMALY: "Investigate {slice_value} -- this is outside its normal band.",
+    Cause.LOW_CONFIDENCE: "Fix the upstream data for {slice_value} before acting "
+                          "on this figure -- we are not confident in it.",
+    Cause.DATA_GAP: "This could not be measured. Check the feed before drawing a "
+                    "conclusion.",
+    Cause.ON_REFERENCE: "",          # a PASS needs no action
+}
+
+
+def action_for(finding: Finding) -> str:
+    """The imperative for this finding, or '' when none is warranted.
+
+    A PASS returns '' deliberately -- inventing an action for something that is
+    fine is how a brief becomes noise a manager learns to skim.
+    """
+    if finding.tier is Tier.PASS:
+        return ""
+    template = (_ACTIONS.get((finding.metric_id, finding.cause))
+                or _BY_CAUSE.get(finding.cause, ""))
+    if not template:
+        return ""
+    value = finding.slice.value or "this population"
+    return template.format(slice_value=value)
+```
+
+- [ ] **Step 2: Attach it, in two places**
+
+- `FindingDto` gains `action: str` — the console renders it under the row, and
+  it is the line a manager's eye should land on.
+- `TemplateComposer` emits it after each finding's cause line, and
+  `SarvamComposer`'s system prompt gains: *"Each finding carries an `action`.
+  Reproduce its meaning in your closing sentence. Do not invent an action that is
+  not there."*
+
+- [ ] **Step 3: Tests**
+
+```
+every (metric, cause) pair in the registry has an action or an explicit blank
+a PASS returns an empty string, not a filler sentence
+an unmapped metric falls back to the cause-level line rather than returning ''
+the slice value is interpolated, and an unsliced finding reads sensibly
+LOW_CONFIDENCE tells you to fix the data, NOT to act on the number
+the composer's output contains the action line verbatim for a BREACH
+```
+
+The fifth is the one that matters. If a `LOW_CONFIDENCE` finding told a manager
+to escalate a vendor on a number we have already said we do not trust, the whole
+confidence apparatus becomes decorative.
+
+- [ ] **Step 4: Break-it-to-prove-it**
+
+Make `action_for` return the template unformatted (drop `.format`), rerun →
+the interpolation test FAILS with a literal `{slice_value}` in the output.
+Restore.
+
+Return a filler string for `Tier.PASS`, rerun → the PASS test FAILS. Restore.
+
+- [ ] **Step 5: Read one brief aloud before moving on**
+
+Sweep, compose for `FACILITIES_HEAD`, and read it as the facilities head would.
+**Each item should now read: what, against what, why, and what to do.** If the
+action lines read as generic filler, rewrite them — a specific wrong action is
+better than a vague right one, because the specific one gets corrected and the
+vague one gets ignored.
+
+- [ ] **Step 6: Commit** — `feat(actions): deterministic action lines, so a finding says what to do`
+
+---
+
+### Task 8e: Architecture diagram (~15 min) — a named deliverable with no owner
+
+*Closes: §10 of the statement lists **"Architecture diagram"** as a required
+deliverable. It had zero minutes allocated and no file.*
+
+**Files:** `docs/architecture.md`
+
+Not a picture — a Mermaid block in a markdown file, which renders on GitHub and
+pastes into the deck. Fifteen minutes, and it is on the deliverables list.
+
+- [ ] **Step 1: Draw what was built, not what was planned**
+
+Four layers, with the seam marked. Label the two `[MODEL]` blocks explicitly, and
+mark **where SQL is allowed** — that is the invariant made visible, and it is the
+single most persuasive thing in the diagram.
+
+- [ ] **Step 2: Include the real numbers**
+
+`615,546 trips · 1.6M legs · 620,942 bill lines · 512,873 ratings · 51,699
+alerts` on the ingest layer, and the measured `load_all` time on the edge into
+DuckDB. A diagram with real cardinalities reads as a system; one with boxes
+labelled "data" reads as a sketch.
+
+- [ ] **Step 3: Delete any box that was cut.** A diagram promising a feature the
+demo does not have is worse than a smaller diagram, and it is the artifact a
+judge studies while someone else is talking.
+
+- [ ] **Step 4: Commit** — `docs: architecture diagram of what was built`
 
 ---
 
@@ -2260,7 +2475,7 @@ starts probing.
 
 ---
 
-### Task 8d: The line manager's shift-readiness view (~40 min)
+### Task 8d: The line manager's shift-readiness view (~22 min, reduced scope)
 
 *Closes: persona 3, which the statement names and we were barely serving.*
 
@@ -2272,6 +2487,12 @@ is the largest under-used asset in the dataset.
 
 **Files:** `service/signaldesk/readiness.py`, `api.py` (one endpoint),
 `console/src/components/ShiftReadiness.tsx`, tests for both.
+
+**Reduced to 22 minutes on review:** the roll-up, the endpoint, and a plain
+table. No amber styling, no sorting controls, no drill-down. Persona 3 needs *a
+surface that exists*, not a polished one — and if 15:00 arrives with this
+unstarted, cut it. It is the only Tier 2 item whose absence costs a persona rather
+than a criterion.
 
 - [ ] **Step 1: The roll-up**
 
@@ -2337,7 +2558,7 @@ an on-time pickup, and must not crash the comparison.
 `marshal_compliance`, `cost_per_km`, `experience`. Each is a registry entry plus
 a re-calibration — no new machinery.
 
-### Task 12: AWS deployment (~50 min) — **moved down**
+### Task 12: AWS deployment (~50 min) — **MOVED TO RESERVE, see R0**
 
 *Unchanged in content, demoted in priority.* Everything above closes a named
 sub-criterion or solution form; this closes half of one bonus bullet, for a story
@@ -2352,6 +2573,26 @@ regret if it does not — S3 + `httpfs` behind the source seam is already the
 Each of these is scoped to be startable cold, in the stated time, by whoever is
 free. **Ordered by points per minute.** Do not start one before Tier 2 is done;
 do not hesitate if it is.
+
+### R0. AWS deployment (~50 min) — **demoted here, and this is a call for the team**
+
+Its bonus bullet reads: *"Credible deployability story into an existing enterprise
+mobility platform — **multi-tenancy, latency, cost**."* The deploy answers none of
+those three words. **R3** answers multi-tenancy, **8b** answers latency, and the
+cost meter answers cost — all three for 35 minutes between them, against 50 for
+the deploy.
+
+What the deploy *does* buy is a URL, and criterion 3 grades *"deployable into an
+existing platform"* on structure rather than on a live endpoint: a stateless
+service, no backing stores, and the data source behind one seam so local files and
+`s3://` are an argument to a function. **That architecture already exists and is
+already the answer.**
+
+**But this was an explicit team decision earlier** — AWS credits were obtained for
+it, and "targeting AWS" was a stated goal. So it is demoted rather than deleted,
+and the call belongs to whoever is running the day, not to this document. If it
+goes ahead: give it to the person who is *not* on the critical path, and it must
+not displace items 1–7 above.
 
 ### R1. Sustainability metric (~15 min) — a gap in the statement's own framing
 
@@ -2392,7 +2633,11 @@ argument about interfaces into a screen.
 lever a facilities head acts on, and it pairs with `no_show_rate` — under-filled
 cabs plus no-shows is one story, not two.
 
-### R5. Alert acknowledgement SLA (~20 min)
+### R5. Alert acknowledgement SLA (~20 min) — *reviewed as not worth doing*
+
+Real, but it measures responsiveness to alerts rather than an outcome, and no
+persona in the statement is described as accountable for acknowledgement time.
+Skip unless everything above is done and there is an hour spare.
 
 `acknowledge_time − start_time` on `alerts`, with 54 nulls that mean
 *unacknowledged* rather than missing. An ops SLA about responsiveness rather than
@@ -2411,11 +2656,18 @@ One-click markdown or PDF of the brief for the facilities head. Directly targets
 the *"forward to leadership without rework"* bonus. Lower priority only because
 the Slack brief already largely satisfies it.
 
-### R8. Counterfactual (~45 min)
+### R8. Counterfactual (~45 min) — *reviewed as NOT worth doing. Do not build it.*
 
-"Move this vendor's volume to that one" → projected OTA and cost delta, built on
-Task 8's decomposition. Memorable, and the most likely of these to overrun —
-**do not start after 15:00.**
+"Move this vendor's volume to that one" → projected OTA and cost delta.
+Memorable, and it was on the earlier list.
+
+**It is an unvalidatable projection**, which is the exact reason we cut
+forecasting. We would be claiming a number the data cannot support, in a product
+whose entire argument is that every figure on screen is traceable to a query.
+A judge who asks "how do you know moving that volume gives that result?" gets an
+answer that undermines §1.1.
+
+Cut on principle, not on time. Consistency is worth more than the memorability.
 
 ---
 
