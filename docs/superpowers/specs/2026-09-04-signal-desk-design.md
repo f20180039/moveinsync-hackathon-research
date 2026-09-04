@@ -85,14 +85,14 @@ Six CSV feeds. Column sets are *indicative* — ingest must not require them.
 | Feed | Grain | Columns (indicative) |
 |---|---|---|
 | `trips` | one row per trip | `trip_id, date, shift, mode, site_id, vendor_id, driver_id, vehicle_id, direction, scheduled_at, actual_at, planned_km, actual_km, seats, occupancy, status` |
-| `gps_pings` | one row per ping | `trip_id, ts, lat, lng` |
+| ~~`gps_pings`~~ | — | **no such feed in the real dataset — `docs/real-dataset-mapping.md` §1** |
 | `delays` | one row per delay event | `trip_id, reason_code, minutes, recorded_at` |
 | `costs` | one row per trip | `trip_id, vendor_id, base_inr, km_inr, wait_inr, total_inr` |
 | `feedback` | one row per response | `trip_id, employee_id, rating, comment, language` |
 | `roster` | one row per employee-shift | `employee_id, site_id, shift, date, expected` |
 
 `mode` ∈ `cab | nodal | shuttle`. `direction` ∈ `login | logout`.
-All timestamps epoch milliseconds. All money integer rupees. All durations
+~~All timestamps epoch milliseconds.~~ **The real data is epoch SECONDS, normalised to ms at the ingest boundary — mapping doc §2.** All money integer rupees. All durations
 minutes. All distances kilometres.
 
 ### 3.2 Planted faults — required, not incidental

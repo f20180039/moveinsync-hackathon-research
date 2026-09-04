@@ -75,7 +75,7 @@ Copied forward verbatim in effect. The reasoning is in the Java plan's "Spec dev
 3. **A finding keeps every reference but takes the worst tier.** `cause` and `gap` come from the reference that produced that worst tier; ties break by declaration order.
 4. **On time = within 5 minutes of schedule. An SLA breach = later than 15 minutes.** The spec names the metrics but never defines them. One constant each, one place.
 5. **A trip with no `actual_at` is excluded from numerator *and* denominator.** Guessing "late" invents a fact; guessing "on time" hides one. The exclusion is counted as a null-critical field so it lowers confidence instead.
-6. **`night_escort` is a column the indicative schema lacks.** The fixture emits it. A real dataset without it yields all-NULL, which drives that metric's coverage to 0 and caps its rule at `WATCH` — the metric degrades rather than lying.
+6. **The escort column is `actual_escort`** (bool, on the trip row) — MoveInSync calls it a *marshal*. There is no `marshal_required` column, so the required population is derived: dark hours plus a female rider (`emp_legs.gender`), or a `WOMAN_TRAVELLING_ALONE` alert. Without `actual_escort` that metric's coverage goes to 0 and its rule caps at `WATCH` — it degrades rather than lying.
 7. **`experience` reads the comment, not just the rating.** Translation normalises `comment → comment_en`; a **deterministic Python lexicon** then scores sentiment in `{-1, 0, +1}`, and the per-response score is `clamp(rating + 0.5 × sentiment, 1, 5)`. The model does language; the arithmetic is tested Python.
 8. **All hour-of-day extraction shifts by IST.** Epoch ms are absolute; "night trip" is local. `IST_OFFSET_MS = 19_800_000`.
 
@@ -762,26 +762,28 @@ GLOBS = {
     "alerts":   "alerts_data.csv",
 }
 
-# Critical columns per feed. night_escort is deliberately ABSENT from trips:
-# a dataset without it must degrade night_compliance, not the on-time figures
-# (deviation 6). Per-metric coverage in registry.py handles that instead.
+# Critical columns per feed, in the REAL schema. actual_escort is deliberately
+# absent: a dataset without it must degrade marshal_compliance, not the on-time
+# figures. Per-metric coverage in registry.py handles that instead.
 CRITICAL = {
-    "trips": ("trip_id", "vendor_id", "scheduled_at"),
-    "gps_pings": ("trip_id", "ts"),
-    "delays": ("trip_id", "minutes"),
-    "costs": ("trip_id", "total_inr"),
-    "feedback": ("trip_id", "rating"),
-    "roster": ("employee_id", "date"),
+    "trips":    ("trip_id", "vendor_id", "planned_start_epoch", "actual_end_epoch"),
+    "emp_legs": ("trip_id", "stwid"),
+    "feedback": ("trip_id", "route_rating"),
+    # trip_id is NOT always a trip id in bill: 160 rows hold the literal string
+    # 'OverHead' -- Rs 44.6 lakh of vendor charges belonging to no trip. Counting
+    # them as critically incomplete is honest: they are real money we cannot
+    # attribute, and that is itself worth reporting.
+    "bill":     ("trip_id", "trip_cost"),
+    "alerts":   ("trip_id", "event_type"),
 }
 
-# How each feed's foreign key is checked, and against what. trips carries no
-# employee_id, so a roster orphan is resolved against feedback.
+# Every feed hangs off trips.trip_id. Run these AFTER normalisation, or they
+# report ~100% unmatched because the three id formats never compare equal.
 UNMATCHED_SQL = {
-    "gps_pings": "SELECT count(*) FROM gps_pings WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
-    "delays": "SELECT count(*) FROM delays WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
-    "costs": "SELECT count(*) FROM costs WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
+    "emp_legs": "SELECT count(*) FROM emp_legs WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
     "feedback": "SELECT count(*) FROM feedback WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
-    "roster": "SELECT count(*) FROM roster WHERE employee_id NOT IN (SELECT employee_id FROM feedback)",
+    "bill":     "SELECT count(*) FROM bill     WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
+    "alerts":   "SELECT count(*) FROM alerts   WHERE trip_id NOT IN (SELECT trip_id FROM trips)",
 }
 
 
