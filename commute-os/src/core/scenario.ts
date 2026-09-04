@@ -66,8 +66,12 @@ export function computeMetrics(trips: Trip[], w: World, rp: RouteProvider): Metr
   // largest-capacity vehicle. That is the correct lower bound for "fewest
   // dispatches given the best possible packing" once shuttles are in the mix
   // — a floor pinned to a smaller cab-only unit would overstate the vehicles
-  // needed and could exceed a legitimately lower vehiclesUsed. Empty fleet ->
-  // 0, matching theoreticalFloor's own seats <= 0 fallback to passenger count.
+  // needed and could exceed a legitimately lower vehiclesUsed. With an empty
+  // fleet, every `vehicles.find` above misses, so `costed` is always `[]` and
+  // `passengers` is always 0 here — theoreticalFloor's `passengers === 0`
+  // branch (-> 0) fires before its `seats <= 0` fallback could ever apply, so
+  // the `floorSeats` value passed in that case is moot; 0 is used only
+  // because it is theoreticalFloor's own no-fleet-capacity sentinel.
   const floorSeats = w.vehicles.length > 0 ? Math.max(...w.vehicles.map((v) => v.seats)) : 0
   m.theoreticalFloorVehicles = theoreticalFloor(costed, floorSeats)
   m.avgOccupancyPct = seatsOffered === 0 ? 0 : (passengers / seatsOffered) * 100

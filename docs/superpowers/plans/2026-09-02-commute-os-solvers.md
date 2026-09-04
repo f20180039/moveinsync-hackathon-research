@@ -75,9 +75,26 @@ get it exactly right:
 2. `km` = Σ leg km along that sequence.
 3. `minutes` = Σ leg minutes + `boardingMinutes(distinctStops, totalPax)` from
    `core/ledger` — the per-stop/per-passenger split (A9).
+   **Walk STOPS, not trips.** Build the distinct home-side locations in
+   first-appearance order along `order`, each carrying the trips at it, and
+   charge `boardingMinutes(1, paxAtThatStop)` once per stop; every trip at a
+   stop shares that stop's elapsed time. A trip-based walk double-charges
+   `setupMinPerStop` when two riders share an address, which handed two
+   employees at the SAME building a 2-minute difference in
+   `perPassengerAddedMin` — in the one scenario a pooling product should handle
+   best. Summing per-stop boarding over the walk equals
+   `distinctStops × setupMinPerStop + totalPax × serviceMinPerPassenger`, i.e.
+   exactly `boardingMinutes(distinctStops, totalPax)` — so **assert that the
+   walk total equals `minutes`** on a candidate with a coincident stop. That
+   identity cannot hold vacuously: it ties together the two code paths that
+   otherwise silently disagree.
 4. `pickupTimes[tripId]` = cumulative arrival at that trip's HOME-SIDE stop —
    board time inbound, drop time outbound — starting from the earliest window
-   start across the group. The generator's logout windows are office-departure
+   start across the group — computed over the candidate's OWN members
+   (`order.map(i => trips[i])`), never over the raw `trips` parameter, so a
+   caller passing a superset in `trips` with a subset in `order` cannot anchor
+   the timeline to a window belonging to a trip outside the candidate. The
+   generator's logout windows are office-departure
    slots, so that start correctly denotes gate departure on an outbound run. The
    field keeps its Plan 1 name; its doc comment in `core/types.ts` says which
    it means.
@@ -95,6 +112,16 @@ get it exactly right:
    RELATIVE to the start and add the epoch base once at the end; subtracting two
    `start + small` values at epoch-ms magnitude (~1.76e12) loses the exact zero
    that case 1 requires to floating-point cancellation.
+   **The base is epoch MILLISECONDS and the accumulator is MINUTES — multiply
+   by 60_000 when you add it back.** An earlier draft of this bullet said only
+   "add the epoch base once at the end", and that omission shipped a real bug:
+   `start + elapsedMinutes` advanced a timestamp by 20 ms for 20 minutes of
+   travel, and the already-merged `time-window` policy — which reads
+   `pickupTimes` and converts correctly — then reported a 45-minute SLA
+   violation on a candidate whose real pickup time was fine. It passed CI
+   because no test asserted on the field's value at all. Any relative-minutes
+   accumulator added back to an epoch-ms base needs this conversion stated
+   explicitly, and a test asserting the resulting VALUE, not just its presence.
 6. `gateIds` = distinct gates in visit order.
 7. `seatsUsed` = Σ trip seats.
 

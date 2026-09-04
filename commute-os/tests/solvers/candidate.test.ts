@@ -2,11 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { buildCandidate, soloMinutes } from '../../src/solvers/candidate'
 import { createRouteProvider, type RouteProvider } from '../../src/core/routing'
 import { boardingMinutes } from '../../src/core/ledger'
-import { makeWorld, makeTrip } from '../helpers/world'
+import { timeWindow } from '../../src/core/policies/time-window'
+import { makeWorld, makeTrip, makeCtx, T0 } from '../helpers/world'
 import type { LatLng } from '../../src/core/types'
 
 const W = makeWorld()
 const RP = createRouteProvider({}) // estimate tier only — deterministic
+const MIN = 60_000
 
 /**
  * A directional route stub: `a -> b` costs `forwardMin`, `b -> a` costs
@@ -72,6 +74,12 @@ describe('buildCandidate', () => {
 
     expect(c.minutes).toBeCloseTo(correct, 9)
     expect(c.minutes).not.toBeCloseTo(wrong, 6)
+
+    // Two riders at the IDENTICAL address must get the SAME fairness number
+    // -- a coincident pickup is exactly the case a pooling product should
+    // handle best, not worse than two riders who happen to differ by a
+    // fraction of a km. Regression guard for the un-deduped per-rider walk.
+    expect(c.perPassengerAddedMin['e1']).toBe(c.perPassengerAddedMin['e2'])
   })
 
   it('case 5: the first-picked-up passenger has the LARGER added minutes', () => {
@@ -193,5 +201,105 @@ describe('soloMinutes', () => {
 
     const c = buildCandidate([trip], [0], 'v-sedan', 'd-fresh', W, RP)
     expect(soloMinutes(trip, W, RP)).toBe(c.minutes)
+  })
+})
+
+describe('buildCandidate — pickupTimes VALUE (units: epoch ms, not epoch-plus-raw-minutes)', () => {
+  it('login, single trip: pickupTimes is exactly `start`, in epoch ms', () => {
+    const trip = makeTrip()
+    const c = buildCandidate([trip], [0], 'v-sedan', 'd-fresh', W, RP)
+    expect(c.pickupTimes['t1']).toBe(T0)
+  })
+
+  it('login, two trips: pickupTimes[second] is start + (leg minutes + boarding) CONVERTED TO MS', () => {
+    const a = makeTrip({ id: 'ta', employeeIds: ['e1'], pickupAt: { lat: 12.950, lng: 77.600 } })
+    const b = makeTrip({ id: 'tb', employeeIds: ['e2'], pickupAt: { lat: 12.930, lng: 77.630 } })
+    const c = buildCandidate([a, b], [0, 1], 'v-sedan', 'd-fresh', W, RP)
+
+    const legAB = RP.route(a.pickupAt, b.pickupAt).minutes
+    const boardAtA = boardingMinutes(1, a.seatsUsed)
+    const expectedB = T0 + (legAB + boardAtA) * MIN
+
+    expect(c.pickupTimes['ta']).toBe(T0)
+    expect(c.pickupTimes['tb']).toBe(expectedB)
+    // A minutes-as-milliseconds bug would put this well under 1 real second
+    // past T0 for a ~16-real-minute leg; a correctly-converted value is well
+    // past a full real minute.
+    expect(c.pickupTimes['tb']! - T0).toBeGreaterThan(MIN)
+  })
+
+  it('logout, single trip: pickupTimes is the DROP time, start + (gate->home + boarding) in ms', () => {
+    const a = makeTrip({ id: 'ta', employeeIds: ['e1'], direction: 'logout', pickupAt: { lat: 12.950, lng: 77.600 } })
+    const gate = W.offices[0]!.gates[0]!
+    const c = buildCandidate([a], [0], 'v-sedan', 'd-fresh', W, RP)
+
+    const legGateHome = RP.route(gate.at, a.pickupAt).minutes
+    const boardAtGate = boardingMinutes(1, a.seatsUsed)
+    const expected = T0 + (legGateHome + boardAtGate) * MIN
+
+    expect(c.pickupTimes['ta']).toBe(expected)
+    expect(c.pickupTimes['ta']! - T0).toBeGreaterThan(MIN)
+  })
+
+  it('`start` is anchored to `ordered`, not a superset `trips` array (Finding 4)', () => {
+    // An outlying trip NOT in `order` has an earlier window than the two
+    // real candidate members. If `start` were pulled from the full `trips`
+    // array, both real trips' pickupTimes would shift 30 real minutes early.
+    const outlier = makeTrip({ id: 'outlier', windows: [[T0 - 30 * MIN, T0 - 20 * MIN]] })
+    const a = makeTrip({ id: 'ta', employeeIds: ['e1'] })
+    const b = makeTrip({ id: 'tb', employeeIds: ['e2'], pickupAt: { lat: 12.940, lng: 77.610 } })
+    const trips = [outlier, a, b]
+    const c = buildCandidate(trips, [1, 2], 'v-sedan', 'd-fresh', W, RP)
+
+    expect(c.pickupTimes['ta']).toBe(T0) // NOT T0 - 30min
+  })
+})
+
+describe('buildCandidate — walk/aggregate identity (Finding 2 fix)', () => {
+  it('c.minutes equals the sum of per-stop boarding charges from the same walk, by construction', () => {
+    // Two distinct home stops: (a,b) coincide at one address, c is elsewhere.
+    // The aggregate uses ONE boardingMinutes(distinctStops=2, totalPax=4) call;
+    // the walk charges boardingMinutes(1, seatsAtStop) once per stop. These
+    // MUST agree -- boardingMinutes is linear in stops and pax separately, so
+    // distinctStops*setup + totalPax*service telescopes to the same total
+    // either way IF (and only if) both paths agree on what "one stop" is.
+    const a = makeTrip({ id: 'ta', employeeIds: ['e1'], seatsUsed: 1 })
+    const b = makeTrip({ id: 'tb', employeeIds: ['e2'], seatsUsed: 1, pickupAt: a.pickupAt })
+    const cc = makeTrip({ id: 'tc', employeeIds: ['e3'], seatsUsed: 2, pickupAt: { lat: 12.941, lng: 77.617 } })
+    const c = buildCandidate([a, b, cc], [0, 1, 2], 'v-sedan', 'd-fresh', W, RP)
+
+    const gate = W.offices[0]!.gates[0]!
+    const legStop0Stop1 = RP.route(a.pickupAt, cc.pickupAt).minutes // (a,b) -> c
+    const legStop1Gate = RP.route(cc.pickupAt, gate.at).minutes
+
+    const walkTotal =
+      legStop0Stop1 + boardingMinutes(1, 2) /* stop 0: a+b, 2 pax */ +
+      legStop1Gate + boardingMinutes(1, 2) /* stop 1: c, 2 pax */
+
+    const distinctStops = 2
+    const totalPax = 1 + 1 + 2
+    const aggregateForm = legStop0Stop1 + legStop1Gate + boardingMinutes(distinctStops, totalPax)
+
+    expect(c.minutes).toBeCloseTo(walkTotal, 9)
+    expect(c.minutes).toBeCloseTo(aggregateForm, 9)
+    expect(walkTotal).toBeCloseTo(aggregateForm, 9) // the identity itself
+  })
+})
+
+describe('buildCandidate x time-window policy (integration)', () => {
+  it('a real buildCandidate output, fed into the real time-window policy, passes for a window that genuinely accommodates it', () => {
+    // b's real pickup is ~16 real minutes after group start (see the
+    // pickupTimes VALUE tests above for the exact figure) -- give it a
+    // window that comfortably covers that, and a-checked window at T0.
+    const a = makeTrip({ id: 'ta', employeeIds: ['e1'], pickupAt: { lat: 12.950, lng: 77.600 } })
+    const b = makeTrip({
+      id: 'tb', employeeIds: ['e2'], pickupAt: { lat: 12.930, lng: 77.630 },
+      windows: [[T0, T0 + 30 * MIN]],
+    })
+    const c = buildCandidate([a, b], [0, 1], 'v-sedan', 'd-fresh', W, RP)
+
+    const verdict = timeWindow(c, W, makeCtx())
+    expect(verdict.status).toBe('pass')
+    expect(verdict.reason).toBe('All pickups inside their windows')
   })
 })
