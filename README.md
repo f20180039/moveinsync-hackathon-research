@@ -105,6 +105,33 @@ cd console && nvm use && npm test     # Node 22 — the global default is 18 and
 
 Add `SIGNALDESK_DATA=../data/real` to run the data tests against the full dataset.
 
+## Cost and latency, measured
+
+Criterion 2 names inference cost, latency and efficiency at enterprise volumes.
+All three are measured on this machine against the full dataset and shown live in
+the console's cost panel (`GET /api/cost`), not asserted here.
+
+One sweep over **3.44M rows across five feeds** (615k trips, 1.6M rider legs,
+621k bill lines, 513k ratings, 52k alerts), 2026-08-01, producing 380 findings:
+
+| | Measured |
+|---|---|
+| Ingest, all five feeds into DuckDB | **6.99 s** |
+| Metric query (n=1,826) | **p50 14.7 ms · p95 118 ms · max 665 ms** |
+| Full sweep, end to end | **109 s** |
+| Model calls per brief | **1** (2 if the first truncates) — flat in data volume |
+
+The p95 is what the DuckDB choice was argued on. A managed query service with a
+~2 s floor per query would spend **over an hour** on the same 1,826 queries that
+run here in under two minutes — and that is the honest comparison, not a
+sub-millisecond number nobody measured. The 665 ms max is a real observation
+too: it is the widest slice on the largest feed, and it is reported rather than
+trimmed.
+
+`LatencyMeter.measure` records in a `finally`, so a query that *raises* still
+lands in the sample. A meter that drops failures silently excludes exactly the
+slow population worth knowing about.
+
 ## Data
 
 `docs/real-dataset-mapping.md` documents what the five feeds actually contain and
@@ -122,7 +149,34 @@ console/              the React console
 docs/                 architecture, design spec, build plan, dataset mapping, judge review
 handoff/              per-lane build briefs and the frozen API fixture (fake-findings.json)
 data/sample/          committed 3.5 MB stratified sample; data/real/ is the full dataset (git-ignored)
+trigger/              the daily shift-planning agent (see "Two agents, one spine" below)
 scripts/              environment and setup helpers
+```
+
+## Two agents, one spine
+
+Two agents ship in this repo. They are not two copies of a pipeline — the second
+reuses the first's ingest, delivery and model config unchanged, which is the
+architecture claim in `docs/architecture.md` made concrete rather than asserted.
+
+| | `service/signaldesk/` — **Signal Desk** | `trigger/` — **daily shift planning** |
+|---|---|---|
+| Senses | a weekly window over five feeds | the day's ride history |
+| Reasons | pure rules → ranked findings against trend/target/peer | a forecast → a shift plan, written by LangChain |
+| Acts | brief routed by severity to Slack + SES | the plan delivered to the transport manager in Slack |
+| Surface | the React console, and 18 HTTP endpoints | scheduled; `python -m trigger.run_daily` to watch it fire |
+
+What the second one **does not** contain is the point: no second Slack
+integration, no second loader, no second definition of "on time". It imports
+`ingest.load_all`, `delivery.slack_send`, `model.BASE_URL` and
+`constants.ON_TIME_GRACE_MIN` from the service, so a fix to the tolerant ingest
+or a change of model endpoint carries to both. `trigger/README.md` records that
+reuse table line by line.
+
+```sh
+python -m trigger.selftest                 # 12 checks, no network, no post
+python -m trigger.run_daily --dry-run      # full run: prints the plan, posts nothing
+python -m trigger.run_daily                # full run, posts to Slack
 ```
 
 ## Deploy (Render)
