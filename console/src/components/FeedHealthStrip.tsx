@@ -1,5 +1,5 @@
 import type { FeedHealth } from '../api/types.ts'
-import { shouldDiscloseConfidence } from '../api/types.ts'
+import { shouldFlagFeed } from '../api/types.ts'
 
 // A row we could not read is a finding, not a log line -- quarantined and
 // unmatched counts are numbers on screen, never a tooltip.
@@ -18,12 +18,15 @@ export function FeedHealthStrip({ feeds }: { feeds: FeedHealth[] }) {
       </thead>
       <tbody>
         {feeds.map((feed) => {
-          const flagged = shouldDiscloseConfidence(feed.confidence)
+          const flagged = shouldFlagFeed(feed)
           return (
             <tr key={feed.feed} className={flagged ? 'feed-health-strip__row--flagged' : undefined}>
               <th scope="row">{feed.feed}</th>
               <td>{feed.rowsLoaded}</td>
-              <td className={feed.rowsRejected > 0 ? 'feed-health-strip__quarantined' : undefined}>
+              <td
+                data-testid="quarantined-count"
+                className={feed.rowsRejected > 0 ? 'feed-health-strip__quarantined' : undefined}
+              >
                 {feed.rowsRejected}
               </td>
               <td>{feed.unmatchedKeys}</td>

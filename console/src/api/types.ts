@@ -53,6 +53,7 @@ export interface FeedHealth {
   unmatchedKeys: number
   nullCriticalFields: number
   confidence: number
+  mustBeDisclosed: boolean
 }
 
 export type Audience = 'TRANSPORT_MANAGER' | 'FACILITIES_HEAD' | 'LINE_MANAGER'
@@ -137,6 +138,14 @@ export const CONFIDENCE_DISCLOSURE_THRESHOLD = 0.9
 
 export function shouldDiscloseConfidence(confidence: number): boolean {
   return confidence < CONFIDENCE_DISCLOSURE_THRESHOLD
+}
+
+// A feed is flagged when confidence is low OR the server says so directly
+// via `mustBeDisclosed` -- ORed so a server-side disclosure reason (e.g. a
+// data-quality issue that doesn't show up as low confidence) can never be
+// silently hidden just because the confidence number alone looks fine.
+export function shouldFlagFeed(feed: Pick<FeedHealth, 'confidence' | 'mustBeDisclosed'>): boolean {
+  return shouldDiscloseConfidence(feed.confidence) || feed.mustBeDisclosed
 }
 
 // "%" reads fine glued to the number ("59.1%"); every other unit
