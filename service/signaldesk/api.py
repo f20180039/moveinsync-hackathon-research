@@ -185,6 +185,23 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             _not_found("run", run_id)
         return _run_to_json(run)
 
+    @app.get("/api/runs/{run_id}/safety")
+    def get_run_safety(run_id: str):
+        # Controller ruling (marshal follow-up): the sharpest safety finding
+        # in the dataset -- how many trips carried a WOMAN_TRAVELLING_ALONE
+        # alert this window, and what fraction of those had an escort
+        # present -- as its own small endpoint the console's Data health
+        # page can show, rather than requiring a reader to find it inside
+        # marshal_compliance's own decomposition.
+        run = STORE.get(run_id)
+        if run is None:
+            _not_found("run", run_id)
+        return {
+            "runId": run.run_id,
+            "womanTravellingAloneAlerts": run.safety_alert_count,
+            "escortPresentPct": round(run.safety_alert_escort_pct, 1),
+        }
+
     @app.get("/api/findings/{finding_id}")
     def get_finding(finding_id: str):
         f = STORE.finding(finding_id)

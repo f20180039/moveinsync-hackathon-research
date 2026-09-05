@@ -201,14 +201,18 @@ def test_the_tier_distribution_is_printed_for_calibration(con_and_health):
     assert set(counts) == {"PASS", "WATCH", "CONCERN", "BREACH"}
 
 
-def test_the_degrading_vendor_appears_as_a_concern_or_worse(con_and_health):
-    # On data/sample: the worst vendor by raw vendor_ota reaches CONCERN or
-    # worse. This is NOT tuned to guarantee a BREACH on the sample -- if the
-    # sample's worst vendor only ever reached CONCERN, that would be what the
-    # sample is (a small, less extreme slice of the real fleet). MEASURED:
-    # it reaches BREACH here (Amit Volkov Travel / Pooja Sokolov Travel, both
-    # 0.00% observed in this slice), and separately 10 of the sample's
-    # vendor_ota findings are CONCERN-or-worse.
+def test_the_degrading_vendor_appears_as_a_watch_or_worse(con_and_health):
+    # RE-MEASURED after the on-time redefinition (constants.py's
+    # ON_TIME_GRACE_MIN comment): on-time rates jumped from ~59% to ~90%+ on
+    # data/sample once on-time reads MoveInSync's own delay_minutes instead
+    # of an actual_at-vs-planned_end_at comparison. The sample's worst
+    # vendor_ota vendor no longer reaches CONCERN at all -- MEASURED: Arjun
+    # Mikhailov Travel, 90.91% (TREND 100.0%, PEER 96.67%), WATCH via
+    # TREND_REGRESSION. Reported to the controller rather than retuned: real
+    # data (larger, more extreme) still produces CONCERN+ for this metric
+    # (see the real-data test group below) -- the SAMPLE simply no longer
+    # has an extreme-enough vendor to reach it, which is what the sample is,
+    # not a bug in the bands.
     con, health = con_and_health
     window = sweep.Window(CLOCK_MS - 7 * 86_400_000, CLOCK_MS)
     metric = registry.by_id("vendor_ota")
@@ -226,26 +230,27 @@ def test_the_degrading_vendor_appears_as_a_concern_or_worse(con_and_health):
         feed_confidence=health[metric.source].confidence)
 
     assert finding is not None
-    assert finding.tier >= Tier.CONCERN, (
+    assert finding.tier >= Tier.WATCH, (
         f"worst vendor {worst_vendor} ({worst_value:.2f}%) is only {finding.tier.name}")
 
 
-def test_at_least_one_vendor_ota_finding_is_concern_or_worse_on_the_sample(con_and_health):
+def test_at_least_one_vendor_ota_finding_is_watch_or_worse_on_the_sample(con_and_health):
     # Fix round 1 (Task 5 review): the golden BREACH-count assertion moved to
     # data/real below, since data/sample is too small to measure a band
-    # against honestly. This weaker, sample-side check stays: >=1 vendor_ota
-    # finding at CONCERN-or-worse, which the brief's criterion (b) actually
-    # needs for the demo to have something to show even when only the sample
-    # is available. MEASURED: 10 of the sample's vendor_ota findings qualify.
+    # against honestly. RE-MEASURED after the on-time redefinition: the
+    # sample no longer produces a CONCERN-or-worse vendor_ota finding at all
+    # (see the test above) -- this check is correspondingly WATCH-or-worse
+    # now, still >=1, still what the brief's criterion (b) needs for the demo
+    # to have something to show even when only the sample is available.
     con, health = con_and_health
     run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
 
-    vendor_concern_or_worse = [
+    vendor_watch_or_worse = [
         f for f in run.findings
         if f.metric_id == "vendor_ota" and f.slice.dim is Dimension.VENDOR
-        and f.tier >= Tier.CONCERN]
-    assert len(vendor_concern_or_worse) >= 1, \
-        "at least one vendor_ota finding must be CONCERN-or-worse on the sample"
+        and f.tier >= Tier.WATCH]
+    assert len(vendor_watch_or_worse) >= 1, \
+        "at least one vendor_ota finding must be WATCH-or-worse on the sample"
 
 
 # Fix round 1 (Task 5 review): this is now the ONLY BREACH-count assertion,
@@ -292,6 +297,36 @@ def test_breach_count_at_overall_and_vendor_level_stays_within_the_measured_ceil
         f"got {len(overall_vendor_breaches)} overall+vendor BREACH findings (soft-banded metrics "
         f"only) on {REAL_DATA}; expected 1..{BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL} "
         f"(the ceiling measured against data/real -- see constants.py's BANDS comment)")
+
+
+def test_real_data_still_produces_concern_or_worse_on_time_findings_after_the_redefinition():
+    # On-time redefinition sanity check: data/sample's worst vendor_ota
+    # vendor no longer reaches CONCERN at all (see the two WATCH-or-worse
+    # tests above) -- confirm the real dataset still does, so "HIGHER bands
+    # produce zero BREACH on real data" (the condition that would need a
+    # controller recalibration ruling) is NOT what happened. RE-MEASURED:
+    # Pooja Sokolov Travel is BREACH on BOTH ota (20.65%, gap 71.78) and
+    # vendor_ota (20.65%, gap 75.30) -- the same vendor, the same tier, as
+    # before the redefinition -- a genuinely, persistently bad vendor
+    # regardless of which on-time definition is used.
+    if not pathlib.Path(REAL_DATA).is_dir():
+        pytest.skip(f"no dataset at {REAL_DATA} (set SIGNALDESK_REAL_DATA to point at data/real)")
+
+    con = duckdb.connect()
+    try:
+        health = ingest.load_all(con, ingest.source_for(REAL_DATA))
+        clock_ms = _midnight_plus_one_day(ingest.latest_scheduled_ms(con))
+        run = sweep.sweep(con, sweep.Clock(clock_ms), health)
+    finally:
+        con.close()
+        registry.clear_cache()
+
+    for mid in ("ota", "vendor_ota"):
+        concern_or_worse = [
+            f for f in run.findings
+            if f.metric_id == mid and f.slice.dim in (Dimension.NONE, Dimension.VENDOR)
+            and f.tier >= Tier.CONCERN]
+        assert concern_or_worse, f"{mid} must still produce a CONCERN+ overall/vendor finding on real data"
 
 
 # Task 11: marshal_compliance's OWN overall+vendor BREACH count, measured and

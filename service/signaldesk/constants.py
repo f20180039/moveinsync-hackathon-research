@@ -4,7 +4,30 @@ One place, so the real dataset can move them in one edit at 10:30.
 """
 
 # Deviation 4: the spec names on-time arrival and SLA breach but defines neither.
-ON_TIME_GRACE_MS = 5 * 60_000
+#
+# SUPERSEDED (fix-wave, controller data probe 2026-09-05): on-time used to be
+# "actual_at <= planned_end_at + grace" (an end-time comparison we invented).
+# MoveInSync's own delay_minutes column disagrees with that read on real
+# data: 281,977 of 555,237 NODELAY trips (delay_minutes = 0 exactly) finish
+# more than 5 minutes after planned_end_at anyway (avg slip 8.3 min) --
+# planned-end vs actual-end is simply not how they measure delay. Measured
+# on data/real, LOGIN trips: our end-time definition 59.0% on-time; MoveInSync's
+# own delay_minutes <= 5 90.2%; delay_reason = 'NODELAY' 85.2% (a coarser
+# read of the same underlying measurement, since delay_reason's precedence
+# cascade is checked to a different, undocumented grace). The PDF's own
+# worked example is "OTA is 78% ... SLA is 90%" -- 90.2% is the only one of
+# the three that lands anywhere near that story. On-time is now
+# `coalesce(delay_minutes, 0) <= ON_TIME_GRACE_MIN`, in MINUTES, checked
+# directly against MoveInSync's own measurement -- not milliseconds against
+# an end-time gap we derived ourselves. planned_end_at/actual_at stay on the
+# trips view for the evidence panel; they are simply no longer what ota/otd/
+# vendor_ota's own SQL reads. See docs/real-dataset-mapping.md §10b.
+# Controller ruling: on data/sample the on-time metrics (ota/otd/vendor_ota)
+# top out at WATCH under this delay_minutes definition -- the sample's
+# four-tier mix comes from no_show_rate and marshal_compliance instead; real
+# data keeps CONCERN/BREACH on ota/vendor_ota (Pooja Sokolov Travel BREACHes
+# on both). BANDS below are unchanged and untouched by this redefinition.
+ON_TIME_GRACE_MIN = 5
 SLA_BREACH_MS = 15 * 60_000
 
 # Deviation 8: epoch ms are absolute; "night trip" is local.

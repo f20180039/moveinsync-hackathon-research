@@ -16,24 +16,25 @@ import duckdb
 from . import constants as C
 from .schemas import Dimension, Direction, Metric, ReferenceKind, Slice, Window
 
-# OTA/OTD compare actual_at against planned_end_at, not scheduled_at
-# (scheduled_at is when the trip was PLANNED TO START; planned_end_at is when
-# it was planned to finish, which is what "on time" means for both an arrival
-# and a departure). The window predicate stays on scheduled_at -- that is what
-# places the trip IN the week being swept, independent of whether it ran on
-# time.
+# On-time reads MoveInSync's own delay_minutes column (fix-wave, superseding
+# the original actual_at-vs-planned_end_at end-time comparison -- see
+# constants.py's ON_TIME_GRACE_MIN comment for the full measurement). The
+# window predicate stays on scheduled_at -- that is what places the trip IN
+# the week being swept, independent of whether it ran on time. n is trips
+# with a non-null delay_minutes; the coalesce inside the CASE is a defensive
+# no-op given that WHERE clause, kept because it is the literal ruling.
 #
 # __DIRECTION__ is a plain-Python placeholder, substituted once at import time
 # below -- not a SQL token, and never touched per-call. ota is LOGIN, otd is
 # LOGOUT (MoveInSync's own vocabulary: two named metrics, not one metric
 # sliced by direction), vendor_ota carries neither filter.
 _ON_TIME_BASE = f"""
-SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.planned_end_at + {C.ON_TIME_GRACE_MS} THEN 1 ELSE 0 END)
+SELECT 100.0 * sum(CASE WHEN coalesce(t.delay_minutes, 0) <= {C.ON_TIME_GRACE_MIN} THEN 1 ELSE 0 END)
        / nullif(count(*), 0),
        count(*) AS n
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
+  AND t.delay_minutes IS NOT NULL
   __DIRECTION__
   {{{{SLICE}}}}
 """
@@ -88,12 +89,47 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 # by the trip's own traveled_km instead keeps every slab-billed rupee in the
 # numerator with an honest, non-zero denominator, and generalises to every
 # contract type rather than special-casing slab contracts by name.
+# Opus review (whole-branch, second pass): `bill JOIN trips ON trip_id` fans
+# out on BOTH sides -- bill can carry more than one line per trip (e.g. a
+# slab charge plus a surcharge: 620,942 bill rows over 613,783 distinct trip
+# ids on data/real) and trips itself carries duplicate trip_id rows (615,524
+# rows over 608,771 distinct). A naive join multiplies cost AND distance
+# inconsistently -- MEASURED (data/real, full dataset, naive
+# `bill JOIN trips` with no window/slice): Rs 86.48/km, exactly matching the
+# reviewer's own probe. The fixed (aggregate-then-join) value on this same
+# unsliced full-dataset scope measures Rs 87.88/km here (Rs 88.68/km on the
+# one late-July week the rest of this file's comments use as their standard
+# window) -- in the same ballpark as the reviewer's own Rs 89.81/km but not
+# an exact match, most likely from a difference in window/aggregation scope
+# rather than a further bug; not forced to match, since the naive number
+# above already independently confirms the same starting point. Fixed by
+# aggregating each side to ONE ROW PER trip_id before joining: bill
+# lines sum to one cost per trip; trips collapse via max(traveled_km) (the
+# real distance does not change across a duplicate trip_id row) and
+# any_value(...) for every column a slice could bind on, so a duplicate row
+# does not inflate the joined count either. `n` = joined trips (never
+# joined bill lines).
+# ROUND to 6dp: the two-level GROUP BY/SUM below is otherwise observed to
+# differ in the ~13th significant digit between two runs over the IDENTICAL
+# data (DuckDB's parallel hash aggregation sums floats in a scheduling-
+# dependent order) -- invisible at the 2dp this ever displays at, but a real
+# violation of "same clock, same dataset -> byte-identical findings"
+# (sweep.py's own determinism contract) if left unrounded.
 _COST_PER_KM_SQL = """
-SELECT sum(b.trip_cost) / nullif(sum(t.traveled_km), 0),
+SELECT ROUND(sum(b.c) / nullif(sum(t.km), 0), 6),
        count(*) AS n
-FROM bill b JOIN trips t ON t.trip_id = b.trip_id
-WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND t.traveled_km IS NOT NULL AND t.traveled_km > 0
+FROM (SELECT trip_id, sum(trip_cost) AS c FROM bill GROUP BY trip_id) b
+JOIN (
+    SELECT trip_id, max(traveled_km) AS km,
+           any_value(vendor_id) AS vendor_id, any_value(site_id) AS site_id,
+           any_value(business_unit) AS business_unit, any_value(mode) AS mode,
+           any_value(trip_direction) AS trip_direction, any_value(shift_band) AS shift_band
+    FROM trips
+    WHERE scheduled_at >= ? AND scheduled_at < ?
+      AND traveled_km IS NOT NULL AND traveled_km > 0
+    GROUP BY trip_id
+) t USING (trip_id)
+WHERE 1 = 1
   {{SLICE}}
 """
 
@@ -128,13 +164,13 @@ METRICS: tuple[Metric, ...] = (
     # ota is first deliberately: it is the metric a judge reads first.
     Metric("ota", "On-time arrival", "%", Direction.HIGHER, _OTA_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at"), dims=_DIMS_EXCEPT_DIRECTION),
+           ("delay_minutes",), dims=_DIMS_EXCEPT_DIRECTION),
     # OTA is On-Time ARRIVAL (LOGIN trips); OTD is On-Time DEPARTURE (LOGOUT
     # trips). Two named metrics in MoveInSync's own vocabulary, not one metric
     # sliced by direction.
     Metric("otd", "On-time departure", "%", Direction.HIGHER, _OTD_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at"), dims=_DIMS_EXCEPT_DIRECTION),
+           ("delay_minutes",), dims=_DIMS_EXCEPT_DIRECTION),
     # Fix-wave I3: restricted to VENDOR only -- that is the one slice this
     # metric exists to answer ("vendor on-time share"); sliced any other way
     # it duplicates the same question under a mislabelled subject
@@ -142,7 +178,7 @@ METRICS: tuple[Metric, ...] = (
     # vendor, but names a shift).
     Metric("vendor_ota", "Vendor on-time share", "%", Direction.HIGHER,
            _VENDOR_OTA_SQL, (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at", "vendor_id"), dims=(Dimension.VENDOR,)),
+           ("delay_minutes", "vendor_id"), dims=(Dimension.VENDOR,)),
     Metric("no_show_rate", "No-show rate", "%", Direction.LOWER, _NO_SHOW_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
            ("noshow_cnt", "plannedemployee_cnt")),
@@ -337,17 +373,25 @@ def distinct_values(con, dim: Dimension, window: Window) -> list[str]:
 #
 # Fix-wave (Task 8 review, Important): NULL is kept IN, not filtered out. A
 # late trip whose delay_reason was never classified is still a late trip --
-# excluding `delay_reason IS NOT NULL` silently shrank total_late, which
-# contradicted this module's own fold-into-"(other)" promise (a NULL
-# reason is exactly the kind of thing that promise exists for). GROUP BY
-# gives a NULL its own row here; decompose.py folds it into "(other)"
-# unconditionally, the same place a below-floor reason already goes.
-_DELAY_REASON_SQL = """
+# excluding it silently shrank total_late, which contradicted this module's
+# own fold-into-"(other)" promise (a NULL reason is exactly the kind of
+# thing that promise exists for). GROUP BY gives a NULL its own row here;
+# decompose.py folds it into "(other)" unconditionally, the same place a
+# below-floor reason already goes.
+#
+# Fix-wave (on-time redefinition): "late" is now the SAME predicate the
+# on-time metrics themselves use -- delay_minutes > ON_TIME_GRACE_MIN --
+# not `delay_reason <> 'NODELAY'`. This resolves a definition mismatch a
+# NODELAY trip always has delay_minutes = 0 (so it never qualifies as late
+# either way), but a TRAFFIC/DRIVER/EMPLOYEE trip with delay_minutes inside
+# the grace window (>=1 but <= ON_TIME_GRACE_MIN) is now correctly excluded
+# from "late" here too, exactly as it is not "late" for ota/otd/vendor_ota.
+_DELAY_REASON_SQL = f"""
 SELECT delay_reason, count(*) AS trips, avg(CAST(delay_minutes AS DOUBLE)) AS avg_delay_min
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND (delay_reason IS NULL OR delay_reason <> 'NODELAY')
-  {{SLICE}}
+  AND coalesce(delay_minutes, 0) > {C.ON_TIME_GRACE_MIN}
+  {{{{SLICE}}}}
 GROUP BY delay_reason
 ORDER BY trips DESC
 """
@@ -365,6 +409,34 @@ def delay_reason_breakdown(con, slc: "Slice | tuple[Slice, ...]",
     are the only modules that query raw tables)."""
     rows = con.execute(_with_slice(_DELAY_REASON_SQL, slc), _params(slc, window)).fetchall()
     return [(r[0], int(r[1]), float(r[2]) if r[2] is not None else 0.0) for r in rows]
+
+
+# Controller ruling (marshal follow-up): the sharpest safety finding in the
+# dataset, exposed as its own small summary rather than requiring a console
+# reader to find it inside marshal_compliance's own decomposition. One row
+# per trip (EXISTS, not a join on alerts -- a trip could carry more than one
+# WOMAN_TRAVELLING_ALONE alert and must still count once), matching
+# marshal_population's own trip-level pattern.
+_SAFETY_ALERT_SQL = """
+SELECT count(*),
+       100.0 * sum(CASE WHEN actual_escort THEN 1 ELSE 0 END) / nullif(count(*), 0)
+FROM trips t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND EXISTS (SELECT 1 FROM alerts a
+              WHERE a.trip_id = t.trip_id AND a.event_type = 'WOMAN_TRAVELLING_ALONE')
+"""
+
+
+def safety_alert_summary(con, window: Window) -> tuple[int, float]:
+    """(n trips this window carrying a WOMAN_TRAVELLING_ALONE alert, pct of
+    those with an escort present). Computed once per sweep (sweep.py attaches
+    it to SweepRun) rather than per brief/route -- the same reasoning as
+    Finding.owns."""
+    row = con.execute(_SAFETY_ALERT_SQL, [window.start_ms, window.end_ms]).fetchone()
+    n = int(row[0]) if row and row[0] is not None else 0
+    if n == 0:
+        return 0, 0.0
+    return n, float(row[1]) if row[1] is not None else 0.0
 
 
 def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:

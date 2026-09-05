@@ -30,12 +30,25 @@ _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # Fix-wave C1: the old pattern (`-?\d+\.\d+`, decimals only) let a fabricated
 # INTEGER slip straight past validation -- "On-time arrival is 78%, against a
 # peer median of 91%" contains no decimal point at all, so the old regex
-# never even looked at "78" or "91". The first alternative below additionally
-# catches a bare integer (or decimal) immediately followed by a unit (%, INR,
-# Rs, ₹) -- exactly the shape a metric claim takes -- while a bare count like
-# "8 findings" or "4 weeks" still matches neither alternative and stays
-# exempt, since it carries no unit and no decimal point.
-_DECIMAL = re.compile(r"-?\d+(?:\.\d+)?(?=\s*%|\s*(?:INR|₹|Rs\.?))|-?\d+\.\d+")
+# never even looked at "78" or "91". The `suffix_num` alternative catches a
+# bare integer (or decimal) immediately followed by a unit (%, INR, Rs, ₹) --
+# exactly the shape a metric claim takes -- while a bare count like
+# "8 findings" or "4 weeks" still matches no alternative and stays exempt,
+# since it carries no unit and no decimal point.
+#
+# Opus review (whole-branch, second pass): the above only ever handled a
+# SUFFIX unit -- "78%" -- and missed a PREFIX one: "₹1,200", "Rs 1200",
+# "Rs. 1200", "INR 86" all went unchecked, and now that cost_per_km is
+# active a rupee figure is a live part of the brief. `prefix_num` adds that
+# direction. Both alternatives allow comma grouping in the digits
+# (`[\d,]*`, stripped before `float()` in the caller) -- the old pattern's
+# bare `\d+` stopped at the first comma, so "1,200%" wrongly yielded just
+# "200".
+_DECIMAL = re.compile(
+    r"(?P<suffix_num>-?\d[\d,]*(?:\.\d+)?)(?=\s*%|\s*(?:INR|₹|Rs\.?))"
+    r"|(?:%|INR|₹|Rs\.?)\s*(?P<prefix_num>-?\d[\d,]*(?:\.\d+)?)"
+    r"|(?P<bare_decimal>-?\d+\.\d+)"
+)
 
 MAX_FINDINGS_PER_BRIEF = 8
 
@@ -109,6 +122,9 @@ def validate_narrative(narrative: str, run, audience: Audience | None = None) ->
     for h in run.feed_health.values():
         values.add(h.confidence)
         values.add(h.confidence * 100)
+    if run.safety_alert_count > 0:
+        values.add(run.safety_alert_count)
+        values.add(run.safety_alert_escort_pct)
 
     top = None
     if audience is not None:
@@ -134,12 +150,14 @@ def validate_narrative(narrative: str, run, audience: Audience | None = None) ->
     allowed_1dp = {_rendered(v, 1) for v in values}
     allowed_2dp = {_rendered(v, 2) for v in values}
 
-    for raw in _DECIMAL.findall(_ISO_DATE.sub("", narrative)):
-        v = float(raw)
-        if "." not in raw:
+    for m in _DECIMAL.finditer(_ISO_DATE.sub("", narrative)):
+        raw = m.group("suffix_num") or m.group("prefix_num") or m.group("bare_decimal")
+        clean = raw.replace(",", "")
+        v = float(clean)
+        if "." not in clean:
             ok = _rendered(v, 0) in allowed_0dp
         else:
-            decimals = len(raw.split(".", 1)[1])
+            decimals = len(clean.split(".", 1)[1])
             ok = _rendered(v, 1) in allowed_1dp if decimals <= 1 else _rendered(v, 2) in allowed_2dp
         if not ok:
             return raw
@@ -164,15 +182,44 @@ def _audience_label(audience: Audience) -> str:
     return audience.value.replace("_", " ").title()
 
 
+# Controller ruling (marshal diversity): with 23/24 marshal_compliance
+# slices in BREACH and hard-target gaps of ~68 points, an unrestricted top-8
+# would be eight marshal lines -- a wall, not a brief with a "coherent cost/
+# safety/experience story". At most this many findings from any one metric.
+MAX_PER_METRIC_IN_BRIEF = 3
+
+
 def _top_findings_for(run, audience: Audience) -> list[Finding]:
     """Findings arrive already ranked worst-first (verdict.rank); this is the
     ONE cap both the template and the model's prompt share -- PASS is never
     shown, and at most MAX_FINDINGS_PER_BRIEF survive. On the real dataset an
     audience can carry 150+ findings; sending all of them to the model blew
     the token ceiling with zero prose to show for it (measured 2026-09-05,
-    see model.DEFAULT_MAX_TOKENS)."""
+    see model.DEFAULT_MAX_TOKENS).
+
+    A second cap, MAX_PER_METRIC_IN_BRIEF, keeps one dominant metric (a hard
+    target breaching almost everywhere is the obvious case, but any metric
+    could do this) from filling the whole brief on its own: at most 3
+    findings per metric_id survive, in rank order. This is a HARD ceiling,
+    not a quota backfilled from the same metric -- 20 marshal_compliance
+    BREACHes plus 3 ota CONCERNs yields 3 marshal + 3 ota (six lines, not
+    padded to eight with three more marshal lines just to hit the cap);
+    "fill from the rest" only ever means drawing on OTHER metrics that have
+    not hit their own cap yet, never re-admitting the metric that is already
+    at its ceiling.
+    """
     relevant = [f for f in run.findings if audience in f.audiences]
-    return [f for f in relevant if f.tier is not Tier.PASS][:MAX_FINDINGS_PER_BRIEF]
+    above_pass = [f for f in relevant if f.tier is not Tier.PASS]
+
+    counts: dict[str, int] = {}
+    capped: list[Finding] = []
+    for f in above_pass:
+        if len(capped) == MAX_FINDINGS_PER_BRIEF:
+            break
+        if counts.get(f.metric_id, 0) < MAX_PER_METRIC_IN_BRIEF:
+            capped.append(f)
+            counts[f.metric_id] = counts.get(f.metric_id, 0) + 1
+    return capped
 
 
 def _feed_disclosures(run) -> list[str]:
@@ -225,6 +272,21 @@ def _finding_line(f: Finding) -> str:
     return line
 
 
+_SAFETY_LINE_AUDIENCES = frozenset({Audience.FACILITIES_HEAD, Audience.TRANSPORT_MANAGER})
+
+
+def _safety_context_line(run) -> str | None:
+    """Controller ruling (marshal follow-up): the sharpest safety finding in
+    the dataset gets its own line in the brief, not just a number buried
+    inside marshal_compliance's decomposition. None when the window carried
+    no WOMAN_TRAVELLING_ALONE alert at all."""
+    if run.safety_alert_count <= 0:
+        return None
+    return (f"Safety: MoveInSync raised WOMAN_TRAVELLING_ALONE on {run.safety_alert_count} "
+           f"trips this window; an escort was present on "
+           f"{_rendered(run.safety_alert_escort_pct, 1)}%.")
+
+
 def template_brief(run, audience: Audience) -> str:
     """Deterministic prose over the ranked findings for `audience`. Findings
     arrive already ranked worst-first (verdict.rank); this only filters,
@@ -243,6 +305,10 @@ def template_brief(run, audience: Audience) -> str:
     disclosures = _feed_disclosures(run)
     if disclosures:
         context += " " + "; ".join(disclosures)
+    if audience in _SAFETY_LINE_AUDIENCES:
+        safety_line = _safety_context_line(run)
+        if safety_line:
+            context += " " + safety_line
 
     above_pass = _top_findings_for(run, audience)
 

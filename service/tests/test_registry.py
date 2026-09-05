@@ -313,41 +313,112 @@ def test_cost_per_km_divides_by_traveled_km_and_keeps_slab_billed_rows(con):
     # Dividing by t.traveled_km instead (the trip's own real distance, on the
     # trips feed, present even for a slab-billed trip) keeps that spend in
     # the numerator with an honest, non-zero denominator.
+    #
+    # The independent check below counts DISTINCT trip_id, not raw joined
+    # rows -- a plain `bill JOIN trips ON trip_id` fans out on both sides
+    # (Opus review, second pass) and would itself misreport n; independent
+    # verification of the real metric's own per-trip aggregation is the
+    # synthetic test right below this one.
     metric = registry.by_id("cost_per_km")
     value, n = registry.evaluate_with_n(con, metric, Slice.all(), WINDOW)
     assert isinstance(value, float)
 
-    (included_rows,) = con.execute(
-        "SELECT count(*) FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
+    (included_trips,) = con.execute(
+        "SELECT count(DISTINCT t.trip_id) FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
         "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
         "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0",
         [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
-    assert n == included_rows
+    assert n == included_trips
 
-    (independent_value,) = con.execute(
-        "SELECT sum(b.trip_cost) / nullif(sum(t.traveled_km), 0) "
-        "FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
-        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
-        "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0",
+    # The property that actually matters: a slab-billed trip (total_trip_km
+    # <= 0 on EVERY one of its bill lines) with a real traveled_km must
+    # still be COUNTED, not dropped.
+    (slab_trips_included,) = con.execute(
+        """SELECT count(DISTINCT t.trip_id) FROM trips t
+           WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+             AND t.traveled_km IS NOT NULL AND t.traveled_km > 0
+             AND EXISTS (SELECT 1 FROM bill b WHERE b.trip_id = t.trip_id)
+             AND NOT EXISTS (SELECT 1 FROM bill b
+                             WHERE b.trip_id = t.trip_id
+                               AND b.total_trip_km IS NOT NULL AND b.total_trip_km > 0)""",
         [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
-    assert value == pytest.approx(independent_value)
+    assert slab_trips_included > 0, (
+        "fixture assumption: at least one slab-billed trip with a real traveled_km exists")
+    assert slab_trips_included < n, "slab-billed trips must be a subset, not all of n"
 
-    # The property that actually matters: a slab-billed row (total_trip_km
-    # <= 0) with a real traveled_km must still be COUNTED, not dropped.
-    (slab_rows_included,) = con.execute(
-        "SELECT count(*) FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
-        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
-        "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0 "
-        "AND (b.total_trip_km IS NULL OR b.total_trip_km <= 0)",
-        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
-    assert slab_rows_included > 0, (
-        "fixture assumption: at least one slab-billed (total_trip_km<=0) row "
-        "with a real traveled_km exists")
-    assert slab_rows_included < n, "slab-billed rows must be a subset, not all of n"
+
+def test_cost_per_km_counts_a_trips_distance_once_despite_multiple_bill_lines():
+    # Opus review, second pass: bill can carry more than one line per trip
+    # (a slab charge plus a surcharge, say) and trips itself carries
+    # duplicate trip_id rows on data/real -- a naive join multiplies BOTH
+    # sides (measured: Rs 86.48/km naive vs the correct Rs ~88/km). A tiny,
+    # fully-controlled synthetic dataset proves the fix directly: one trip,
+    # two bill lines (500 + 300), traveled_km = 10 must be counted ONCE, not
+    # twice.
+    syn = duckdb.connect()
+    syn.execute("""
+        CREATE TABLE trips (
+            trip_id BIGINT, scheduled_at BIGINT, traveled_km DOUBLE,
+            vendor_id VARCHAR, site_id VARCHAR, business_unit VARCHAR,
+            mode VARCHAR, trip_direction VARCHAR, shift_band VARCHAR
+        )
+    """)
+    syn.execute("CREATE TABLE bill (trip_id BIGINT, trip_cost DOUBLE)")
+    syn.execute("INSERT INTO trips VALUES (1, 500, 10.0, 'V', 'S', 'BU', 'CAB', 'LOGIN', 'DAY')")
+    syn.execute("INSERT INTO bill VALUES (1, 500.0), (1, 300.0)")
+
+    metric = registry.by_id("cost_per_km")
+    value, n = registry.evaluate_with_n(syn, metric, Slice.all(), Window(0, 1000))
+    assert n == 1, "one trip must count as one row, not fan out across its two bill lines"
+    assert value == pytest.approx((500.0 + 300.0) / 10.0)
+    syn.close()
+    registry.clear_cache()
 
 
 def test_cost_per_km_unit_is_inr_per_km(con):
     assert registry.by_id("cost_per_km").unit == "INR/km"
+
+
+# ---------------------------------------------------------------------------
+# On-time redefinition: delay_reason_breakdown's "late" population is now
+# the SAME predicate ota/otd/vendor_ota use for "not on time".
+# ---------------------------------------------------------------------------
+
+def test_delay_reason_breakdown_total_matches_the_independent_delay_minutes_count(con):
+    breakdown = registry.delay_reason_breakdown(con, Slice.all(), WINDOW)
+    total_late = sum(n for _, n, _ in breakdown)
+
+    (independent_late,) = con.execute(
+        "SELECT count(*) FROM trips t WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND coalesce(t.delay_minutes, 0) > ?",
+        [WINDOW.start_ms, WINDOW.end_ms, C.ON_TIME_GRACE_MIN]).fetchone()
+    assert total_late == independent_late
+    assert total_late > 0, "fixture assumption: at least one late trip exists over the wide window"
+
+
+def test_safety_alert_summary_matches_an_independent_count(con):
+    n, pct = registry.safety_alert_summary(con, WINDOW)
+    assert isinstance(n, int) and n >= 0
+    assert isinstance(pct, float)
+
+    (independent_n,) = con.execute(
+        "SELECT count(*) FROM trips t WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND EXISTS (SELECT 1 FROM alerts a WHERE a.trip_id = t.trip_id "
+        "AND a.event_type = 'WOMAN_TRAVELLING_ALONE')",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert n == independent_n
+    assert n > 0, "fixture assumption: at least one WOMAN_TRAVELLING_ALONE alert exists"
+
+
+def test_safety_alert_summary_is_zero_when_no_alert_fired():
+    con = duckdb.connect()
+    con.execute("CREATE TABLE trips (trip_id BIGINT, scheduled_at BIGINT, actual_escort BOOLEAN)")
+    con.execute("CREATE TABLE alerts (trip_id BIGINT, event_type VARCHAR)")
+    con.execute("INSERT INTO trips VALUES (1, 500, false)")
+    n, pct = registry.safety_alert_summary(con, Window(0, 1000))
+    assert n == 0
+    assert pct == 0.0
+    con.close()
 
 
 # ---------------------------------------------------------------------------

@@ -103,6 +103,12 @@ class SweepRun:
     # carry the real span; this is what the console shows as the toggle
     # state and what a re-opened run reports about itself.
     window_kind: str = "week"
+    # Controller ruling (marshal follow-up): computed once per sweep via
+    # registry.safety_alert_summary, same reasoning as Finding.owns -- the
+    # brief and GET /api/runs/{id}/safety both read this instead of each
+    # running their own query.
+    safety_alert_count: int = 0
+    safety_alert_escort_pct: float = 0.0
 
 
 def sweep(con, clock: Clock, health: dict[str, FeedHealth],
@@ -140,7 +146,9 @@ def sweep(con, clock: Clock, health: dict[str, FeedHealth],
     # Derived from the simulated clock and the finding count, not a uuid, so a
     # rerun of the demo produces the same id and a bookmarked URL still resolves.
     run_id = f"run-{now}-{len(ranked):x}"
-    return SweepRun(run_id, window, tuple(ranked), health, now, window_kind)
+    safety_n, safety_pct = registry.safety_alert_summary(con, window)
+    return SweepRun(run_id, window, tuple(ranked), health, now, window_kind,
+                    safety_n, safety_pct)
 
 
 class Store:

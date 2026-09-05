@@ -224,7 +224,7 @@ def test_delay_reason_returns_empty_for_a_metric_that_is_not_on_time(con):
 
 
 def test_delay_reason_sums_to_the_gap_and_is_worst_first(con):
-    _insert_delay(con, "NODELAY", 50)     # excluded: on-time trips own no shortfall
+    _insert_delay(con, "NODELAY", 50, delay_minutes=0)     # excluded: on-time trips own no shortfall
     _insert_delay(con, "TRAFFIC", 20)
     _insert_delay(con, "DRIVER", 15)
     _insert_delay(con, "EMPLOYEE", 2)     # below the floor -> folded into "(other)"
@@ -244,7 +244,7 @@ def test_delay_reason_folds_unclassified_null_reasons_into_other(con):
     # to vanish from total_late entirely, contradicting the fold promise --
     # 20 TRAFFIC + 15 DRIVER + 30 NULL must total 65, with the 30 NULL rows
     # folded into "(other)", not silently dropped.
-    _insert_delay(con, "NODELAY", 50)
+    _insert_delay(con, "NODELAY", 50, delay_minutes=0)
     _insert_delay(con, "TRAFFIC", 20)
     _insert_delay(con, "DRIVER", 15)
     _insert_delay(con, None, 30)

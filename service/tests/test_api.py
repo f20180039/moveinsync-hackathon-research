@@ -168,6 +168,26 @@ def test_post_sweep_with_an_unknown_window_is_422(client):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/runs/{id}/safety
+# ---------------------------------------------------------------------------
+
+def test_run_safety_reports_the_woman_travelling_alone_summary(client):
+    r = client.get("/api/runs/latest/safety")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {"runId", "womanTravellingAloneAlerts", "escortPresentPct"}
+    assert isinstance(body["womanTravellingAloneAlerts"], int)
+    assert isinstance(body["escortPresentPct"], (int, float))
+    assert body["womanTravellingAloneAlerts"] >= 0
+
+
+def test_run_safety_for_an_unknown_run_is_404(client):
+    r = client.get("/api/runs/no-such-run-ever/safety")
+    assert r.status_code == 404
+    assert r.json()
+
+
+# ---------------------------------------------------------------------------
 # GET /api/findings/{id}
 # ---------------------------------------------------------------------------
 

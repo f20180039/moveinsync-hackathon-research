@@ -150,20 +150,27 @@ def test_a_breach_sliced_by_shift_reaches_all_three_audiences():
 # ---------------------------------------------------------------------------
 
 def test_takes_the_worst_tier_across_every_reference_and_keeps_them_all(con):
-    # MEASURED on data/sample, vendor_ota (a HIGHER-is-better metric) sliced
-    # by SHIFT=EVENING, LATE_JULY: observed 36.07, TREND 29.18 (PASS), PEER
-    # 57.58 -- delta ~0.374 against the HIGHER-direction band's WATCH_MAX=0.20
-    # / CONCERN_MAX=0.75 (see constants.py's BANDS), landing CONCERN via the
-    # peer reference. That still beats TREND's PASS, and both references
-    # survive on the finding -- neither is discarded once the worst is
-    # chosen, which is what this test is actually pinning down.
-    metric = registry.by_id("vendor_ota")
-    slc = Slice(Dimension.SHIFT, "EVENING")
+    # RE-MEASURED after the on-time redefinition (fix-wave: on-time now reads
+    # MoveInSync's own delay_minutes, not an actual_at-vs-planned_end_at
+    # comparison -- see constants.py's ON_TIME_GRACE_MIN comment). On-time
+    # rates jumped from ~59% to ~90%+ on data/sample, which collapsed every
+    # vendor_ota/ota/otd finding on the SAMPLE to PASS/WATCH -- there is no
+    # longer a CONCERN-or-worse HIGHER-metric example on data/sample at all
+    # (reported to the controller; BANDS untouched, not this test's call to
+    # make). no_show_rate is untouched by the on-time change and still
+    # produces one: MEASURED, no_show_rate sliced by SITE=Cedar Ridge Office,
+    # LATE_JULY: observed 12.20%, TREND 10.06% (WATCH), PEER 2.13% (BREACH,
+    # delta ~4.73 against the LOWER-direction band's CONCERN_MAX=2.00) --
+    # BREACH beats TREND's WATCH, and both references survive on the finding
+    # -- neither is discarded once the worst is chosen, which is what this
+    # test is actually pinning down.
+    metric = registry.by_id("no_show_rate")
+    slc = Slice(Dimension.SITE, "Cedar Ridge Office")
 
     finding = verdict.evaluate_finding(con, metric, slc, LATE_JULY, feed_confidence=1.0)
 
     assert finding is not None
-    assert finding.tier is Tier.CONCERN
+    assert finding.tier is Tier.BREACH
     assert {r.kind for r in finding.refs} == {ReferenceKind.TREND, ReferenceKind.PEER}
     assert finding.cause is Cause.PEER_LAGGARD
     assert finding.gap > 0
@@ -190,11 +197,13 @@ def test_a_within_tolerance_pass_never_carries_a_positive_gap(con):
     # reference but inside tolerance). Two data points, per ruling 5, both
     # landing in the (0, PASS_MAX] band by a different route.
 
-    # 1) MEASURED on data/sample, otd (HIGHER-is-better) unsliced, LATE_JULY:
-    # observed 34.375 vs TREND 35.02, d=0.0184 <= HIGHER's PASS_MAX=0.05 ->
-    # PASS, yet the raw gap (d x reference) is +0.65 -- which
-    # Finding.__post_init__ correctly refuses on a PASS. This is the case
-    # that used to raise ValueError.
+    # 1) RE-MEASURED after the on-time redefinition (see
+    # constants.py's ON_TIME_GRACE_MIN comment): otd (HIGHER-is-better)
+    # unsliced, LATE_JULY, now reads 98.44% vs TREND 98.81% -- d=0.0037,
+    # comfortably inside HIGHER's PASS_MAX=0.05, a within-tolerance PASS with
+    # a small positive raw delta -- the same shape the original bug (a
+    # positive gap on a PASS, which Finding.__post_init__ correctly refuses)
+    # needs to keep being caught by, even though the specific numbers moved.
     metric = registry.by_id("otd")
     finding = verdict.evaluate_finding(con, metric, Slice.all(), LATE_JULY, feed_confidence=1.0)
     assert finding is not None
@@ -221,10 +230,12 @@ def test_a_within_tolerance_pass_never_carries_a_positive_gap(con):
 
 
 def test_low_confidence_caps_at_watch_and_says_why(con):
-    # Same BREACH-by-peer case as above, but a near-zero feed confidence must
-    # cap the tier at WATCH and relabel the cause, never improve it.
-    metric = registry.by_id("vendor_ota")
-    slc = Slice(Dimension.SHIFT, "EVENING")
+    # Same BREACH-by-peer case as above (no_show_rate, SITE=Cedar Ridge
+    # Office -- re-measured after the on-time redefinition, see the test
+    # above), but a near-zero feed confidence must cap the tier at WATCH and
+    # relabel the cause, never improve it.
+    metric = registry.by_id("no_show_rate")
+    slc = Slice(Dimension.SITE, "Cedar Ridge Office")
 
     finding = verdict.evaluate_finding(con, metric, slc, LATE_JULY, feed_confidence=0.1)
 

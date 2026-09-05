@@ -195,6 +195,21 @@ from the operator's own safety rules rather than from a column we invented — a
 `WOMAN_TRAVELLING_ALONE` firing on a trip with `actual_escort = false` is about
 as sharp a finding as this dataset contains.
 
+**Fix-wave: `actual_escort` does not track the marshal rule in this dataset.**
+A controller data probe on `data/real` measured escort share three ways: 16.5%
+over ALL trips, but only 0.2% on dark-hours trips where every rider is female,
+and 0.0% on single-female-rider dark trips specifically — escorts appear MORE
+on mixed/male trips than on the exact trips the marshal policy is written for.
+On the 5,430 trips where MoveInSync's own system raised
+`WOMAN_TRAVELLING_ALONE`, an escort was present on only 331 of them (6.1%).
+Ruling: **keep the derived population** (dark hours ∧ female rider, ∨ a
+`WOMAN_TRAVELLING_ALONE` alert) rather than second-guessing it — this is the
+data, not a derivation bug, and it is the sharpest safety finding the dataset
+contains. Compliance is reported exactly as measured, and the population
+definition is stated on screen (the brief's safety context line and
+`GET /api/runs/{id}/safety` both name `WOMAN_TRAVELLING_ALONE` explicitly)
+rather than left implicit in a metric label.
+
 ---
 
 ## 8. Metrics now available cheaply, and worth taking
@@ -300,6 +315,24 @@ wall, not a decision, and a judge will ask why nothing is ranked.
 
 Whatever you choose, **record the measured distribution in a comment** next to
 the constant, as the calibration step requires.
+
+**Fix-wave update (Opus review + a controller data probe):** the 59.1% above
+was never MoveInSync's own on-time measurement -- it was ours, read off
+`actual_end_epoch <= planned_end_epoch + grace`. Their own `delay_minutes`
+column disagrees with that read: 281,977 of 555,237 `NODELAY` trips
+(`delay_minutes = 0` exactly) finish more than 5 minutes after
+`planned_end_epoch` anyway (avg slip 8.3 min) -- planned-end vs actual-end is
+simply not how they measure delay. Measured on `data/real`, LOGIN trips:
+our end-time definition 59.0% on-time; their own `delay_minutes <= 5` 90.2%;
+`delay_reason = 'NODELAY'` 85.2% (a coarser read of the same measurement).
+The PDF's own worked example, *"OTA is 78% ... SLA is 90%"*, only makes sense
+against the 90.2% reading. On-time is now `coalesce(delay_minutes, 0) <=
+ON_TIME_GRACE_MIN` (5 minutes, unchanged), checked directly against their own
+column -- not milliseconds against an end-time gap we invented. This also
+resolves the original problem in this section on its own terms: the real
+worked spread moved from ~32%-60% to genuinely high (worst vendor ~25%,
+median ~96%, best ~97.5%), so TREND/PEER references (not TARGET) remain the
+right call, and the four-tier mix is real again without retuning BANDS.
 
 ## 11. First thing tomorrow
 

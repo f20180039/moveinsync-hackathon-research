@@ -30,11 +30,12 @@ def _finding(metric_id="vendor_ota", slc=None, observed=61.4, refs=None,
                   f"SELECT observed FROM trips WHERE trip_id = 'evidence-only-{metric_id}'")
 
 
-def _run(findings, feed_health=None):
+def _run(findings, feed_health=None, safety_alert_count=0, safety_alert_escort_pct=0.0):
     feed_health = feed_health if feed_health is not None else {
         "trips": FeedHealth("trips", 10_000, 100, 10, 5, 0.98),
     }
-    return SweepRun("run-test", WINDOW, tuple(findings), feed_health, WINDOW.end_ms)
+    return SweepRun("run-test", WINDOW, tuple(findings), feed_health, WINDOW.end_ms,
+                    "week", safety_alert_count, safety_alert_escort_pct)
 
 
 # ---------------------------------------------------------------------------
@@ -46,6 +47,21 @@ def test_the_template_cites_the_reference_point_for_every_claim():
     brief = template_brief(run, Audience.TRANSPORT_MANAGER)
     assert "4-week average" in brief
     assert "peer median" in brief
+
+
+def test_the_safety_line_appears_for_facilities_head_and_transport_manager():
+    run = _run([_finding()], safety_alert_count=428, safety_alert_escort_pct=7.9)
+    for audience in (Audience.FACILITIES_HEAD, Audience.TRANSPORT_MANAGER):
+        brief = template_brief(run, audience)
+        assert "WOMAN_TRAVELLING_ALONE" in brief
+        assert "428" in brief
+        assert "7.9" in brief
+
+
+def test_the_safety_line_is_omitted_when_no_alert_fired():
+    run = _run([_finding()], safety_alert_count=0)
+    brief = template_brief(run, Audience.TRANSPORT_MANAGER)
+    assert "WOMAN_TRAVELLING_ALONE" not in brief
 
 
 def test_the_template_mentions_confidence_only_when_below_nine_tenths():
@@ -69,6 +85,35 @@ def test_it_produces_an_honest_brief_when_nothing_is_wrong():
     brief = template_brief(run, Audience.TRANSPORT_MANAGER)
     assert "Nothing above PASS" in brief
     assert "[PASS]" not in brief
+
+
+# ---------------------------------------------------------------------------
+# Marshal diversity cap: one metric cannot fill the whole brief.
+# ---------------------------------------------------------------------------
+
+def test_a_dominant_metric_is_capped_at_three_per_brief():
+    # Controller ruling: 20 marshal_compliance BREACHes + 3 ota CONCERNs
+    # must yield 3 marshal + 3 ota lines, marshal first (marshal outranks
+    # ota by tier, so it is already first in rank order).
+    marshal_findings = [
+        _finding(metric_id="marshal_compliance", cause=Cause.BELOW_TARGET, tier=Tier.BREACH,
+                slc=Slice(Dimension.VENDOR, f"Vendor {i}"), gap=50.0 + i)
+        for i in range(20)
+    ]
+    ota_findings = [
+        _finding(metric_id="ota", cause=Cause.PEER_LAGGARD, tier=Tier.CONCERN,
+                slc=Slice(Dimension.VENDOR, f"OTA Vendor {i}"), gap=10.0 + i)
+        for i in range(3)
+    ]
+    run = _run(marshal_findings + ota_findings)
+    brief = template_brief(run, Audience.TRANSPORT_MANAGER)
+
+    marshal_lines = brief.count("Marshal compliance")
+    ota_lines = brief.count("On-time arrival")
+    assert marshal_lines == 3
+    assert ota_lines == 3
+    # marshal first: its first mention must precede ota's first mention.
+    assert brief.index("Marshal compliance") < brief.index("On-time arrival")
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +142,39 @@ def test_the_validator_rejects_a_fabricated_integer_percentage():
     run = _run([_finding(observed=10.5,
                         refs=(Reference(ReferenceKind.PEER, 75.8, "peer median"),))])
     narrative = "On-time arrival is 78%, against a peer median of 91%."
-    bad = validate_narrative(narrative, run)
-    assert bad is not None, ("an integer percentage with no decimal point must still be "
-                             "checked against the findings, not silently exempted")
+    assert validate_narrative(narrative, run) == "78", (
+        "an integer percentage with no decimal point must still be checked "
+        "against the findings, not silently exempted")
+
+
+# ---------------------------------------------------------------------------
+# Opus review, second pass: prefix-position currency units.
+# ---------------------------------------------------------------------------
+
+def test_the_validator_catches_a_fabricated_figure_with_a_prefix_rupee_symbol():
+    run = _run([_finding(metric_id="cost_per_km", observed=86.48,
+                        refs=(Reference(ReferenceKind.PEER, 90.0, "peer median"),))])
+    for narrative in ("Cost per km is ₹1,200 against a peer median of ₹90.",
+                     "Cost per km is Rs 1200 against a peer median of Rs 90.",
+                     "Cost per km is Rs. 1200 against a peer median of Rs. 90.",
+                     "Cost per km is INR 1200 against a peer median of INR 90."):
+        bad = validate_narrative(narrative, run)
+        assert bad is not None, f"prefix-unit figure must be checked: {narrative!r}"
+
+
+def test_the_validator_accepts_a_genuine_prefix_rupee_figure():
+    run = _run([_finding(metric_id="cost_per_km", observed=86.0,
+                        refs=(Reference(ReferenceKind.PEER, 90.0, "peer median"),))])
+    narrative = "Cost per km is Rs 86 against a peer median of Rs 90."
+    assert validate_narrative(narrative, run) is None
+
+
+def test_the_validator_reads_the_full_comma_grouped_number_not_just_the_suffix():
+    # The old bug: "1,200%" yielded just "200" (the regex stopped at the
+    # comma), which could accept a fabricated 1,200% by matching a genuine 200.
+    run = _run([_finding(observed=61.4)])
+    narrative = "On-time arrival is 1,200% this week."
+    assert validate_narrative(narrative, run) == "1,200"
 
 
 def test_the_validator_accepts_an_integer_percentage_that_rounds_correctly():
@@ -224,7 +299,14 @@ def test_the_prompt_carries_findings_not_rows_and_no_sql():
 def test_the_prompt_carries_at_most_eight_findings():
     # On the real dataset one audience can carry 150+ findings; the prompt
     # must cap at the same top-8 the template shows, never send them all.
-    findings = [_finding(slc=Slice(Dimension.VENDOR, f"Vendor {i}")) for i in range(12)]
+    # Four DIFFERENT metrics (3 each) so the marshal-diversity cap (at most
+    # 3 per metric) does not itself reduce this below 8 -- that cap has its
+    # own dedicated test above.
+    metric_ids = ["vendor_ota", "ota", "otd", "no_show_rate"]
+    findings = [
+        _finding(metric_id=metric_ids[i % 4], slc=Slice(Dimension.VENDOR, f"Vendor {i}"))
+        for i in range(12)
+    ]
     run = _run(findings)
     model = StubModel(text="placeholder narrative, not validated by this test")
     sarvam_brief(run, Audience.TRANSPORT_MANAGER, model=model)

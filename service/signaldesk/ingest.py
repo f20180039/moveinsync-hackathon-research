@@ -203,12 +203,13 @@ def _dark_hours_case_sql(hour_expr: str) -> str:
     per-site override needs no second place to add it. DARK_HOURS_BY_SITE is
     empty today, and a CASE with no WHEN at all is invalid SQL -- collapse to
     the bare default expression rather than emitting a CASE with only ELSE."""
-    default_start, default_end = C.DARK_HOURS_DEFAULT
+    default_start, default_end = C.dark_hours()
     default_expr = _dark_hours_bool_sql(hour_expr, default_start, default_end)
     if not C.DARK_HOURS_BY_SITE:
         return default_expr
     lines = ["CASE"]
-    for site, (start, end) in C.DARK_HOURS_BY_SITE.items():
+    for site in C.DARK_HOURS_BY_SITE:
+        start, end = C.dark_hours(site)
         safe_site = site.replace("'", "''")
         lines.append(f"  WHEN t.site_id = '{safe_site}' "
                      f"THEN {_dark_hours_bool_sql(hour_expr, start, end)}")
