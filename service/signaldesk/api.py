@@ -120,6 +120,13 @@ def finding_to_json(f: Finding) -> dict:
         # WATCH finding, or one sweep.py did not attach owns to.
         "owns": [{"value": value, "pointsOfGap": round(points, 2), "n": n}
                  for value, points, n in f.owns],
+        # Task 16: {weeks, of} -- how many of the last `of` (4) weeks this
+        # same metric x slice was ALSO CONCERN-or-worse. null when not
+        # computed (below the tier floor, past the top-25-by-rank cap, or a
+        # PASS/WATCH finding) -- distinct from {weeks: 0, of: 4}, a genuine
+        # one-off.
+        "recurrence": ({"weeks": f.recurrence[0], "of": f.recurrence[1]}
+                       if f.recurrence is not None else None),
         "observed": round(f.observed, 2),
         "gap": round(f.gap, 2),
         "confidence": round(f.confidence, 2),

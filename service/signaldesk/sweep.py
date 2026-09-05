@@ -53,6 +53,48 @@ def _attach_owns(con, ranked: list[Finding]) -> list[Finding]:
     return out
 
 
+# Task 16: "identify vendor patterns from past history -- things to look out
+# for." Same tier floor and top-25-by-rank cap as owns above -- a real-dataset
+# sweep can carry 150+ CONCERN-or-worse findings, and this costs 4 extra
+# evaluate_finding() calls (each itself several queries, via references
+# .resolve()) per finding, so it is bounded the same way owns already is.
+RECURRENCE_MIN_TIER = Tier.CONCERN
+MAX_RECURRENCE_COMPUTATIONS = 25
+RECURRENCE_WINDOWS = 4
+
+
+def _recurrence_for(con, f: Finding, feed_confidence: float) -> tuple[int, int]:
+    """(weeks, of) -- weeks is how many of the RECURRENCE_WINDOWS (4) preceding
+    windows this exact metric x slice was ALSO CONCERN-or-worse. Reuses
+    verdict.evaluate_finding on each past window (registry.evaluate()'s own
+    memoisation makes the repeat trend/peer queries those calls trigger
+    cheap) -- a past window with no resolvable finding (a thin slice, a
+    window before the metric had data, references that don't resolve) counts
+    as NOT recurring for that week, never as an error."""
+    metric = registry.by_id(f.metric_id)
+    weeks = 0
+    for back in range(1, RECURRENCE_WINDOWS + 1):
+        past_window = f.window.shifted_back(back)
+        past = verdict.evaluate_finding(con, metric, f.slice, past_window, feed_confidence)
+        if past is not None and past.tier >= Tier.CONCERN:
+            weeks += 1
+    return (weeks, RECURRENCE_WINDOWS)
+
+
+def _attach_recurrence(con, ranked: list[Finding], health: dict) -> list[Finding]:
+    out = []
+    computed = 0
+    for f in ranked:
+        if f.tier >= RECURRENCE_MIN_TIER and computed < MAX_RECURRENCE_COMPUTATIONS:
+            metric = registry.by_id(f.metric_id)
+            feed_conf = health[metric.source].confidence if metric.source in health else 0.0
+            recurrence = _recurrence_for(con, f, feed_conf)
+            computed += 1
+            f = replace(f, recurrence=recurrence)
+        out.append(f)
+    return out
+
+
 @dataclass
 class Clock:
     """A fixed simulated clock. The demo drives this, not wall-clock time, so the
@@ -143,6 +185,7 @@ def sweep(con, clock: Clock, health: dict[str, FeedHealth],
 
     ranked = verdict.rank(found)
     ranked = _attach_owns(con, ranked)
+    ranked = _attach_recurrence(con, ranked, health)
     # Derived from the simulated clock and the finding count, not a uuid, so a
     # rerun of the demo produces the same id and a bookmarked URL still resolves.
     run_id = f"run-{now}-{len(ranked):x}"

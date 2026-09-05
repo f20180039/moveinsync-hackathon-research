@@ -19,14 +19,16 @@ WINDOW = Window(1_000_000_000_000, 1_000_604_800_000)
 
 def _finding(metric_id="vendor_ota", slc=None, observed=61.4, refs=None,
             tier=Tier.BREACH, cause=Cause.PEER_LAGGARD, gap=25.0, confidence=0.95,
-            audiences=frozenset({Audience.TRANSPORT_MANAGER, Audience.FACILITIES_HEAD})):
+            audiences=frozenset({Audience.TRANSPORT_MANAGER, Audience.FACILITIES_HEAD}),
+            recurrence=None):
     slc = slc if slc is not None else Slice(Dimension.VENDOR, "Aarav Petrov Travel")
     refs = refs if refs is not None else (
         Reference(ReferenceKind.TREND, 55.0, "4-week average"),
         Reference(ReferenceKind.PEER, 60.0, "peer median"))
     return Finding(finding_id(metric_id, slc, WINDOW), metric_id, slc, WINDOW, observed,
                   refs, tier, cause, gap, confidence, audiences,
-                  f"SELECT observed FROM trips WHERE trip_id = 'evidence-only-{metric_id}'")
+                  f"SELECT observed FROM trips WHERE trip_id = 'evidence-only-{metric_id}'",
+                  recurrence=recurrence)
 
 
 def _run(findings, feed_health=None):
@@ -108,6 +110,59 @@ def test_cost_per_rider_action_mentions_seat_utilisation_or_no_shows():
                 slc=Slice(Dimension.SITE, "Clearwater Campus"))
     action = action_for(f).lower()
     assert "seat" in action or "utilisation" in action or "no-show" in action
+
+
+# ---------------------------------------------------------------------------
+# Task 16: recurrence -- "identify vendor patterns from past history".
+# ---------------------------------------------------------------------------
+
+def test_recurring_finding_gets_the_prefix_and_a_non_recurring_one_does_not():
+    recurring = _finding(metric_id="cost_per_km", cause=Cause.PEER_LAGGARD,
+                         tier=Tier.CONCERN, recurrence=(3, 4))
+    not_recurring = _finding(metric_id="cost_per_km", cause=Cause.PEER_LAGGARD,
+                             tier=Tier.CONCERN, recurrence=(2, 4))
+    never_computed = _finding(metric_id="cost_per_km", cause=Cause.PEER_LAGGARD,
+                              tier=Tier.CONCERN, recurrence=None)
+
+    assert action_for(recurring).startswith("Recurring -- 3 of the last 4 weeks: ")
+    assert not action_for(not_recurring).startswith("Recurring")
+    assert not action_for(never_computed).startswith("Recurring")
+    # The underlying action text (after the prefix) is unchanged for a metric
+    # not in _RECURRING_VARIANTS -- same sentence, just prefixed.
+    assert action_for(recurring).endswith(action_for(not_recurring))
+
+
+def test_vendor_ota_peer_laggard_recurring_uses_the_vendor_review_variant():
+    f = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                slc=Slice(Dimension.VENDOR, "Pooja Sokolov Travel"), recurrence=(4, 4))
+    action = action_for(f)
+    assert action == (
+        "Recurring -- 4 of the last 4 weeks: take Pooja Sokolov Travel to the "
+        "vendor review, not the dispatch desk -- this is a pattern, not a week.")
+    # ...and the NON-recurring version keeps the ordinary vendor_ota action
+    # (which happens to ALSO end in "...vendor review." -- so the check has
+    # to be for the recurring-specific phrase, not the word "review" alone).
+    not_recurring = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                             slc=Slice(Dimension.VENDOR, "Pooja Sokolov Travel"), recurrence=(1, 4))
+    assert "not the dispatch desk" not in action_for(not_recurring)
+    assert not action_for(not_recurring).startswith("Recurring")
+    assert "top-quartile vendors" in action_for(not_recurring)
+
+
+def test_ota_peer_laggard_recurring_also_uses_the_vendor_review_variant():
+    f = _finding(metric_id="ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                slc=Slice(Dimension.SITE, "Clearwater Campus"), recurrence=(3, 4))
+    assert "vendor review, not the dispatch desk" in action_for(f)
+
+
+def test_recurrence_threshold_is_exactly_three_not_two():
+    # Break-it-to-prove-it: the off-by-one on the recurring threshold.
+    two = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                   recurrence=(2, 4))
+    three = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                     recurrence=(3, 4))
+    assert not action_for(two).startswith("Recurring")
+    assert action_for(three).startswith("Recurring")
 
 
 def test_low_confidence_says_fix_the_data_not_act_on_the_number():

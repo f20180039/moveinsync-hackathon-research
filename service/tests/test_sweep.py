@@ -20,7 +20,7 @@ import duckdb
 import pytest
 
 from signaldesk import ingest, registry, sweep, verdict
-from signaldesk.schemas import Dimension, Slice, Tier
+from signaldesk.schemas import Dimension, Slice, Tier, Window
 
 SAMPLE = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "sample")
 REAL_DEFAULT = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "real")
@@ -179,6 +179,92 @@ def test_owns_is_attached_for_concern_or_worse_and_empty_for_pass(con_and_health
             assert isinstance(value, str)
             assert points > 0, f"{f.id}'s owns must be positive (worse than reference)"
             assert n > 0
+
+
+# ---------------------------------------------------------------------------
+# Task 16: recurrence -- "identify vendor patterns from past history".
+# ---------------------------------------------------------------------------
+
+def _canned_finding(tier):
+    """A minimal real Finding at the given tier -- only the tier matters to
+    sweep._recurrence_for, which reads nothing else off the past finding it
+    is handed. gap=0.0 for a PASS: Finding.__post_init__ forbids a PASS
+    carrying a positive (worse-than-reference) gap, same invariant every
+    other Finding in this codebase respects."""
+    from signaldesk.schemas import Cause, Finding, Reference, ReferenceKind, finding_id
+    slc = Slice(Dimension.VENDOR, "Canned Vendor")
+    window = Window(0, 604_800_000)
+    gap = 0.0 if tier is Tier.PASS else 40.0
+    cause = Cause.ON_REFERENCE if tier is Tier.PASS else Cause.PEER_LAGGARD
+    return Finding(finding_id("vendor_ota", slc, window), "vendor_ota", slc, window,
+                  10.0, (Reference(ReferenceKind.PEER, 50.0, "peer median"),),
+                  tier, cause, gap, 0.9, frozenset(), "")
+
+
+def _fake_evaluate_finding(tiers):
+    """tiers[i] is the CANNED RESULT for the i-th call (in order) --
+    sweep._recurrence_for calls verdict.evaluate_finding once per preceding
+    window, back=1..4, in that order. None in `tiers` means the call
+    returns None (an unresolvable past finding), matching a thin slice or a
+    window with no data -- counted as NOT recurring, never as an error."""
+    calls = {"n": 0}
+
+    def fake(con, metric, slc, window, feed_confidence):
+        i = calls["n"]
+        calls["n"] += 1
+        tier = tiers[i]
+        return None if tier is None else _canned_finding(tier)
+    return fake
+
+
+def test_recurrence_counts_weeks_the_same_slice_was_concern_or_worse(monkeypatch):
+    # 3 of the 4 preceding windows are CONCERN-or-worse (weeks 1, 2 and 4
+    # back); week 3 back is PASS -- weeks must come out to 3, not 4 or 2.
+    monkeypatch.setattr(sweep.verdict, "evaluate_finding",
+                        _fake_evaluate_finding([Tier.CONCERN, Tier.BREACH, Tier.PASS, Tier.CONCERN]))
+    f = _canned_finding(Tier.BREACH)
+    weeks, of = sweep._recurrence_for(con=None, f=f, feed_confidence=0.9)
+    assert (weeks, of) == (3, 4)
+
+
+def test_recurrence_is_zero_when_every_preceding_window_was_fine(monkeypatch):
+    monkeypatch.setattr(sweep.verdict, "evaluate_finding",
+                        _fake_evaluate_finding([Tier.PASS, Tier.WATCH, Tier.PASS, Tier.WATCH]))
+    f = _canned_finding(Tier.CONCERN)
+    weeks, of = sweep._recurrence_for(con=None, f=f, feed_confidence=0.9)
+    assert (weeks, of) == (0, 4)
+
+
+def test_an_unresolvable_past_window_counts_as_not_recurring_not_an_error(monkeypatch):
+    # None (a thin slice, or references that never resolved) must not raise
+    # and must not count toward weeks -- distinguishing "we don't know" from
+    # "it was fine" matters less here than "it must not crash the sweep".
+    monkeypatch.setattr(sweep.verdict, "evaluate_finding",
+                        _fake_evaluate_finding([None, Tier.CONCERN, None, Tier.BREACH]))
+    f = _canned_finding(Tier.BREACH)
+    weeks, of = sweep._recurrence_for(con=None, f=f, feed_confidence=0.9)
+    assert (weeks, of) == (2, 4)
+
+
+def test_recurrence_is_attached_for_concern_or_worse_up_to_the_cap_and_never_for_pass(con_and_health):
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+
+    passes = [f for f in run.findings if f.tier is Tier.PASS]
+    assert passes, "fixture assumption: at least one PASS finding exists"
+    for f in passes:
+        assert f.recurrence is None, "a PASS finding must never carry recurrence"
+
+    concern_or_worse = [f for f in run.findings if f.tier >= Tier.CONCERN]
+    assert concern_or_worse, "fixture assumption: at least one CONCERN+ finding exists"
+    with_recurrence = [f for f in concern_or_worse if f.recurrence is not None]
+    assert len(with_recurrence) == min(len(concern_or_worse), sweep.MAX_RECURRENCE_COMPUTATIONS), (
+        "recurrence must be attached to exactly the top-25-by-rank CONCERN+ "
+        "findings (or fewer, if there are fewer than 25) -- same cap as owns")
+    for f in with_recurrence:
+        weeks, of = f.recurrence
+        assert of == 4
+        assert 0 <= weeks <= 4
 
 
 def test_the_tier_distribution_is_printed_for_calibration(con_and_health):

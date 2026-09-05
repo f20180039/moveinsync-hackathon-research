@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from signaldesk.compose import (_SYSTEM_PROMPT, sarvam_brief, template_brief,
-                                validate_narrative)
+from signaldesk.compose import (_SYSTEM_PROMPT, _findings_as_text, sarvam_brief,
+                                template_brief, validate_narrative)
 from signaldesk.model import SarvamClient, TruncatedResponse
 from signaldesk.schemas import (Audience, Cause, Dimension, FeedHealth, Finding,
                                 Reference, ReferenceKind, Slice, Tier, Window,
@@ -20,14 +20,16 @@ WINDOW = Window(1_000_000_000_000, 1_000_604_800_000)
 
 def _finding(metric_id="vendor_ota", slc=None, observed=61.4, refs=None,
             tier=Tier.BREACH, cause=Cause.PEER_LAGGARD, gap=25.0, confidence=0.95,
-            audiences=frozenset({Audience.TRANSPORT_MANAGER, Audience.FACILITIES_HEAD})):
+            audiences=frozenset({Audience.TRANSPORT_MANAGER, Audience.FACILITIES_HEAD}),
+            recurrence=None):
     slc = slc if slc is not None else Slice(Dimension.VENDOR, "Aarav Petrov Travel")
     refs = refs if refs is not None else (
         Reference(ReferenceKind.TREND, 55.0, "4-week average"),
         Reference(ReferenceKind.PEER, 60.0, "peer median"))
     return Finding(finding_id(metric_id, slc, WINDOW), metric_id, slc, WINDOW, observed,
                   refs, tier, cause, gap, confidence, audiences,
-                  f"SELECT observed FROM trips WHERE trip_id = 'evidence-only-{metric_id}'")
+                  f"SELECT observed FROM trips WHERE trip_id = 'evidence-only-{metric_id}'",
+                  recurrence=recurrence)
 
 
 def _run(findings, feed_health=None, safety_alert_count=0, safety_alert_escort_pct=0.0):
@@ -114,6 +116,59 @@ def test_a_dominant_metric_is_capped_at_three_per_brief():
     assert ota_lines == 3
     # marshal first: its first mention must precede ota's first mention.
     assert brief.index("Marshal compliance") < brief.index("On-time arrival")
+
+
+# ---------------------------------------------------------------------------
+# Task 16: recurrence -- template_brief's " (recurring, k/of weeks)" suffix
+# and _findings_as_text's "recurring: k/of" line for the model prompt.
+# ---------------------------------------------------------------------------
+
+def test_template_brief_flags_a_recurring_finding_and_not_a_fresh_one():
+    recurring = _finding(recurrence=(3, 4))
+    fresh = _finding(recurrence=(1, 4), slc=Slice(Dimension.VENDOR, "Anand Fleet Services"))
+
+    brief_recurring = template_brief(_run([recurring]), Audience.TRANSPORT_MANAGER)
+    brief_fresh = template_brief(_run([fresh]), Audience.TRANSPORT_MANAGER)
+
+    assert "(recurring, 3/4 weeks)" in brief_recurring
+    assert "recurring" not in brief_fresh.lower()
+
+
+def test_findings_as_text_includes_recurring_line_only_at_the_threshold():
+    recurring = _finding(recurrence=(4, 4))
+    fresh = _finding(recurrence=(2, 4), slc=Slice(Dimension.VENDOR, "Anand Fleet Services"))
+    never_computed = _finding(recurrence=None, slc=Slice(Dimension.VENDOR, "Isha Mikhailov Travel"))
+
+    text_recurring = _findings_as_text(_run([recurring]), Audience.TRANSPORT_MANAGER)
+    text_fresh = _findings_as_text(_run([fresh]), Audience.TRANSPORT_MANAGER)
+    text_never = _findings_as_text(_run([never_computed]), Audience.TRANSPORT_MANAGER)
+
+    assert "recurring: 4/4" in text_recurring
+    assert "recurring:" not in text_fresh
+    assert "recurring:" not in text_never
+
+
+def test_validator_accepts_recurrence_weeks_and_of_at_zero_decimal_places():
+    # Task 16: only an integer IMMEDIATELY followed by a unit is checked at
+    # all (a bare "4th"/"out of 4" is already exempt, unit or not) -- this
+    # narrative deliberately writes the recurrence count in that
+    # unit-suffixed shape ("4%") so the test actually exercises the new
+    # allowed-set entry rather than a case the validator already ignored.
+    # None of this finding's own values (observed 61.4, gap 25.0, confidence
+    # 0.95, refs 55.0/60.0) round to 4 at 0dp, so this "4%" only passes
+    # because recurrence.weeks/.of (4, 4) were added to allowed_0dp.
+    f = _finding(recurrence=(4, 4))
+    run = _run([f])
+    narrative = ("Vendor on-time share is 61.40%, below the 4-week average of "
+                "55.00% and the peer median of 60.00%; flagged 4% for repeat review.")
+    assert validate_narrative(narrative, run) is None
+
+    # Break-it-to-prove-it companion: without any recurrence attached, the
+    # identical "4%" claim IS rejected -- proving the pass above came from
+    # the recurrence entries, not some other coincidental allowance.
+    f_no_recurrence = _finding(recurrence=None)
+    run_no_recurrence = _run([f_no_recurrence])
+    assert validate_narrative(narrative, run_no_recurrence) == "4"
 
 
 # ---------------------------------------------------------------------------

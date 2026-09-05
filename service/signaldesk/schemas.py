@@ -255,6 +255,14 @@ class Finding:
     # already selects, computed once here instead of on every card render.
     # Empty for a PASS, or when decompose() itself has nothing to attribute.
     owns: tuple[tuple[str, float, int], ...] = ()
+    # Task 16: (weeks, of) -- weeks is how many of the `of` (4) preceding
+    # windows this same metric x slice was ALSO CONCERN-or-worse. sweep.py
+    # attaches this for tier >= CONCERN, capped at the top 25 by rank (the
+    # same population owns is attached to). None when not computed (below
+    # the tier floor, past the cap, or a pre-Task-16 Finding built by a test
+    # fixture) -- distinct from (0, 4), which means "computed, and this is
+    # genuinely a one-off this week".
+    recurrence: "tuple[int, int] | None" = None
 
     def __post_init__(self):
         if self.tier is Tier.PASS and self.gap > 0:

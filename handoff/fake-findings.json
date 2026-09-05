@@ -15,9 +15,18 @@
       "cause": "BELOW_TARGET",
       "action": "Check the delay-reason split in the breakdown before escalating: driver delay is a vendor conversation, employee delay is a comms one, traffic is a routing one.",
       "owns": [
-        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 4.1, "n": 65 },
-        { "value": "Pooja Sokolov Travel", "pointsOfGap": 2.6, "n": 52 }
+        {
+          "value": "Vikram Mikhailov Travel",
+          "pointsOfGap": 4.1,
+          "n": 65
+        },
+        {
+          "value": "Pooja Sokolov Travel",
+          "pointsOfGap": 2.6,
+          "n": 52
+        }
       ],
+      "recurrence": null,
       "observed": 59.1,
       "gap": 30.9,
       "confidence": 0.96,
@@ -47,11 +56,23 @@
       "sliceLabel": "vendor Vikram Mikhailov Travel",
       "tier": "BREACH",
       "cause": "PEER_LAGGARD",
-      "action": "Move volume off Vikram Mikhailov Travel to the top-quartile vendors at this site, and put it on the next vendor review.",
+      "action": "Recurring -- 4 of the last 4 weeks: take Vikram Mikhailov Travel to the vendor review, not the dispatch desk -- this is a pattern, not a week.",
       "owns": [
-        { "value": "Clearwater Campus", "pointsOfGap": 15.2, "n": 40 },
-        { "value": "Cedar Ridge Office", "pointsOfGap": 9.8, "n": 28 }
+        {
+          "value": "Clearwater Campus",
+          "pointsOfGap": 15.2,
+          "n": 40
+        },
+        {
+          "value": "Cedar Ridge Office",
+          "pointsOfGap": 9.8,
+          "n": 28
+        }
       ],
+      "recurrence": {
+        "weeks": 4,
+        "of": 4
+      },
       "observed": 32.31,
       "gap": 26.79,
       "confidence": 0.94,
@@ -83,9 +104,18 @@
       "cause": "BELOW_TARGET",
       "action": "Audit escort sign-ins at Clearwater Campus for the affected trips. A female employee cannot board before a marshal signs in, so this is a safety breach and not a metric miss.",
       "owns": [
-        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 3.8, "n": 22 },
-        { "value": "Anand Fleet Services", "pointsOfGap": 2.1, "n": 15 }
+        {
+          "value": "Vikram Mikhailov Travel",
+          "pointsOfGap": 3.8,
+          "n": 22
+        },
+        {
+          "value": "Anand Fleet Services",
+          "pointsOfGap": 2.1,
+          "n": 15
+        }
       ],
+      "recurrence": null,
       "observed": 93.6,
       "gap": 6.4,
       "confidence": 0.91,
@@ -112,9 +142,18 @@
       "cause": "TREND_REGRESSION",
       "action": "Compare the affected shift's release time against cab arrival -- logout slippage is usually a dispatch-window problem, not a vendor one.",
       "owns": [
-        { "value": "Horizon Transit Co.", "pointsOfGap": 2.9, "n": 30 },
-        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 1.8, "n": 19 }
+        {
+          "value": "Horizon Transit Co.",
+          "pointsOfGap": 2.9,
+          "n": 30
+        },
+        {
+          "value": "Vikram Mikhailov Travel",
+          "pointsOfGap": 1.8,
+          "n": 19
+        }
       ],
+      "recurrence": null,
       "observed": 54.7,
       "gap": 6.4,
       "confidence": 0.93,
@@ -140,9 +179,18 @@
       "cause": "TREND_REGRESSION",
       "action": "Look at what changed for vanta-Aus in the last week -- this is a move against its own history.",
       "owns": [
-        { "value": "Anand Fleet Services", "pointsOfGap": 2.4, "n": 33 },
-        { "value": "Horizon Transit Co.", "pointsOfGap": 1.1, "n": 17 }
+        {
+          "value": "Anand Fleet Services",
+          "pointsOfGap": 2.4,
+          "n": 33
+        },
+        {
+          "value": "Horizon Transit Co.",
+          "pointsOfGap": 1.1,
+          "n": 17
+        }
       ],
+      "recurrence": null,
       "observed": 14.8,
       "gap": 5.2,
       "confidence": 0.88,
@@ -169,9 +217,18 @@
       "cause": "PEER_LAGGARD",
       "action": "Share the no-show list with the line managers for catalyst-Sac; confirmed no-shows are billable capacity nobody used.",
       "owns": [
-        { "value": "Pooja Sokolov Travel", "pointsOfGap": 1.9, "n": 26 },
-        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 0.9, "n": 14 }
+        {
+          "value": "Pooja Sokolov Travel",
+          "pointsOfGap": 1.9,
+          "n": 26
+        },
+        {
+          "value": "Vikram Mikhailov Travel",
+          "pointsOfGap": 0.9,
+          "n": 14
+        }
       ],
+      "recurrence": null,
       "observed": 11.24,
       "gap": 3.26,
       "confidence": 0.97,
@@ -197,6 +254,7 @@
       "cause": "TREND_REGRESSION",
       "action": "Look at what changed for this population in the last week -- this is a move against its own history.",
       "owns": [],
+      "recurrence": null,
       "observed": 3.42,
       "gap": 0.18,
       "confidence": 0.86,
@@ -222,6 +280,7 @@
       "cause": "ON_REFERENCE",
       "action": "",
       "owns": [],
+      "recurrence": null,
       "observed": 21.4,
       "gap": -2.8,
       "confidence": 0.95,
@@ -247,6 +306,7 @@
       "cause": "PEER_LAGGARD",
       "action": "Share the late-pickup list for Pooja Mikhailov Travel with the vendor's dispatch lead -- pickup slippage is a routing or driver-reporting problem, not an employee one.",
       "owns": [],
+      "recurrence": null,
       "observed": 90.0,
       "gap": 63.65,
       "confidence": 0.81,
@@ -278,6 +338,7 @@
       "cause": "TREND_REGRESSION",
       "action": "Look at what changed in cab occupancy for orbit-Slc over the last few weeks -- a rising cost per rider usually means falling seat utilisation, not falling volume.",
       "owns": [],
+      "recurrence": null,
       "observed": 618.02,
       "gap": 152.8,
       "confidence": 0.99,
@@ -364,7 +425,7 @@
         {
           "name": "Slab-billed lines with no distance",
           "rows": 247914,
-          "detail": "₹380.6M, 45% of spend"
+          "detail": "\u20b9380.6M, 45% of spend"
         }
       ]
     },

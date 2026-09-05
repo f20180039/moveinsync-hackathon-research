@@ -86,6 +86,16 @@ def test_each_finding_matches_the_fixtures_key_set_and_shape(client):
             assert isinstance(c["value"], str)
             assert isinstance(c["pointsOfGap"], (int, float))
             assert isinstance(c["n"], int)
+        # Task 16: null when not computed, else {weeks, of} -- always present
+        # as a key (checked above by the fixture key-set equality), never
+        # omitted.
+        if f["tier"] == "PASS":
+            assert f["recurrence"] is None, "a PASS finding must never carry recurrence"
+        if f["recurrence"] is not None:
+            assert set(f["recurrence"].keys()) == {"weeks", "of"}
+            assert isinstance(f["recurrence"]["weeks"], int)
+            assert isinstance(f["recurrence"]["of"], int)
+            assert 0 <= f["recurrence"]["weeks"] <= f["recurrence"]["of"]
         assert isinstance(f["observed"], (int, float))
         assert isinstance(f["gap"], (int, float))
         assert isinstance(f["confidence"], (int, float))
@@ -95,6 +105,14 @@ def test_each_finding_matches_the_fixtures_key_set_and_shape(client):
             assert set(ref.keys()) == {"kind", "value", "label"}
             assert isinstance(ref["value"], (int, float))
         assert isinstance(f["evidenceSql"], str)
+
+
+def test_at_least_one_concern_or_worse_finding_carries_recurrence_on_the_sample(client):
+    findings = client.get("/api/runs/latest/findings").json()["findings"]
+    concern_or_worse = [f for f in findings if f["tier"] in ("CONCERN", "BREACH")]
+    assert concern_or_worse, "fixture assumption: at least one CONCERN+ finding exists"
+    with_recurrence = [f for f in concern_or_worse if f["recurrence"] is not None]
+    assert with_recurrence, "at least one CONCERN+ finding must carry recurrence on the sample"
 
 
 def test_finding_to_json_matches_the_frozen_fixtures_key_set(client):

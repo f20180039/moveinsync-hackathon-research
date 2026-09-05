@@ -88,6 +88,23 @@ _ACTIONS: dict[tuple[str, Cause], str] = {
         "utilisation, not falling volume.",
 }
 
+# Task 16: "identify vendor patterns from past history -- things to look out
+# for." When a finding's OWN metric x slice was ALSO CONCERN-or-worse in at
+# least 3 of the last 4 weeks (finding.recurrence, attached by sweep.py),
+# vendor_ota/ota's PEER_LAGGARD action changes ENTIRELY, not just a prefix --
+# "move volume off this vendor" reads as a one-time fix; a vendor that has
+# lagged 3-4 weeks running needs the account/contract conversation, not
+# another routing tweak. Every other (metric_id, cause) keeps its normal
+# action and just gets the "Recurring --" prefix below.
+_RECURRING_VARIANTS: dict[tuple[str, Cause], str] = {
+    ("vendor_ota", Cause.PEER_LAGGARD):
+        "take {slice_value} to the vendor review, not the dispatch desk -- "
+        "this is a pattern, not a week.",
+    ("ota", Cause.PEER_LAGGARD):
+        "take {slice_value} to the vendor review, not the dispatch desk -- "
+        "this is a pattern, not a week.",
+}
+
 # Fallback by cause alone, so a metric added later still says something useful
 # rather than nothing.
 _BY_CAUSE: dict[Cause, str] = {
@@ -109,12 +126,29 @@ def action_for(finding: Finding) -> str:
 
     A PASS returns '' deliberately -- inventing an action for something that is
     fine is how a brief becomes noise a manager learns to skim.
+
+    Task 16: when finding.recurrence.weeks >= 3 (this metric x slice was
+    ALSO CONCERN-or-worse in at least 3 of the last 4 weeks), the action is
+    prefixed "Recurring -- {weeks} of the last {of} weeks: " -- and for
+    vendor_ota/ota's PEER_LAGGARD specifically, the underlying action text
+    itself changes to the vendor-review variant (see _RECURRING_VARIANTS)
+    before the prefix is applied.
     """
     if finding.tier is Tier.PASS:
         return ""
-    template = (_ACTIONS.get((finding.metric_id, finding.cause))
-                or _BY_CAUSE.get(finding.cause, ""))
-    if not template:
-        return ""
     value = finding.slice.value or "this population"
-    return template.format(slice_value=value)
+    key = (finding.metric_id, finding.cause)
+    recurring = finding.recurrence is not None and finding.recurrence[0] >= 3
+
+    if recurring and key in _RECURRING_VARIANTS:
+        action = _RECURRING_VARIANTS[key].format(slice_value=value)
+    else:
+        template = _ACTIONS.get(key) or _BY_CAUSE.get(finding.cause, "")
+        if not template:
+            return ""
+        action = template.format(slice_value=value)
+
+    if recurring:
+        weeks, of = finding.recurrence
+        return f"Recurring -- {weeks} of the last {of} weeks: {action}"
+    return action

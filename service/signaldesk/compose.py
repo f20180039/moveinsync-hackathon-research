@@ -160,6 +160,16 @@ def validate_narrative(narrative: str, run, audience: Audience | None = None,
     allowed_1dp = {_rendered(v, 1) for v in values}
     allowed_2dp = {_rendered(v, 2) for v in values}
 
+    # Task 16: recurrence.weeks/of ("4 of the last 4 weeks") are integer
+    # counts, not metric figures, so they only ever need checking at 0dp --
+    # added to allowed_0dp alone rather than into `values` (which would also
+    # seed allowed_1dp/2dp with "4.0"/"4.00", numbers no finding ever writes).
+    for f in run.findings:
+        if f.recurrence is not None:
+            weeks, of = f.recurrence
+            allowed_0dp.add(_rendered(weeks, 0))
+            allowed_0dp.add(_rendered(of, 0))
+
     for m in _DECIMAL.finditer(_ISO_DATE.sub("", narrative)):
         raw = m.group("suffix_num") or m.group("prefix_num") or m.group("bare_decimal")
         clean = raw.replace(",", "")
@@ -269,6 +279,17 @@ def _action_sentence(top: Finding) -> str:
     return "Action: review the top finding with the responsible vendor or site lead."
 
 
+def _recurring_suffix(f: Finding) -> str:
+    """Task 16: " (recurring, {weeks}/{of} weeks)" for a finding whose own
+    metric x slice was ALSO CONCERN-or-worse in at least 3 of the last `of`
+    (4) weeks -- "" otherwise, including when recurrence was never computed
+    (below the tier floor, past the cap)."""
+    if f.recurrence is not None and f.recurrence[0] >= 3:
+        weeks, of = f.recurrence
+        return f" (recurring, {weeks}/{of} weeks)"
+    return ""
+
+
 def _finding_line(f: Finding) -> str:
     metric = registry.by_id(f.metric_id)
     observed = format_value(f.observed, metric.unit)
@@ -279,6 +300,7 @@ def _finding_line(f: Finding) -> str:
     line = f"[{f.tier.name}] {metric.label} — {f.slice.label}: {body} ({cause_phrase})"
     if f.must_disclose_confidence:
         line += f" confidence {f.confidence:.2f}"
+    line += _recurring_suffix(f)
     return line
 
 
@@ -396,6 +418,13 @@ def _findings_as_text(run, audience: Audience) -> str:
         action = action_for(f)
         if action:
             lines.append(f"  action: {action}")
+        # Task 16: only surfaced to the model at the same >=3-of-4 threshold
+        # that flags the action prefix and the template's own brief suffix --
+        # a finding recurrence was computed for but that ISN'T recurring
+        # (weeks 0-2) stays silent here rather than reading as a callout.
+        if f.recurrence is not None and f.recurrence[0] >= 3:
+            weeks, of = f.recurrence
+            lines.append(f"  recurring: {weeks}/{of}")
         if i == 0:
             contributors = _top_contributors(f)
             if contributors:
