@@ -41,7 +41,7 @@ export function FindingRow({ finding }: { finding: Finding }) {
             cell count against the header. */}
         <span className="finding-row__severity">
           <TierBadge tier={finding.tier} />
-          <RecurringTag finding={finding} />
+          <RecurringTag finding={finding} variant="short" />
         </span>
         <span className="finding-row__metric">{finding.metricLabel}</span>
         <span className="finding-row__slice">{formatSliceLabel(finding.sliceLabel)}</span>

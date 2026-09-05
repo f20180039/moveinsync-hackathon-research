@@ -69,7 +69,12 @@ describe('FindingRow', () => {
     }
     const { container } = render(<FindingRow finding={recurringFinding} />)
 
-    expect(screen.getByText(/3 of the last 4 weeks/)).toBeInTheDocument()
+    // The table context renders the short form ("Recurring 3/4"), not the
+    // long sentence -- the full sentence moves to the `title` attribute
+    // instead, since it doesn't fit the Severity column's width.
+    const tag = screen.getByText('Recurring 3/4')
+    expect(tag).toBeInTheDocument()
+    expect(tag).toHaveAttribute('title', 'Recurring · 3 of the last 4 weeks')
 
     const toggle = container.querySelector('.finding-row__toggle') as HTMLElement
     expect(toggle.children.length).toBe(7)

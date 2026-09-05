@@ -140,6 +140,25 @@ describe('selectPriorityFindings', () => {
     expect(result.map((f) => f.id)).toEqual(['a', 'b', 'c'])
   })
 
+  it('interleaves the overflow backfill by original rank, not appended after every selected finding', () => {
+    // [m1, m2, m3, m4(marshal), otd1], limit 4, cap 2 -- m1/m2 selected,
+    // m3/m4 overflow (cap reached), otd1 selected. Only 1 backfill slot is
+    // needed (selected has 3, limit is 4) -- naively appending it after
+    // the selected findings would put m3 (rank 2) after otd1 (rank 4),
+    // which is wrong: m3 outranks otd1 and must come first.
+    const findings = [
+      makeFinding({ id: 'm1', metricId: 'marshal_compliance' }),
+      makeFinding({ id: 'm2', metricId: 'marshal_compliance' }),
+      makeFinding({ id: 'm3', metricId: 'marshal_compliance' }),
+      makeFinding({ id: 'm4', metricId: 'marshal_compliance' }),
+      makeFinding({ id: 'otd1', metricId: 'otd' }),
+    ]
+
+    const result = selectPriorityFindings(findings, 4, 2)
+
+    expect(result.map((f) => f.id)).toEqual(['m1', 'm2', 'm3', 'otd1'])
+  })
+
   it('fills remaining slots from the capped-out overflow when there are not enough other metrics', () => {
     // Only one metric present at all -- the cap alone would yield 2, but
     // there are 5 findings and a limit of 5, so overflow fills the rest.

@@ -30,6 +30,11 @@
      top: 0, so the two don't fight for the same spot. */
   --top-bar-height: 73px;
   --focus-ring: 0 0 0 3px var(--accent-border);
+  /* The floating assistant panel and launcher are the only elements that
+     float free of the page's own flow -- a token (rather than an inline
+     rgba literal) so it stays covered by the "no colours outside :root"
+     hygiene check. */
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.18);
   --btn-primary-text: #fff;
 
   /* Tier colours -- the one place BREACH/CONCERN/WATCH/PASS map to a
@@ -643,6 +648,21 @@ body {
   font-size: var(--font-sm);
   font-weight: 600;
   white-space: nowrap;
+}
+
+/* The findings table's Severity cell only: the long form ("Recurring · 3
+   of the last 4 weeks", ~220-250px at 13px) does not fit the column's
+   132px ceiling and bleeds into the Metric column next to it. min-width:
+   0 lets it shrink inside .finding-row__severity's flex row; overflow +
+   ellipsis is the fallback if it's still too wide for whatever space is
+   left after the tier badge. The short text itself ("Recurring 9/9", the
+   longest realistic case) is ~90px at 13px 600-weight -- comfortably
+   under 132px even before ellipsis is needed; see the report for the
+   arithmetic. */
+.recurring-tag--short {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Findings list */
@@ -1501,4 +1521,183 @@ body {
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4);
   font-size: var(--font-md);
+}
+
+/* Floating assistant -- fixed bottom-right, mounted once at the App shell
+   level (outside the routed <main>) so it survives navigation. */
+
+.assistant {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  z-index: 20;
+}
+
+/* Overrides .btn--md's padding/height (this is a Button instance, per the
+   "every control is the shared Button" rule -- only the row toggle is
+   exempted from that, same as the legend's trigger). Later in source
+   order than .btn--md, so these win at equal specificity. */
+.assistant-launcher {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--btn-primary-text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-elevated);
+}
+
+.assistant-launcher:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-elevated), var(--focus-ring);
+}
+
+.assistant-panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(56px + var(--space-3));
+  width: min(380px, calc(100vw - var(--space-6)));
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  overflow: hidden;
+}
+
+.assistant-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.assistant-panel__title {
+  font-size: var(--font-md);
+  margin: 0;
+}
+
+.assistant-panel__history {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.assistant-panel__empty {
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+}
+
+.assistant-panel__exchange {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.assistant-panel__question {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  font-weight: 600;
+}
+
+.assistant-panel__reply {
+  margin: 0;
+}
+
+.assistant-panel__withheld {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-2);
+}
+
+.assistant-panel__withheld p {
+  margin: 0;
+}
+
+.assistant-panel__error {
+  color: var(--tier-breach);
+  margin: 0;
+}
+
+.assistant-panel__trace {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--code-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.assistant-panel__chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  padding: 0 var(--space-4) var(--space-3);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  flex-shrink: 0;
+}
+
+.assistant-panel__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+  flex-shrink: 0;
+}
+
+.assistant-panel__row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assistant-panel__input {
+  flex: 1;
+  min-width: 0;
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--font-md);
+  box-sizing: border-box;
+}
+
+.assistant-panel__input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.assistant-panel__input:disabled {
+  opacity: 0.6;
+}
+
+.assistant-panel__helper {
+  font-size: var(--font-sm);
+  color: var(--text);
+  margin: 0;
 }

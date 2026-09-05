@@ -4,6 +4,7 @@ import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
 import { isAlertTier } from './api/types.ts'
+import { FloatingAssistant } from './components/FloatingAssistant.tsx'
 import { Sidebar } from './components/Sidebar.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { AlertsPage } from './pages/AlertsPage.tsx'
@@ -138,6 +139,11 @@ function App() {
           </main>
         )}
       </div>
+
+      {/* Mounted once here, not per-page, so the conversation survives
+          navigating between routes -- it only unmounts (and its
+          localStorage-persisted history reloads) on a full page reload. */}
+      {run && <FloatingAssistant runId={run.runId} />}
     </div>
   )
 }

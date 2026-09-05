@@ -4,7 +4,6 @@ import { isDismissed } from '../api/dismissed.ts'
 import { selectPriorityFindings, sortRecurringFirst } from '../api/insights.ts'
 import type { Finding } from '../api/types.ts'
 import { isAlertTier } from '../api/types.ts'
-import { AskBar } from '../components/AskBar.tsx'
 import { KpiRow } from '../components/KpiRow.tsx'
 import { PriorityActionCard } from '../components/PriorityActionCard.tsx'
 import { SafetyBanner } from '../components/SafetyBanner.tsx'
@@ -74,8 +73,6 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
           </div>
         )}
       </section>
-
-      {runId && <AskBar runId={runId} />}
     </>
   )
 }

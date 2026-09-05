@@ -35,12 +35,8 @@ describe('OverviewPage', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     renderOverview()
-    // Let the (unrelated) AskBar mount-time /api/ask probe settle, inside
-    // act, before asserting -- it is not what this test is about.
-    await screen.findByText('Interrogation lands with the tools — coming')
-
     const alertCount = findings.filter((f) => f.tier === 'CONCERN' || f.tier === 'BREACH').length
-    const investigateButtons = screen.getAllByRole('button', { name: /investigate/i })
+    const investigateButtons = await screen.findAllByRole('button', { name: /investigate/i })
     expect(investigateButtons).toHaveLength(Math.min(alertCount, 5))
 
     expect(decomposeCallsFrom(fetchMock)).toHaveLength(0)
@@ -52,7 +48,7 @@ describe('OverviewPage', () => {
     const user = userEvent.setup()
 
     renderOverview()
-    await screen.findByText('Interrogation lands with the tools — coming')
+    await screen.findAllByRole('button', { name: /investigate/i })
 
     expect(decomposeCallsFrom(fetchMock)).toHaveLength(0)
 
