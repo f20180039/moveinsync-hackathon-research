@@ -12,6 +12,7 @@ import { useAppStore } from './store.ts'
 import { AlertsPage } from './pages/AlertsPage.tsx'
 import { BriefPage } from './pages/BriefPage.tsx'
 import { CostPage } from './pages/CostPage.tsx'
+import { EmployeesPage } from './pages/EmployeesPage.tsx'
 import { FindingsPage } from './pages/FindingsPage.tsx'
 import { HealthPage } from './pages/HealthPage.tsx'
 import { OverviewPage } from './pages/OverviewPage.tsx'
@@ -141,6 +142,9 @@ function App() {
               />
               <Route path="/alerts" element={<AlertsPage findings={findings} runId={run?.runId ?? null} />} />
               <Route path="/findings" element={<FindingsPage findings={findings} />} />
+              {/* Fetches its own data (and feature-detects the optional
+                  endpoint itself), so it needs the run id, not findings. */}
+              <Route path="/employees" element={run && <EmployeesPage runId={run.runId} />} />
               <Route path="/vendors" element={<VendorsPage findings={findings} />} />
               <Route path="/health" element={<HealthPage feeds={feeds ?? []} />} />
               <Route path="/cost" element={cost && <CostPage cost={cost} />} />

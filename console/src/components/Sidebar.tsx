@@ -11,6 +11,7 @@ const MAIN_ITEMS: NavItem[] = [
   { to: '/', label: 'Overview', icon: '◧', end: true },
   { to: '/alerts', label: 'Alerts', icon: '⚠' },
   { to: '/findings', label: 'Insights', icon: '☰' },
+  { to: '/employees', label: 'Employees', icon: '👥' },
   { to: '/vendors', label: 'Vendors', icon: '🚌' },
   { to: '/health', label: 'Data health', icon: '🩺' },
   { to: '/cost', label: 'Cost', icon: '₹' },

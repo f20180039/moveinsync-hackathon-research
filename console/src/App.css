@@ -1713,3 +1713,98 @@ body {
   color: var(--text);
   margin: 0;
 }
+
+/* Employees page -- who the commute failures actually hit, and where.
+   Reuses .card (via the shared Card) and the .num tabular-figure utility;
+   only the stat grid and the breakdown tables are new. */
+
+.impact-lede {
+  color: var(--text);
+  margin: 0 0 var(--space-4);
+}
+
+.impact-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.impact-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.impact-stat__title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.impact-stat__value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--ink-1);
+  margin: 0;
+  text-align: left;
+}
+
+.impact-stat__detail {
+  font-size: var(--font-sm);
+  color: var(--text);
+  margin: 0;
+}
+
+.impact-breakdown {
+  margin-bottom: var(--space-5);
+}
+
+.impact-breakdown__empty {
+  color: var(--text);
+  margin: 0;
+}
+
+.impact-absent {
+  color: var(--text);
+  font-size: var(--font-lg);
+}
+
+.impact-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.impact-table th,
+.impact-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.impact-table thead th {
+  color: var(--text);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.impact-table tbody th {
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.impact-table tbody tr:last-child th,
+.impact-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* `.num` (0,0,1,0) loses to `.impact-table th` (0,0,1,1) on specificity,
+   so the numeric columns need their right-alignment restated here. */
+.impact-table .num {
+  text-align: right;
+}

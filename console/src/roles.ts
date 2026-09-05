@@ -40,6 +40,7 @@ const ALL_NAV_PATHS = new Set([
   '/',
   '/alerts',
   '/findings',
+  '/employees',
   '/vendors',
   '/health',
   '/cost',
@@ -84,6 +85,10 @@ export const ROLES: Record<Role, RoleConfig> = {
   FACILITIES_HEAD: {
     id: 'FACILITIES_HEAD',
     label: 'Transport & facilities head',
+    // No /employees: this role acts on Breach-level cost, safety and
+    // contract questions, not on which named site or shift band is hurting
+    // employees this week -- the same reason it has no Insights table and
+    // no feed-health internals.
     visibleNavPaths: new Set(['/', '/alerts', '/vendors', '/cost', '/reports/weekly', '/reports/monthly', '/brief']),
     kpiMetricIds: ['ota', 'cost_per_km', 'cost_per_rider', 'marshal_compliance'],
     kpiStripLabel: 'Cost · Safety · Experience',
@@ -95,16 +100,20 @@ export const ROLES: Record<Role, RoleConfig> = {
   // Deliberately thin -- a scope cut the user asked for explicitly ("we
   // need to target only 1 role but can we accommodate 2 roles"). This is
   // a third dropdown entry, not a third built-out persona: no bespoke
-  // shift board, no dedicated KPI set (reuses Transport manager's), no
-  // /employees page. All it does is scope the same pages everyone else
-  // sees down to shift-sliced findings (via `findingsFilter`, applied
-  // once in App.tsx) and trim the nav to what a line-level shift
-  // supervisor plausibly needs day to day (no Vendors/Cost/Data health --
-  // those are fleet/contract-level concerns, not a single shift's).
+  // shift board, no dedicated KPI set (reuses Transport manager's). All it
+  // does is scope the same pages everyone else sees down to shift-sliced
+  // findings (via `findingsFilter`, applied once in App.tsx) and trim the
+  // nav to what a line-level shift supervisor plausibly needs day to day
+  // (no Vendors/Cost/Data health -- those are fleet/contract-level
+  // concerns, not a single shift's).
+  //
+  // /employees IS linked here: "which of my people were left standing, on
+  // which shift band" is the most directly actionable page a line manager
+  // has. It is the one page whose own breakdown is by shift band.
   LINE_MANAGER: {
     id: 'LINE_MANAGER',
     label: 'Line manager',
-    visibleNavPaths: new Set(['/', '/alerts', '/findings', '/reports/weekly', '/reports/monthly', '/brief']),
+    visibleNavPaths: new Set(['/', '/alerts', '/findings', '/employees', '/reports/weekly', '/reports/monthly', '/brief']),
     kpiMetricIds: DEFAULT_KPI_METRIC_IDS,
     kpiStripLabel: null,
     isPriorityFinding: (finding) => isAlertTier(finding.tier),

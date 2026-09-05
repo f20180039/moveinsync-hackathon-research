@@ -274,3 +274,50 @@ export function isDataGap(finding: Pick<Finding, 'cause'>): boolean {
 
 export const NOT_MEASURED = '—'
 export const NOT_MEASURED_EXPLANATION = 'could not be measured'
+
+// GET /api/employees/impact -- field names taken verbatim from
+// service/signaldesk/api.py's get_employees_impact(). Every number here is
+// served; the console renders them and derives none of them.
+//
+// Two different delay readings live on this response and are deliberately
+// labelled apart: latePickupLegs/avgPickupDelayMin/medianPickupDelayMin are
+// delay an employee EXPERIENCES, employeeCausedDelayShare is delay
+// employees CAUSE.
+export interface EmployeeImpactCounts {
+  legs: number
+  noShows: number
+  latePickups: number
+  impacted: number
+}
+
+export interface EmployeeImpactShiftRow extends EmployeeImpactCounts {
+  shiftBand: string
+}
+
+export interface EmployeeImpactSiteRow extends EmployeeImpactCounts {
+  site: string
+}
+
+export interface EmployeeImpactVendorRow extends EmployeeImpactCounts {
+  vendor: string
+}
+
+export interface EmployeeImpact {
+  runId: string
+  window: { start: number; end: number; label: string }
+  employeesImpacted: number
+  ridersInWindow: number
+  noShowLegs: number
+  latePickupLegs: number
+  // Nullable on the service side (`_round` passes None straight through)
+  // whenever the window has nothing to measure -- rendered as NOT_MEASURED,
+  // never as a zero that would read as a real measurement.
+  avgPickupDelayMin: number | null
+  medianPickupDelayMin: number | null
+  employeeCausedDelayShare: number | null
+  byShiftBand: EmployeeImpactShiftRow[]
+  bySite: EmployeeImpactSiteRow[]
+  byVendor: EmployeeImpactVendorRow[]
+  costPerRider: number | null
+  costPerRiderTrend: number | null
+}

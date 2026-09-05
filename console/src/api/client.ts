@@ -7,6 +7,7 @@ import type {
   DecomposeResponse,
   DispatchAudienceResult,
   DispatchResponse,
+  EmployeeImpact,
   FeedHealth,
   Finding,
   FindingsResponse,
@@ -107,6 +108,13 @@ export function dispatch(runId: string, audiences?: Audience[]): Promise<Dispatc
 // hide the section, not as a page-level error.
 export function getDispatchLog(): Promise<DispatchAudienceResult[]> {
   return request<DispatchAudienceResult[]>('/api/dispatch/log')
+}
+
+// Optional endpoint -- gated by the "employees" capability, not by a
+// probe. Throws (ApiError) like every other real request; the Employees
+// page decides what an absent endpoint looks like on screen.
+export function getEmployeeImpact(runId = 'latest'): Promise<EmployeeImpact> {
+  return request<EmployeeImpact>(`/api/employees/impact?runId=${encodeURIComponent(runId)}`)
 }
 
 export function getCost(): Promise<Cost> {

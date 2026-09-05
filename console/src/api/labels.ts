@@ -49,6 +49,16 @@ const CAUSE_LABELS: Record<string, string> = {
   BELOW_TARGET: 'below its SLA target',
 }
 
+// The four ingest-time time-of-day buckets (service/signaldesk/ingest.py).
+// Shared with SLICE_VALUE_LABELS.shift below -- one definition, so a slice
+// label and an Employees-page row can never disagree about a band's name.
+const SHIFT_BAND_LABELS: Record<string, string> = {
+  EARLY: 'Early',
+  DAY: 'Day',
+  EVENING: 'Evening',
+  NIGHT: 'Night',
+}
+
 const CHANNEL_LABELS: Record<string, string> = {
   slack: 'Slack',
   email: 'Email',
@@ -118,6 +128,7 @@ export type LabelKind =
   | 'dimension'
   | 'windowKind'
   | 'safetyMetric'
+  | 'shiftBand'
 
 // Humanises anything not in a map: underscores become spaces, sentence
 // case. An unrecognised value from the service still renders as words,
@@ -165,6 +176,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(WINDOW_KIND_LABELS, value)
     case 'safetyMetric':
       return lookup(SAFETY_METRIC_LABELS, value)
+    case 'shiftBand':
+      return lookup(SHIFT_BAND_LABELS, value)
   }
 }
 
@@ -195,7 +208,7 @@ const ENUM_LIKE_SLICE_DIMENSIONS = new Set(['mode', 'direction', 'shift'])
 const SLICE_VALUE_LABELS: Record<string, Record<string, string>> = {
   mode: { BUS: 'Bus', CAB: 'Cab', 'SPOT_2.0': 'Spot 2.0' },
   direction: { LOGIN: 'Login', LOGOUT: 'Logout' },
-  shift: { EARLY: 'Early', DAY: 'Day', EVENING: 'Evening', NIGHT: 'Night' },
+  shift: SHIFT_BAND_LABELS,
 }
 
 // "vendor Vikram Mikhailov Travel" -> "Vendor: Vikram Mikhailov Travel"

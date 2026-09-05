@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import fixture from '../../handoff/fake-findings.json'
+import type { EmployeeImpact } from './api/types.ts'
 import App from './App.tsx'
 import { useAppStore } from './store.ts'
 
@@ -72,6 +73,20 @@ function mockFetchForRoutes() {
     if (url.includes('/api/health/feeds')) {
       return jsonResponse(fixture.feedHealth)
     }
+    // GET /api/health -- the capability list every optional-endpoint
+    // consumer feature-detects from. "ask" is deliberately absent: the
+    // routes below still 404 /api/ask, and the two must agree.
+    if (url.includes('/api/health')) {
+      return jsonResponse({
+        status: 'ok',
+        activeMetrics: ['ota'],
+        clock: fixture.windowLabel,
+        capabilities: ['employees'],
+      })
+    }
+    if (url.includes('/api/employees/impact')) {
+      return jsonResponse(employeeImpact)
+    }
     if (url.includes('/api/cost')) {
       return jsonResponse(fixture.cost)
     }
@@ -112,6 +127,26 @@ function mockFetchForRoutes() {
     }
     return jsonResponse({})
   })
+}
+
+// Shapes match service/signaldesk/api.py's get_employees_impact(). Values
+// are deliberately non-zero so the enum guard and the heading check scan
+// real rendered rows rather than an empty page.
+const employeeImpact: EmployeeImpact = {
+  runId: fixture.runId,
+  window: { start: 0, end: 1, label: fixture.windowLabel },
+  employeesImpacted: 1204,
+  ridersInWindow: 8110,
+  noShowLegs: 317,
+  latePickupLegs: 2489,
+  avgPickupDelayMin: 12.4,
+  medianPickupDelayMin: 7.5,
+  employeeCausedDelayShare: 0.0812,
+  byShiftBand: [{ shiftBand: 'NIGHT', legs: 4120, noShows: 190, latePickups: 1310, impacted: 622 }],
+  bySite: [{ site: 'Santa Clara Office', legs: 5200, noShows: 210, latePickups: 1502, impacted: 781 }],
+  byVendor: [{ vendor: 'Rohan Mikhailov Travel', legs: 3980, noShows: 175, latePickups: 1204, impacted: 604 }],
+  costPerRider: 214.6,
+  costPerRiderTrend: 198.2,
 }
 
 function renderApp(initialEntries: string[] = ['/']) {
@@ -215,6 +250,7 @@ describe('App', () => {
     expect(nav).toHaveTextContent('Overview')
     expect(nav).toHaveTextContent('Alerts')
     expect(nav).toHaveTextContent('Insights')
+    expect(nav).toHaveTextContent('Employees')
     expect(nav).toHaveTextContent('Vendors')
     expect(nav).toHaveTextContent('Data health')
     expect(nav).toHaveTextContent('Cost')
@@ -238,6 +274,7 @@ describe('App', () => {
     ['/', /attention/i],
     ['/alerts', /alerts/i],
     ['/findings', /insights/i],
+    ['/employees', /employee impact/i],
     ['/vendors', /vendors/i],
     ['/health', /feed health/i],
     ['/cost', /cost/i],
@@ -289,6 +326,7 @@ describe('App', () => {
     ['/'],
     ['/alerts'],
     ['/findings'],
+    ['/employees'],
     ['/vendors'],
     ['/health'],
     ['/cost'],
@@ -371,6 +409,9 @@ describe('App: role switch', () => {
     // Facilities head's.
     expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Data health' })).not.toBeInTheDocument()
+    // Employee-level triage is not this role's job either -- it acts on
+    // Breach-level cost/safety/contract questions.
+    expect(screen.queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Vendors' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Weekly review' })).toBeInTheDocument()
 
