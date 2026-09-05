@@ -1,5 +1,5 @@
 import type { Finding } from '../api/types.ts'
-import { causePhrase } from '../api/types.ts'
+import { causePhrase, formatMetricValue } from '../api/types.ts'
 
 // Expanded region for one finding: observed value, every reference, the rule
 // that fired, confidence, audiences, and the SQL that produced the number.
@@ -18,18 +18,12 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
     <div className="evidence-panel">
       <dl className="evidence-panel__facts">
         <dt>Observed</dt>
-        <dd>
-          {finding.observed}
-          {finding.unit}
-        </dd>
+        <dd>{formatMetricValue(finding.observed, finding.unit)}</dd>
 
         {finding.references.map((ref) => (
           <div key={`${ref.kind}-${ref.label}`} className="evidence-panel__ref">
             <dt>{ref.label}</dt>
-            <dd>
-              {ref.value}
-              {finding.unit}
-            </dd>
+            <dd>{formatMetricValue(ref.value, finding.unit)}</dd>
           </div>
         ))}
 

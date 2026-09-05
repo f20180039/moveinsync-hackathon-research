@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import type { Finding } from '../api/types.ts'
-import { shouldDiscloseConfidence } from '../api/types.ts'
+import { formatMetricValue, shouldDiscloseConfidence } from '../api/types.ts'
 import { EvidencePanel } from './EvidencePanel.tsx'
 import { TierBadge } from './TierBadge.tsx'
 
@@ -20,15 +20,11 @@ export function FindingRow({ finding }: { finding: Finding }) {
         <TierBadge tier={finding.tier} />
         <span className="finding-row__metric">{finding.metricLabel}</span>
         <span className="finding-row__slice">{finding.sliceLabel}</span>
-        <span className="finding-row__observed">
-          {finding.observed}
-          {finding.unit}
-        </span>
+        <span className="finding-row__observed">{formatMetricValue(finding.observed, finding.unit)}</span>
         <span className="finding-row__references">
           {finding.references.map((ref) => (
             <span key={`${ref.kind}-${ref.label}`} className="finding-row__reference">
-              {ref.label} {ref.value}
-              {finding.unit}
+              {ref.label} {formatMetricValue(ref.value, finding.unit)}
             </span>
           ))}
         </span>

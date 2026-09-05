@@ -138,3 +138,10 @@ export const CONFIDENCE_DISCLOSURE_THRESHOLD = 0.9
 export function shouldDiscloseConfidence(confidence: number): boolean {
   return confidence < CONFIDENCE_DISCLOSURE_THRESHOLD
 }
+
+// "%" reads fine glued to the number ("59.1%"); every other unit
+// ("score", "INR", "per 1k") needs a space ("3.42 score"). One place, so
+// every value -- observed or a reference -- renders the same way.
+export function formatMetricValue(value: number, unit: string): string {
+  return unit === '%' ? `${value}${unit}` : `${value} ${unit}`
+}
