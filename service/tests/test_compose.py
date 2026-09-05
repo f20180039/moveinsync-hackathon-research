@@ -105,6 +105,27 @@ def test_the_validator_tolerates_trailing_zero_differences():
     assert validate_narrative(narrative, run) is None
 
 
+def test_the_validator_accepts_every_number_the_template_itself_renders():
+    # Proves the coupling: template_brief and validate_narrative both format
+    # through compose._rendered, so a number the template writes can never
+    # fail its own validator -- even with awkward, non-round true values, one
+    # rendered at 1dp (a percentage) and one at 2dp (a rupee figure).
+    pct_finding = _finding(
+        metric_id="vendor_ota", observed=33.333,
+        refs=(Reference(ReferenceKind.TREND, 55.111, "4-week average"),
+             Reference(ReferenceKind.PEER, 60.222, "peer median")))
+    inr_finding = _finding(
+        metric_id="cost_per_km", observed=144.165,
+        slc=Slice(Dimension.SITE, "Eastgate Office"),
+        refs=(Reference(ReferenceKind.TREND, 130.456, "4-week average"),
+             Reference(ReferenceKind.PEER, 128.789, "peer median")))
+    run = _run([pct_finding, inr_finding])
+
+    for audience in (Audience.TRANSPORT_MANAGER, Audience.FACILITIES_HEAD):
+        brief = template_brief(run, audience)
+        assert validate_narrative(brief, run) is None
+
+
 # ---------------------------------------------------------------------------
 # sarvam_brief
 # ---------------------------------------------------------------------------

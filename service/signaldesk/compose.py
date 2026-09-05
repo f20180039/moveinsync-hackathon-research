@@ -36,11 +36,19 @@ MAX_FINDINGS_PER_BRIEF = 8
 # validator.
 # ---------------------------------------------------------------------------
 
+def _rendered(value: float, decimals: int) -> str:
+    """The one place a number becomes text at a given precision. Both
+    `format_value` (below) and `validate_narrative` route through this exact
+    function, so a future change to how a figure is rounded or displayed
+    cannot desynchronise the template from the validator that checks it."""
+    return f"{value:.{decimals}f}"
+
+
 def format_value(value: float, unit: str) -> str:
     """1 decimal for a percentage, 2 for a rupee figure -- readable either way,
-    but the validator's allowed set is built at both precisions so this
-    choice never causes a false rejection."""
-    return f"{value:.1f}" if unit == "%" else f"{value:.2f}"
+    but the validator's allowed set is built at both precisions (via
+    `_rendered`) so this choice never causes a false rejection."""
+    return _rendered(value, 1 if unit == "%" else 2)
 
 
 def validate_narrative(narrative: str, run) -> str | None:
@@ -68,14 +76,16 @@ def validate_narrative(narrative: str, run) -> str | None:
     # (rupees, confidence); a narrative figure is only wrong if it disagrees
     # with the finding at the precision IT was written with, not at some
     # other precision -- otherwise the template's own 1dp renderings would
-    # fail their own validator.
-    allowed_1dp = {f"{v:.1f}" for v in values}
-    allowed_2dp = {f"{v:.2f}" for v in values}
+    # fail their own validator. Both sets are built through `_rendered`, the
+    # same function `format_value` uses, rather than a second, independent
+    # formatting path.
+    allowed_1dp = {_rendered(v, 1) for v in values}
+    allowed_2dp = {_rendered(v, 2) for v in values}
 
     for raw in _DECIMAL.findall(_ISO_DATE.sub("", narrative)):
         decimals = len(raw.split(".", 1)[1])
         v = float(raw)
-        ok = f"{v:.1f}" in allowed_1dp if decimals <= 1 else f"{v:.2f}" in allowed_2dp
+        ok = _rendered(v, 1) in allowed_1dp if decimals <= 1 else _rendered(v, 2) in allowed_2dp
         if not ok:
             return raw
     return None
