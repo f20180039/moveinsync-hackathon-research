@@ -793,3 +793,329 @@ body {
   border-top: 1px solid var(--border);
   padding-top: var(--space-4);
 }
+
+/* Card -- the shared shell every Overview/Alerts/Vendors panel builds on. */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  background: var(--bg);
+}
+
+/* KPI row -- the OTA card and its three siblings. Answers "is this number
+   good or bad?" via its own trend and its peers, not just the number. */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.kpi-card__title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpi-card__value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-h);
+  margin: 0;
+}
+
+.kpi-card__inactive {
+  color: var(--text);
+  font-size: var(--font-md);
+  margin: 0;
+}
+
+.kpi-card__delta {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  margin: 0;
+}
+
+.kpi-card__delta--good {
+  color: var(--good-color);
+}
+
+.kpi-card__delta--bad {
+  color: var(--bad-color);
+}
+
+.kpi-card__peer {
+  font-size: var(--font-sm);
+  color: var(--text);
+  margin: 0;
+}
+
+.kpi-card__bar {
+  margin-top: var(--space-2);
+}
+
+.kpi-card__bar-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  margin: var(--space-3) 2px 0;
+}
+
+.kpi-card__bar-marker {
+  position: absolute;
+  top: -3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  border: 2px solid var(--bg);
+}
+
+.kpi-card__bar-marker--observed {
+  background: var(--accent);
+  z-index: 3;
+}
+
+.kpi-card__bar-marker--trend {
+  background: var(--sidebar-muted);
+  z-index: 2;
+}
+
+.kpi-card__bar-marker--peer {
+  background: var(--tier-watch);
+  z-index: 1;
+}
+
+.kpi-card__bar-legend {
+  display: flex;
+  gap: var(--space-3);
+  font-size: 11px;
+  color: var(--text);
+  margin-top: var(--space-3);
+}
+
+/* Priority actions */
+
+.priority-actions__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.priority-actions__view-all {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.priority-actions__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.priority-card {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+}
+
+.priority-card__stripe {
+  width: 6px;
+  flex-shrink: 0;
+}
+
+.priority-card--breach .priority-card__stripe {
+  background: var(--tier-breach);
+}
+
+.priority-card--concern .priority-card__stripe {
+  background: var(--tier-concern);
+}
+
+.priority-card--watch .priority-card__stripe {
+  background: var(--tier-watch);
+}
+
+.priority-card--pass .priority-card__stripe {
+  background: var(--tier-pass);
+}
+
+.priority-card__body {
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
+}
+
+.priority-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.priority-card__title {
+  margin: 0;
+  font-size: var(--font-lg);
+}
+
+.priority-card__sentence {
+  margin: 0;
+  color: var(--text);
+}
+
+.priority-card__columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+}
+
+.priority-card__column h4 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text);
+  margin: 0 0 var(--space-1);
+}
+
+.priority-card__column p {
+  margin: 0 0 var(--space-1);
+}
+
+.priority-card__actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.priority-card__error {
+  color: var(--tier-breach);
+  margin: 0;
+}
+
+.priority-card__escalate-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--font-sm);
+}
+
+.priority-card__investigate {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.priority-card__action {
+  font-weight: 600;
+  margin: 0;
+}
+
+.priority-card__decompose-dims {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.priority-card__decompose-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-3);
+}
+
+.priority-card__decompose-table th,
+.priority-card__decompose-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.priority-card__decompose-empty {
+  color: var(--text);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+/* Ask bar */
+
+.ask-bar__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ask-bar__row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.ask-bar__input {
+  flex: 1;
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--font-md);
+  box-sizing: border-box;
+}
+
+.ask-bar__input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.ask-bar__input:disabled {
+  opacity: 0.6;
+}
+
+.ask-bar__helper {
+  font-size: var(--font-sm);
+  color: var(--text);
+  margin: var(--space-1) 0 0;
+}
+
+.ask-bar__chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.ask-bar__answer {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
+}
+
+.ask-bar__trace {
+  font-family: var(--mono);
+  font-size: 13px;
+  background: var(--code-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  overflow-x: auto;
+  margin-top: var(--space-2);
+}

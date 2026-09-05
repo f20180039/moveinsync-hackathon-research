@@ -110,7 +110,16 @@ function App() {
         {!loading && !error && (
           <main className="shell__content">
             <Routes>
-              <Route path="/" element={<OverviewPage windowLabel={run?.windowLabel ?? null} />} />
+              <Route
+                path="/"
+                element={
+                  <OverviewPage
+                    windowLabel={run?.windowLabel ?? null}
+                    runId={run?.runId ?? null}
+                    findings={findings}
+                  />
+                }
+              />
               <Route path="/alerts" element={<AlertsPage findings={findings} />} />
               <Route path="/findings" element={<FindingsPage findings={findings} />} />
               <Route path="/vendors" element={<VendorsPage findings={findings} />} />

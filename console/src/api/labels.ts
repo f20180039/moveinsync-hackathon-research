@@ -81,6 +81,18 @@ const PURPOSE_LABELS: Record<string, string> = {
   ask: 'Ask',
 }
 
+// The /decompose dimension selector (VENDOR/SITE/SHIFT/DELAY_REASON, etc.)
+// -- same treatment as everything else, never rendered as a raw enum.
+const DIMENSION_LABELS: Record<string, string> = {
+  VENDOR: 'Vendor',
+  SITE: 'Site',
+  SHIFT: 'Shift',
+  MODE: 'Mode',
+  DIRECTION: 'Direction',
+  TENANT: 'Business unit',
+  DELAY_REASON: 'Delay reason',
+}
+
 export type LabelKind =
   | 'tier'
   | 'audience'
@@ -91,6 +103,7 @@ export type LabelKind =
   | 'feed'
   | 'metric'
   | 'purpose'
+  | 'dimension'
 
 // Humanises anything not in a map: underscores become spaces, sentence
 // case. An unrecognised value from the service still renders as words,
@@ -132,6 +145,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(METRIC_LABELS, value)
     case 'purpose':
       return lookup(PURPOSE_LABELS, value)
+    case 'dimension':
+      return lookup(DIMENSION_LABELS, value)
   }
 }
 
