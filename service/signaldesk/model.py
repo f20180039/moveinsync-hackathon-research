@@ -191,3 +191,34 @@ class SarvamClient:
                 prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
                 max_tokens=ceiling)
         return text
+
+    def complete_message(self, messages: list[dict], tools: list[dict] | None = None,
+                         purpose: str = "ask", max_tokens: int | None = None):
+        """Like `complete()`, but for tool-calling (Task 9's interrogator):
+        returns the raw response message (which may carry `.tool_calls`
+        instead of, or alongside, `.content`) rather than requiring plain
+        text. `compose.py`'s briefs never call tools, so `complete()` stays
+        their whole surface -- this is tools.py's own entry point.
+
+        Only a `finish_reason == "length"` (the ceiling truly hit mid-turn)
+        raises TruncatedResponse; a `tool_calls` finish reason with no text
+        content is the NORMAL shape of a turn that called a tool, not a
+        failure."""
+        kwargs = {"model": MODEL, "messages": messages,
+                 "max_tokens": max_tokens or self.DEFAULT_MAX_TOKENS}
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+        r = self._client.chat.completions.create(**kwargs)
+        if r.usage:
+            COST.record(purpose, r.usage)
+        choice = r.choices[0]
+        ceiling = max_tokens or self.DEFAULT_MAX_TOKENS
+        prompt_tokens = getattr(r.usage, "prompt_tokens", None) if r.usage else None
+        completion_tokens = getattr(r.usage, "completion_tokens", None) if r.usage else None
+        if choice.finish_reason == "length":
+            raise TruncatedResponse(
+                f"{purpose} hit the {ceiling}-token ceiling",
+                prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+                max_tokens=ceiling)
+        return choice.message

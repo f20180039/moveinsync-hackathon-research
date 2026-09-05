@@ -42,4 +42,14 @@ describe('RecurringTag', () => {
     render(<RecurringTag finding={makeFinding({ recurrence: { weeks: 4, of: 4 } })} />)
     expect(screen.getByText(/4 of the last 4 weeks/)).toBeInTheDocument()
   })
+
+  it('the "short" variant abbreviates to "Recurring N/of", with the full sentence as the title', () => {
+    render(<RecurringTag finding={makeFinding({ recurrence: { weeks: 3, of: 4 } })} variant="short" />)
+
+    const tag = screen.getByText('Recurring 3/4')
+    expect(tag).toBeInTheDocument()
+    expect(tag).toHaveAttribute('title', 'Recurring · 3 of the last 4 weeks')
+    // The long sentence must not appear as rendered text in this variant.
+    expect(screen.queryByText(/of the last 4 weeks/)).not.toBeInTheDocument()
+  })
 })

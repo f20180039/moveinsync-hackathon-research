@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SafetyBanner } from './SafetyBanner.tsx'
 
@@ -16,10 +16,16 @@ afterEach(() => {
 
 describe('SafetyBanner', () => {
   it('renders nothing when the endpoint 404s (not landed yet)', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+    const fetchMock = vi.fn((_input: RequestInfo | URL) => notFound())
+    vi.stubGlobal('fetch', fetchMock)
 
     const { container } = render(<SafetyBanner runId="run-1" />)
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    // Not a bare setTimeout -- wait for the actual thing that has to
+    // happen (the mount-effect's fetch firing and its .then() settling)
+    // rather than an arbitrary delay guessed to be long enough.
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/safety'))).toBe(true),
+    )
 
     expect(container.querySelector('.safety-banner')).not.toBeInTheDocument()
   })

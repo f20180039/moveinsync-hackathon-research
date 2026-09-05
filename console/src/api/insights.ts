@@ -46,31 +46,43 @@ export function findReference(finding: Pick<Finding, 'references'>, kind: string
 // The top `limit` findings for a priority-action list, with at most
 // `maxPerMetric` per metric id -- so one noisy metric (e.g. 20
 // marshal_compliance breaches, one per site) can't fill the whole list on
-// its own. Rank order (the input order) is preserved throughout; if the
-// cap leaves fewer than `limit` selected (not enough *other* metrics to
-// fill the rest), the remaining slots are filled from the capped-out
-// findings, in their original rank order, rather than showing fewer than
-// `limit` cards when more are actually available.
+// its own. Rank order (the input order) is preserved throughout, including
+// when a backfill is needed: if the cap leaves fewer than `limit` selected
+// (not enough *other* metrics to fill the rest), the remaining slots are
+// filled from the capped-out findings -- but the final array is always
+// re-sorted by each finding's *original* rank index, not
+// selected-then-overflow-appended. Appending would misorder an
+// interleaved case: e.g. [m1, m2, m3, m4(marshal), otd1] with limit 4,
+// cap 2 selects [m1, m2, otd1] and overflows [m3, m4] -- naively
+// appending one overflow slot gives [m1, m2, otd1, m3] (m3, rank 2, lands
+// after otd1, rank 4); re-sorting by rank index gives the correct
+// [m1, m2, m3, otd1].
 export function selectPriorityFindings(findings: Finding[], limit: number, maxPerMetric: number): Finding[] {
   const perMetricCount = new Map<string, number>()
-  const selected: Finding[] = []
-  const overflow: Finding[] = []
+  const selected: { finding: Finding; index: number }[] = []
+  const overflow: { finding: Finding; index: number }[] = []
 
-  for (const finding of findings) {
+  findings.forEach((finding, index) => {
     const count = perMetricCount.get(finding.metricId) ?? 0
     if (count < maxPerMetric) {
-      selected.push(finding)
+      selected.push({ finding, index })
       perMetricCount.set(finding.metricId, count + 1)
     } else {
-      overflow.push(finding)
+      overflow.push({ finding, index })
     }
+  })
+
+  if (selected.length >= limit) {
+    // Already in rank order by construction (selected only ever grows
+    // while walking findings in rank order) -- no backfill, no re-sort
+    // needed.
+    return selected.slice(0, limit).map((entry) => entry.finding)
   }
 
-  const capped = selected.slice(0, limit)
-  if (capped.length < limit) {
-    return capped.concat(overflow.slice(0, limit - capped.length))
-  }
-  return capped
+  const needed = limit - selected.length
+  const chosen = [...selected, ...overflow.slice(0, needed)]
+  chosen.sort((a, b) => a.index - b.index)
+  return chosen.map((entry) => entry.finding)
 }
 
 export interface FindingGroup {
@@ -145,6 +157,25 @@ export function buildFindingSentence(finding: Finding): string {
   const refText = formatMetricValue(primaryRef.value, finding.unit)
   return `${subject} is ${observedText}, ${magnitude} ${unitWord} ${direction} the ${primaryRef.label} of ${refText}.`
 }
+
+// Transport manager's set, and the default for every caller that doesn't
+// pass its own (the weekly/monthly review pages, which stay
+// role-agnostic) -- unchanged from before role-scoped KPI sets existed.
+// Lives here, not in KpiRow.tsx, so roles.ts (a plain data module) can
+// reference it without importing a component.
+export const DEFAULT_KPI_METRIC_IDS = ['ota', 'otd', 'no_show_rate', 'cost_per_km']
+
+// The floating assistant's default suggested chips. Stage 7's persona
+// switch swaps the second chip for the Facilities head role -- kept here
+// (a plain data module, not a component) rather than in
+// FloatingAssistant.tsx so pulling it into a role-mapping table later
+// doesn't need touching the component itself.
+export const DEFAULT_SUGGESTED_QUESTIONS = [
+  'Why is on-time low this week?',
+  'Which vendor is underperforming?',
+  'Where are no-shows concentrated?',
+  'What changed vs last week?',
+]
 
 // A finding counts as "recurring" once the same slice has been Concern or
 // worse in at least this many of the last `recurrence.of` windows.

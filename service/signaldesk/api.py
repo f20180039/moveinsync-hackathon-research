@@ -25,6 +25,7 @@ from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
 from .schemas import Audience, Finding
 from .sweep import STORE, ReplayClock, sweep
+from .tools import ask as ask_question
 
 logger = logging.getLogger("signaldesk")
 
@@ -332,6 +333,25 @@ def create_app(data_dir: str | None = None) -> FastAPI:
     @app.get("/api/cost")
     def get_cost():
         return COST.snapshot()
+
+    @app.post("/api/ask")
+    def post_ask(body: dict):
+        run_id = body.get("runId", "latest")
+        question = (body.get("question") or "").strip()
+        if not question:
+            raise HTTPException(status_code=422, detail={"error": "question must not be empty"})
+        run = STORE.get(run_id)
+        if run is None:
+            _not_found("run", run_id)
+        result = ask_question(state.con, run, question)
+        return {
+            "runId": run.run_id,
+            "question": question,
+            "answer": result["answer"],
+            "withheld": result["withheld"],
+            "reason": result["reason"],
+            "trace": result["trace"],
+        }
 
     @app.get("/api/dispatch/log")
     def get_dispatch_log():

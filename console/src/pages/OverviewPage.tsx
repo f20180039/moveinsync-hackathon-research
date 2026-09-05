@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isDismissed } from '../api/dismissed.ts'
-import { selectPriorityFindings, sortRecurringFirst } from '../api/insights.ts'
+import { DEFAULT_KPI_METRIC_IDS, selectPriorityFindings, sortRecurringFirst } from '../api/insights.ts'
 import type { Finding } from '../api/types.ts'
 import { isAlertTier } from '../api/types.ts'
-import { AskBar } from '../components/AskBar.tsx'
 import { KpiRow } from '../components/KpiRow.tsx'
 import { PriorityActionCard } from '../components/PriorityActionCard.tsx'
 import { SafetyBanner } from '../components/SafetyBanner.tsx'
@@ -19,23 +18,36 @@ export interface OverviewPageProps {
   windowLabel: string | null
   runId: string | null
   findings: Finding[]
+  // The three role-driven bits (roles.ts) -- all optional, defaulting to
+  // Transport manager's behaviour, so every existing caller/test that
+  // predates roles keeps working unchanged.
+  kpiMetricIds?: string[]
+  kpiStripLabel?: string | null
+  isPriorityFinding?: (finding: Finding) => boolean
 }
 
-// The greeting band (Stage 1) plus, on top of it: four KPI cards (the OTA
-// card and its peer/trend context is the demo's core, per the jury
-// insight) and the top-5 priority actions. `findings` is already ranked
-// worst-first by the server -- filtered and capped here, and then
-// re-sorted only within a tier (recurring findings float above
-// non-recurring ones at the same severity; a CONCERN never outranks a
-// BREACH), never across tiers.
-export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps) {
+// The greeting band (Stage 1) plus, on top of it: the role's KPI cards
+// (Transport manager's operational four by default; Facilities head's
+// cost/safety/experience set when passed in) and the top-5 priority
+// actions. `findings` is already ranked worst-first by the server --
+// filtered and capped here, and then re-sorted only within a tier
+// (recurring findings float above non-recurring ones at the same
+// severity; a CONCERN never outranks a BREACH), never across tiers.
+export function OverviewPage({
+  windowLabel,
+  runId,
+  findings,
+  kpiMetricIds = DEFAULT_KPI_METRIC_IDS,
+  kpiStripLabel = null,
+  isPriorityFinding = (finding) => isAlertTier(finding.tier),
+}: OverviewPageProps) {
   // Triggers a re-render after a Dismiss click, which is all that's needed
   // for the plain (non-memoized) filter below to pick up the updated
   // dismissed-id set in localStorage -- dismissing doesn't change
   // `findings` itself, so nothing else would otherwise cause a re-render.
   const [, forceRerender] = useState(0)
 
-  const alertFindings = findings.filter((f) => isAlertTier(f.tier) && !isDismissed(f.id))
+  const alertFindings = findings.filter((f) => isPriorityFinding(f) && !isDismissed(f.id))
   const priorityFindings = sortRecurringFirst(selectPriorityFindings(alertFindings, PRIORITY_LIMIT, MAX_PER_METRIC))
 
   return (
@@ -45,7 +57,8 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
         <p>{windowLabel ?? 'Loading the current window…'}</p>
       </div>
 
-      <KpiRow findings={findings} />
+      {kpiStripLabel && <p className="kpi-row__strip-label">{kpiStripLabel}</p>}
+      <KpiRow findings={findings} metricIds={kpiMetricIds} />
       {runId && <SafetyBanner runId={runId} />}
 
       <section className="priority-actions" aria-label="Priority actions">
@@ -74,8 +87,6 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
           </div>
         )}
       </section>
-
-      {runId && <AskBar runId={runId} />}
     </>
   )
 }

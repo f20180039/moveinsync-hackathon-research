@@ -116,9 +116,23 @@ export interface AskRequest {
   question: string
 }
 
+// One tool call the assistant made while answering -- rendered verbatim in
+// the collapsible trace, never summarised or reworded.
+export interface AskTraceStep {
+  tool: string
+  arguments: Record<string, unknown>
+  result: unknown
+}
+
 export interface AskResponse {
-  answer: string
-  trace: unknown[]
+  runId: string
+  question: string
+  // null exactly when `withheld` is true -- the refusal case. Never treat
+  // a null answer as an error: render `reason` and the trace instead.
+  answer: string | null
+  withheld: boolean
+  reason: string | null
+  trace: AskTraceStep[]
 }
 
 // A named, quantified pattern the sweep noticed and handled in this feed

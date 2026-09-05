@@ -1,17 +1,21 @@
-import { findOverall } from '../api/insights.ts'
+import { DEFAULT_KPI_METRIC_IDS, findOverall } from '../api/insights.ts'
+import { label } from '../api/labels.ts'
 import type { Finding } from '../api/types.ts'
 import { KpiCard } from './KpiCard.tsx'
 
-// The four headline metrics, each looked up as the unsliced ("overall")
-// finding for that metric id. Shared by Overview and the weekly/monthly
-// review pages so the KPI row never drifts between them.
-export function KpiRow({ findings }: { findings: Finding[] }) {
+// A row of KPI cards, each the unsliced ("overall") finding for a metric
+// id -- titles come from label('metric', ...), the one place metric names
+// are named, so a role-specific set (Stage 7's persona switch) never
+// invents its own wording. A metric with no `overall` finding yet (e.g.
+// cost_per_rider, not active on every deployment) renders KpiCard's own
+// "Not active yet" placeholder -- the same graceful-absence pattern as
+// everywhere else, not a special case here.
+export function KpiRow({ findings, metricIds = DEFAULT_KPI_METRIC_IDS }: { findings: Finding[]; metricIds?: string[] }) {
   return (
     <div className="kpi-row">
-      <KpiCard title="On-time arrival" finding={findOverall(findings, 'ota')} />
-      <KpiCard title="On-time departure" finding={findOverall(findings, 'otd')} />
-      <KpiCard title="No-show rate" finding={findOverall(findings, 'no_show_rate')} />
-      <KpiCard title="Cost per km" finding={findOverall(findings, 'cost_per_km')} />
+      {metricIds.map((id) => (
+        <KpiCard key={id} title={label('metric', id)} finding={findOverall(findings, id)} />
+      ))}
     </div>
   )
 }
