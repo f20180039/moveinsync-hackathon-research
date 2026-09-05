@@ -145,16 +145,20 @@ def test_a_breach_sliced_by_shift_reaches_all_three_audiences():
 
 def test_takes_the_worst_tier_across_every_reference_and_keeps_them_all(con):
     # MEASURED on data/sample, vendor_ota sliced by SHIFT=EVENING, LATE_JULY:
-    # observed 36.07, TREND 29.18 (PASS), PEER 57.58 (BREACH). The worst tier
-    # (BREACH, via the peer reference) wins, but both references survive on
-    # the finding -- neither is discarded once the worst is chosen.
+    # observed 36.07, TREND 29.18 (PASS), PEER 57.58. Tier CONCERN, not BREACH,
+    # since Task 5's calibration against data/real widened CONCERN_MAX from
+    # 0.15 to 1.90 (see constants.py's before/after record) -- this case's
+    # delta (~0.374) sits inside the wider band now. The worst tier (via the
+    # peer reference) still wins over TREND's PASS, and both references still
+    # survive on the finding -- neither is discarded once the worst is chosen,
+    # which is what this test is actually pinning down.
     metric = registry.by_id("vendor_ota")
     slc = Slice(Dimension.SHIFT, "EVENING")
 
     finding = verdict.evaluate_finding(con, metric, slc, LATE_JULY, feed_confidence=1.0)
 
     assert finding is not None
-    assert finding.tier is Tier.BREACH
+    assert finding.tier is Tier.CONCERN
     assert {r.kind for r in finding.refs} == {ReferenceKind.TREND, ReferenceKind.PEER}
     assert finding.cause is Cause.PEER_LAGGARD
     assert finding.gap > 0

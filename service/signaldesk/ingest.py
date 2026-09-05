@@ -259,6 +259,18 @@ def load_feed(con: duckdb.DuckDBPyConnection, feed: str, glob: str) -> FeedHealt
                          _unmatched(con, feed), _null_critical(con, feed))
 
 
+def latest_scheduled_ms(con: duckdb.DuckDBPyConnection) -> int:
+    """The one permitted exception to "SQL only in registry.py/ingest.py" for
+    api.py's startup clock (Controller ruling, task-5): the demo's initial
+    simulated "now" is the day after the last trip in the loaded data, not
+    wall-clock time, so a re-run of the same dataset always opens on the same
+    window. Callers round this down to midnight UTC and add one day."""
+    row = con.sql("SELECT max(scheduled_at) FROM trips").fetchone()
+    if row is None or row[0] is None:
+        raise ValueError("trips view has no scheduled_at values to clock from")
+    return int(row[0])
+
+
 def load_all(con: duckdb.DuckDBPyConnection, source) -> dict[str, FeedHealth]:
     """Load order matters: the referential checks read trips and feedback, so
     those must exist first. Two passes rather than one clever ordering.
