@@ -618,7 +618,9 @@ body {
 
 .legend__body {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  /* 260px, not 220px: the Severity section's rows are a badge PLUS a
+     sentence, and at 220px the column was too narrow for both. */
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--space-4) var(--space-5);
   margin-top: var(--space-4);
 }
@@ -651,8 +653,26 @@ body {
 
 .legend__tiers li {
   display: flex;
-  align-items: center;
+  /* flex-start, not center: the description beside the badge wraps to two
+     lines in a narrow column, and centring floated the badge against the
+     middle of that block. */
+  align-items: flex-start;
   gap: var(--space-2);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+
+/* .tier-badge carries min-width: 0 so it can shrink inside the findings
+   grid's fixed severity track. In this list it is a flex ITEM beside a
+   sentence, and that same min-width: 0 let the sentence squeeze it until
+   the word inside collided with its own icon. Here it must not shrink at
+   all -- the text wraps instead. */
+.legend__tiers .tier-badge {
+  flex: none;
+}
+
+.legend__tiers li > span {
+  padding-top: 3px;
 }
 
 /* Tier badge -- Breach/Concern are the only saturated fills anywhere on
