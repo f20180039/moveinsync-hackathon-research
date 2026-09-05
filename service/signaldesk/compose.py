@@ -190,7 +190,8 @@ def template_brief(run, audience: Audience) -> str:
 
 
 # ---------------------------------------------------------------------------
-# sarvam_brief -- one model call, validated, falling back to the template.
+# sarvam_brief -- one model call (at most two on a truncated first attempt),
+# validated, falling back to the template.
 # ---------------------------------------------------------------------------
 
 _SYSTEM_PROMPT = (
@@ -201,8 +202,17 @@ _SYSTEM_PROMPT = (
     "reference point for every claim you make. Mention confidence only for "
     "findings whose confidence is below 0.9. Introduce no figure that is not "
     "present in the findings below -- never invent or recompute a number. "
+    "Do not claim that one finding causes another unless the findings "
+    "themselves establish it -- describe co-occurring conditions, never "
+    "causation across different slices. Do not use citation markers such as "
+    "[1]; write plain prose. "
     "End with exactly one sentence naming the action to take."
 )
+
+# The one retry compose._call_with_retry allows, at double the ceiling that
+# was hit, never past this. See model.SarvamClient.DEFAULT_MAX_TOKENS for why
+# a single fixed ceiling cannot be trusted to never truncate.
+MAX_RETRY_TOKENS = 32_000
 
 
 def _findings_as_text(run, audience: Audience) -> str:
@@ -226,6 +236,31 @@ def _findings_as_text(run, audience: Audience) -> str:
     return "\n".join(lines)
 
 
+def _call_with_retry(model, messages: list[dict], purpose: str = "brief") -> str:
+    """Exactly one retry on `TruncatedResponse`, at double the ceiling that
+    was hit (capped at MAX_RETRY_TOKENS) -- never more than that. This is not
+    the general resilience machinery `model.SarvamClient` explicitly rules
+    out (no backoff, no circuit breaker): sarvam-105b's reasoning overhead is
+    measured to be unbounded-variable and task-dependent (2,096-15,427
+    completion tokens observed across 5 identical real calls at a 16,000
+    ceiling -- see model.py), so a single fixed ceiling cannot be trusted to
+    never truncate. Doubling once is the cheapest way to turn that variance
+    into a delivered brief rather than a template, without pretending a
+    ceiling alone solves it. On a second truncation, this re-raises for the
+    caller to fall back to the template -- unbounded retrying is exactly the
+    machinery that stays out of scope."""
+    try:
+        return model.complete(messages, purpose=purpose)
+    except TruncatedResponse as e:
+        retry_ceiling = min((e.max_tokens or SarvamClient.DEFAULT_MAX_TOKENS) * 2,
+                            MAX_RETRY_TOKENS)
+        logger.warning("compose: model response truncated (prompt_tokens=%s "
+                       "completion_tokens=%s ceiling=%s), retrying once at "
+                       "max_tokens=%s", e.prompt_tokens, e.completion_tokens,
+                       e.max_tokens, retry_ceiling)
+        return model.complete(messages, purpose=purpose, max_tokens=retry_ceiling)
+
+
 def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
     """The tuple-returning core both `sarvam_brief` and the API route share, so
     the route can report which path fired without duplicating the logic."""
@@ -243,12 +278,12 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
     ]
 
     try:
-        narrative = model.complete(messages, purpose="brief")
+        narrative = _call_with_retry(model, messages, purpose="brief")
     except TruncatedResponse as e:
-        logger.warning("compose: model response truncated (prompt_tokens=%s "
-                       "completion_tokens=%s ceiling=%s), falling back to template "
-                       "(audience=%s)", e.prompt_tokens, e.completion_tokens,
-                       e.max_tokens, audience.value)
+        logger.warning("compose: model response truncated again after one retry "
+                       "(prompt_tokens=%s completion_tokens=%s ceiling=%s), falling "
+                       "back to template (audience=%s)", e.prompt_tokens,
+                       e.completion_tokens, e.max_tokens, audience.value)
         return template_brief(run, audience), "template"
     except Exception as exc:
         logger.warning("compose: model call failed (%s), falling back to template "
@@ -265,8 +300,10 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
 
 
 def sarvam_brief(run, audience: Audience, model=None) -> str:
-    """One model call, validated, falling back to `template_brief` on a
-    validation failure, a TruncatedResponse, or any other exception."""
+    """One model call on success; at most two if the first truncates (see
+    `_call_with_retry`). Validated either way, falling back to
+    `template_brief` on a validation failure, a second TruncatedResponse, or
+    any other exception."""
     return _compose_with_source(run, audience, model)[0]
 
 

@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from signaldesk.compose import sarvam_brief, template_brief, validate_narrative
+from signaldesk.compose import (_SYSTEM_PROMPT, sarvam_brief, template_brief,
+                                validate_narrative)
 from signaldesk.model import SarvamClient, TruncatedResponse
 from signaldesk.schemas import (Audience, Cause, Dimension, FeedHealth, Finding,
                                 Reference, ReferenceKind, Slice, Tier, Window,
@@ -131,18 +132,28 @@ def test_the_validator_accepts_every_number_the_template_itself_renders():
 # ---------------------------------------------------------------------------
 
 class StubModel:
-    def __init__(self, text=None, raises=None):
+    """`text`/`raises` behave every call (for a permanent failure or a
+    guaranteed success). `sequence`, if given, is a list of (text, raises)
+    pairs consumed one per call -- for `test_...retries_once_on_truncation`,
+    where the first call must truncate and the second must succeed."""
+
+    def __init__(self, text=None, raises=None, sequence=None):
         self.text = text
         self.raises = raises
+        self.sequence = list(sequence) if sequence is not None else None
         self.calls = 0
         self.last_messages = None
+        self.max_tokens_per_call = []
 
     def complete(self, messages, purpose="brief", max_tokens=None):
         self.calls += 1
         self.last_messages = messages
-        if self.raises is not None:
-            raise self.raises
-        return self.text
+        self.max_tokens_per_call.append(max_tokens)
+        text, raises = (self.sequence.pop(0) if self.sequence
+                       else (self.text, self.raises))
+        if raises is not None:
+            raise raises
+        return text
 
 
 def test_sarvam_brief_substitutes_the_template_when_the_model_invents_a_figure():
@@ -194,23 +205,53 @@ def test_the_prompt_carries_at_most_eight_findings():
     assert len(finding_lines) == 8
 
 
-def test_one_model_call_per_brief():
+def test_one_call_on_success_at_most_two_on_truncation():
+    # The cost story from model.py's CostMeter docstring, updated: success
+    # costs one model call, same as before. A truncated first attempt costs
+    # a second -- never more (see compose._call_with_retry) -- because
+    # sarvam-105b's reasoning overhead is measured to be unbounded-variable,
+    # so a single fixed ceiling cannot be trusted to never truncate.
     run = _run([_finding()])
-    model = StubModel(text=("Vendor on-time share is 61.40%, below the 4-week average of "
-                            "55.00% and the peer median of 60.00%. Action: review."))
-    sarvam_brief(run, Audience.TRANSPORT_MANAGER, model=model)
-    assert model.calls == 1
+    good_text = ("Vendor on-time share is 61.40%, below the 4-week average of "
+                "55.00% and the peer median of 60.00%. Action: review.")
+
+    success_model = StubModel(text=good_text)
+    sarvam_brief(run, Audience.TRANSPORT_MANAGER, model=success_model)
+    assert success_model.calls == 1
+
+    retry_model = StubModel(sequence=[
+        (None, TruncatedResponse("hit the ceiling", prompt_tokens=543,
+                                 completion_tokens=6000, max_tokens=6000)),
+        (good_text, None),
+    ])
+    brief = sarvam_brief(run, Audience.TRANSPORT_MANAGER, model=retry_model)
+    assert retry_model.calls == 2
+    assert "61.40" in brief
+    # the retry asked for double the ceiling that was hit
+    assert retry_model.max_tokens_per_call == [None, 12000]
+
+
+def test_the_system_prompt_forbids_cross_slice_causation_and_citation_markers():
+    # Two Sarvam-narrative defects seen on real data: claiming one finding
+    # CAUSES another across unrelated slices, and writing bracketed citation
+    # markers ("[1]") with no footnote key. Cheap guard against a later
+    # prompt edit silently dropping either instruction.
+    assert ("Do not claim that one finding causes another unless the findings "
+           "themselves establish it") in _SYSTEM_PROMPT
+    assert "causation across different slices" in _SYSTEM_PROMPT
+    assert "Do not use citation markers such as [1]; write plain prose." in _SYSTEM_PROMPT
 
 
 def test_the_default_token_ceiling_leaves_room_for_reasoning_overhead():
-    # MEASURED 2026-09-05 on data/real: a real 8-finding brief call needed
-    # 3473 completion tokens (reasoning + prose) to finish at finish_reason
-    # "stop"; the same call truncated at max_tokens=3200 with ZERO content.
-    # 6000 leaves real headroom above that -- reasoning overhead scales with
-    # the judgment task, not just the prompt, so this floor is well above
-    # the one measured successful call rather than a small multiple of the
-    # ~200-token trivial-reply overhead.
-    assert SarvamClient.DEFAULT_MAX_TOKENS >= 5000
+    # MEASURED 2026-09-05, 5 real calls on data/real at max_tokens=16000, same
+    # 8-finding TRANSPORT_MANAGER prompt: completion_tokens 10545, 2096,
+    # 15427, 8686, 9293 -- min 2096, max 15427, ALL finish_reason=stop, but
+    # one at 96% of the ceiling. The overhead is unbounded-variable and
+    # task-dependent, not a fixed multiple of prompt size (see model.py's
+    # full measurement log) -- this floor is a generous ceiling given that
+    # spread, not a guarantee; compose._call_with_retry's one retry at double
+    # the ceiling is what actually protects the tail.
+    assert SarvamClient.DEFAULT_MAX_TOKENS >= 14000
 
 
 class _FakeChoice:

@@ -116,20 +116,50 @@ class SarvamClient:
     # 199; a ten-word translation cost 19. So the overhead is real, variable,
     # and up to ~200 tokens BEFORE any prose on a TRIVIAL reply.
     #
-    # MEASURED 2026-09-05, on data/real (run-1785542400000-d0), a genuine
-    # brief-writing call -- TRANSPORT_MANAGER, the top 8 (capped) findings,
-    # 543 prompt tokens: max_tokens=3200 exhausted the ENTIRE ceiling on
-    # reasoning alone (completion_tokens=3200, finish_reason="length", zero
-    # characters of content). Raising the ceiling to 8000 let the same call
-    # finish naturally at completion_tokens=3473 (finish_reason="stop") with
-    # a full, validated brief. So reasoning overhead for a real multi-finding
-    # judgment call is roughly an order of magnitude larger than the ~200
-    # tokens measured on a trivial reply above -- it scales with the
-    # REASONING TASK (weighing 8 findings against each other), not with
-    # prompt size. 6000 leaves real headroom above the one measured
-    # successful call (3473) while staying well clear of the measured
-    # failure point (3200).
-    DEFAULT_MAX_TOKENS = 6000
+    # MEASURED 2026-09-05 morning, on data/real (run-1785542400000-d0), the
+    # SAME 543-prompt-token call (TRANSPORT_MANAGER, top 8 capped findings),
+    # repeated:
+    #   max_tokens=3200  -> completion_tokens=3200, finish_reason=length, 0 chars
+    #   max_tokens=8000  -> completion_tokens=3473, finish_reason=stop,   1348 chars
+    # -- an order of magnitude more overhead than the trivial reply above,
+    # because it scales with the REASONING TASK (weighing 8 findings against
+    # each other), not with prompt size.
+    #
+    # MEASURED 2026-09-05 later, from the field (a restarted service, two
+    # consecutive requests): the SAME 543-token prompt burned completion_tokens
+    # =6000 (the then-current ceiling) with ZERO content, TWICE. The one
+    # earlier success (3473) was not the steady state.
+    #
+    # Two mitigations were tried and rejected before raising the ceiling
+    # further, both measured with real calls against the same prompt:
+    #   extra_body={"reasoning_effort": "low"}: 3 calls -> completion_tokens
+    #     3192 (stop), 3044 (stop), 6000 (length, 0 chars). Better on average
+    #     but still truncates -- does not "reliably finish under ~2,000
+    #     tokens", so not adopted as a fix (it was not wired into production).
+    #   extra_body={"reasoning_effort": "none"}: rejected by the API (400,
+    #     "Input should be 'low', 'medium' or 'high'").
+    #   extra_body={"thinking": {"type": "disabled"}}: accepted by the API
+    #     (no error) but did not reduce anything -- 8000 (length, 0 chars),
+    #     4585 (stop), 8000 (length, 0 chars) -- indistinguishable from doing
+    #     nothing, so also not adopted.
+    #
+    # MEASURED 2026-09-05, 5 further real calls at max_tokens=16000, DEFAULT
+    # settings, same prompt: completion_tokens 10545, 2096, 15427, 8686, 9293
+    # (min 2096, max 15427; all finish_reason=stop). Latency ranged 15-103s
+    # per call. CONCLUSION: the reasoning overhead for this model is not a
+    # fixed or even a bounded-in-practice quantity -- it is unbounded-variable
+    # and task-dependent, confirmed at n=13 real calls across three settings.
+    # No ceiling can be picked with confidence that it will never be exceeded;
+    # 16000 covers every call measured so far (with one at 96% of the
+    # ceiling) but the NEXT call could still exceed it. Exceeding the ceiling
+    # is SAFE -- compose.py falls back to the deterministic template -- it
+    # only means the Sarvam-written brief does not reach the screen for that
+    # request. compose._call_with_retry pairs this ceiling with exactly one
+    # retry at double the ceiling (capped at 32000) for the same reason: a
+    # single number cannot fix variance this size, but doubling once is cheap
+    # (~Rs 0.30-1.50 per brief at these token counts) and turns most of the
+    # observed truncations into a delivered narrative instead of a template.
+    DEFAULT_MAX_TOKENS = 16000
 
     def complete(self, messages: list[dict], purpose: str = "brief",
                  max_tokens: int | None = None) -> str:
