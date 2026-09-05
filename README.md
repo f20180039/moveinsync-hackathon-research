@@ -139,20 +139,20 @@ FastAPI service (`signal-desk-api`) and the static console (`signal-desk-console
    A placeholder is fine for the first deploy — the two URL-shaped ones are
    wired in step 3.
 3. **Two-step URL wiring**, after the first deploy of both services:
-   - copy the api's `https://<api>.onrender.com` URL into the console
+   - copy the api's `https://signal-desk-api-1usw.onrender.com` URL into the console
      service's `VITE_API_BASE`, and
-   - copy the console's `https://<console>.onrender.com` URL into the api
+   - copy the console's `https://signal-desk-console.onrender.com` URL into the api
      service's `SIGNALDESK_CORS_ORIGINS`,
    - then redeploy both (env var changes require a redeploy; `VITE_API_BASE`
      is baked into the JS bundle at build time, not read at runtime).
 4. Verify from a shell, with the laptop service stopped so there is no
    chance of reading a local API:
    ```sh
-   curl -s https://<api>.onrender.com/api/health
-   curl -s https://<api>.onrender.com/api/runs/latest/findings | head -c 300
-   curl -s -X POST https://<api>.onrender.com/api/dispatch/latest
-   curl -si -X OPTIONS https://<api>.onrender.com/api/runs/latest/findings \
-     -H 'Origin: https://<console>.onrender.com' -H 'Access-Control-Request-Method: GET' \
+   curl -s https://signal-desk-api-1usw.onrender.com/api/health
+   curl -s https://signal-desk-api-1usw.onrender.com/api/runs/latest/findings | head -c 300
+   curl -s -X POST https://signal-desk-api-1usw.onrender.com/api/dispatch/latest
+   curl -si -X OPTIONS https://signal-desk-api-1usw.onrender.com/api/runs/latest/findings \
+     -H 'Origin: https://signal-desk-console.onrender.com' -H 'Access-Control-Request-Method: GET' \
      | grep -i access-control-allow-origin
    ```
    Open the console URL; it should show a completed sweep, expand to
