@@ -235,8 +235,12 @@ lane is green and it is before 15:10.
 Named so scope creep has to argue against a decision, and so we can say it on
 stage as judgement rather than have it found as a gap.
 
-- **Forecasting / predictive risk scoring.** Cannot be done credibly in the
-  budget, and it invites a question we cannot answer.
+- **Forecasting / predictive risk scoring, as a model.** No ML, no black box:
+  Task 14 shipped a shift readiness outlook instead -- a four-week seasonal
+  baseline (a weighted mean of the same weekday, four weeks back, with an
+  interval from those same observations' own spread), stated as exactly
+  that on screen and in `method: "seasonal-baseline-4w"`, where every basis
+  day is a runnable `registry.evaluate()` query, not a claim.
 - **Vernacular feedback translation.** **The dataset has no free-text comments** —
   five numeric ratings, no comment column, no language column. Cut for absence of
   data, not for time. We will not run it on synthetic comments beside real data.
@@ -258,7 +262,7 @@ The statement offers six and asks for two. We hit **five**:
 
 1. **Proactive alerting & triggers** — the unprompted sweep
 2. **Automated reporting & narratives** — the validated brief
-3. **Conversational agent** — the interrogation panel over four tools
+3. **Conversational agent** — the interrogation panel over six tools
 4. **Decision-support dashboard** — ranked findings expandable to evidence
 5. **Automated communications** — the Slack and SES dispatch, which the statement
    lists *separately* from automated reporting. An earlier count of four missed
