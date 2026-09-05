@@ -1,6 +1,15 @@
+/// <reference types="node" />
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+
+// The real stylesheet, read as text. Deliberately not `../App.css?raw`:
+// Vite hands that back through its CSS pipeline, not verbatim, and the
+// point of this file is to assert what is actually in the source. The
+// tsconfig for src/ pins `types: ["vite/client"]`, hence the reference
+// directive above -- @types/node is already a devDependency.
+// vitest runs with the console/ package root as cwd.
+const css = readFileSync(join(process.cwd(), 'src/App.css'), 'utf8')
 
 // jsdom applies no stylesheet, so a rendering test in this repo CANNOT
 // prove the assistant panel fits a short viewport -- it would happily pass
@@ -13,9 +22,6 @@ import { describe, expect, it } from 'vitest'
 // that, if any one of them regresses, put the panel back into the state
 // where its own content overflows its max-height box and `overflow: hidden`
 // clips the bottom of it. Each assertion names the value that was wrong.
-// vitest runs with the console/ package root as cwd.
-const css = readFileSync(join(process.cwd(), 'src/App.css'), 'utf8')
-
 function rule(selector: string): string {
   // Matches `\n<selector> {  ... }` -- the declarations of exactly one rule.
   const match = css.match(new RegExp(`\\n${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`))
