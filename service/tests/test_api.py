@@ -17,7 +17,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from signaldesk import registry
+from signaldesk import registry, tools
 from signaldesk.api import create_app, finding_to_json
 from signaldesk.sweep import STORE
 
@@ -691,6 +691,34 @@ def test_every_ask_response_carries_a_source_field(client):
     body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
     assert "source" in body
     assert body["source"] in {"sarvam", "withheld"}
+
+
+# ---------------------------------------------------------------------------
+# The user-facing refusal message on POST /api/ask. `reason` stays exactly
+# as it was (the console shows it in the expandable trace); `message` is the
+# sentence a person reads instead of "answer contained a figure no tool
+# returned: 14.8".
+# ---------------------------------------------------------------------------
+
+def test_a_withheld_ask_response_carries_a_human_message_beside_the_reason(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
+    assert body["withheld"] is True
+    # Both fields, and they are not the same string.
+    assert "SARVAM_API_KEY" in body["reason"]
+    assert body["message"] and body["message"] != body["reason"]
+    assert "SARVAM_API_KEY" not in body["message"]
+    assert body["message"] == tools.MESSAGE_NOT_CONFIGURED
+
+
+def test_every_ask_response_carries_a_message_field(client):
+    # The console reads this unconditionally, so it must never be absent --
+    # null on an answered response, a sentence on a withheld one.
+    body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
+    assert "message" in body
+    assert body["message"] is None or isinstance(body["message"], str)
+    if body["withheld"]:
+        assert body["message"]
 
 
 # ---------------------------------------------------------------------------

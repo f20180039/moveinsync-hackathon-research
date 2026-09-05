@@ -545,3 +545,258 @@ def test_history_over_the_character_budget_is_truncated_not_rejected():
 def test_the_history_caps_are_real_numbers_not_unbounded():
     assert 0 < tools.MAX_HISTORY_TURNS <= 12
     assert 0 < tools.MAX_HISTORY_CHARS <= 20_000
+
+
+# ---------------------------------------------------------------------------
+# The user-facing refusal message. `reason` is an engineer's diagnostic
+# ("answer contained a figure no tool returned: 14.8", "tool call budget (3)
+# exhausted") and users were reading it raw, which made a system exercising
+# judgement look like a broken product. `message` is the sentence a person
+# reads instead; `reason` is unchanged and still carried, because the console
+# shows it in the expandable trace and the API contract depends on it.
+# ---------------------------------------------------------------------------
+
+def _refusal_paths(monkeypatch):
+    """Every path in ask() that returns a refusal, as (label, result)."""
+    run = _run([_finding(observed=61.4)])
+    con = duckdb.connect()
+
+    # 1. a figure the model produced that no tool returned
+    validation = tools.ask(con, run, "how are we doing?", model=StubModel([
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", "list_findings", "{}")]),
+        _FakeMessage(content="On-time share is a shocking 12.34% this week."),
+    ]))
+
+    # 2. the tool-call budget
+    budget = tools.ask(con, run, "keep going forever", model=StubModel([
+        _FakeMessage(tool_calls=[_FakeToolCall(f"c{i}", "list_findings", "{}")])
+        for i in range(tools.MAX_TOOL_CALLS + 2)
+    ]))
+
+    # 3. the model returned nothing at all
+    empty = tools.ask(con, run, "anything", model=StubModel([_FakeMessage(content="   ")]))
+
+    # 4. the model was unreachable
+    outage = tools.ask(con, run, "anything", model=StubModel([RuntimeError("connection refused")]))
+
+    # 5. truncated twice
+    truncated = tools.ask(con, run, "anything", model=StubModel([
+        TruncatedResponse("hit the ceiling", max_tokens=8000),
+        TruncatedResponse("hit the ceiling again", max_tokens=16000),
+    ]))
+
+    # 6. no key configured at all
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    no_key = tools.ask(con, run, "anything", model=None)
+
+    con.close()
+    return [("validation", validation), ("budget", budget), ("empty", empty),
+            ("outage", outage), ("truncated", truncated), ("no_key", no_key)]
+
+
+# Strings a user must never be shown. Each is a real internal token from one
+# of the reasons above (or from the machinery behind them).
+_JARGON = ("SARVAM_API_KEY", "tool call budget", "TruncatedResponse", "RuntimeError",
+           "max_tokens", "validate_narrative", "None", "Traceback", "tool_call")
+
+
+def test_every_refusal_path_carries_a_user_facing_message(monkeypatch):
+    paths = _refusal_paths(monkeypatch)
+    assert len(paths) == 6, "every refusal branch in ask() must be exercised here"
+    for label, result in paths:
+        assert result["withheld"] is True, label
+        message = result["message"]
+        assert isinstance(message, str) and message.strip(), f"{label} has no user message"
+        # A real sentence, not a restated diagnostic.
+        assert message != result["reason"], label
+        assert message.endswith("."), label
+        assert len(message.split()) >= 12, f"{label} message is too terse to help"
+        for token in _JARGON:
+            assert token not in message, f"{label} message leaks {token!r}"
+
+
+def test_every_refusal_message_suggests_something_the_user_can_do(monkeypatch):
+    # "It broke" is the message we are replacing. Each one must point
+    # somewhere next -- either at a retry/narrower question, or at the parts
+    # of the console that still work.
+    for label, result in _refusal_paths(monkeypatch):
+        message = result["message"].lower()
+        assert any(hint in message for hint in
+                   ("try", "narrow", "ask", "unaffected")), f"{label} offers no next step"
+
+
+def test_the_refusal_messages_are_distinct_per_cause(monkeypatch):
+    # A single generic apology on every path would pass the assertions above
+    # and tell the user nothing. Four causes, four different sentences.
+    by_label = dict(_refusal_paths(monkeypatch))
+    distinct = {by_label[k]["message"] for k in ("validation", "budget", "empty", "no_key")}
+    assert len(distinct) == 4
+
+
+def test_the_unverified_figure_message_says_the_number_could_not_be_traced(monkeypatch):
+    by_label = dict(_refusal_paths(monkeypatch))
+    message = by_label["validation"]["message"].lower()
+    # The honest framing, in plain words: a number was held back because it
+    # could not be traced -- not "the request failed".
+    assert "number" in message
+    assert "trace" in message
+    # And it must not blame the person who asked.
+    for blame in ("you asked", "your question was", "invalid", "bad question"):
+        assert blame not in message
+
+
+def test_the_budget_message_tells_the_user_to_ask_in_smaller_parts(monkeypatch):
+    by_label = dict(_refusal_paths(monkeypatch))
+    message = by_label["budget"]["message"].lower()
+    assert "smaller" in message or "narrow" in message
+    assert "budget" not in message and "tool call" not in message
+
+
+def test_a_refusal_keeps_its_technical_reason_alongside_the_message(monkeypatch):
+    # Additive, not a rename: the console puts `reason` in the expandable
+    # trace and the API tests assert on it. Both fields, on every refusal.
+    by_label = dict(_refusal_paths(monkeypatch))
+    assert "12.34" in by_label["validation"]["reason"]
+    assert f"budget ({tools.MAX_TOOL_CALLS})" in by_label["budget"]["reason"]
+    assert "SARVAM_API_KEY" in by_label["no_key"]["reason"]
+    for label, result in by_label.items():
+        assert isinstance(result["reason"], str) and result["reason"], label
+
+
+def test_an_answered_response_carries_no_refusal_message():
+    # `message` exists on every response so the console can read it
+    # unconditionally, and is null exactly when there is an answer to show.
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4)])
+    model = StubModel([
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", "list_findings", "{}")]),
+        _FakeMessage(content="Vendor on-time share is 61.40% this week."),
+    ])
+    result = tools.ask(duckdb.connect(), run, "how are we doing?", model=model)
+    assert result["withheld"] is False
+    assert "message" in result
+    assert result["message"] is None
+
+
+def test_a_refusal_added_later_cannot_ship_without_a_user_message():
+    # The default is the guard: _withheld called with a reason alone still
+    # produces a real sentence rather than leaking the diagnostic.
+    result = tools._withheld("some future internal condition", [])
+    assert result["message"] == tools.MESSAGE_GENERIC
+    assert result["message"] and result["message"] != result["reason"]
+
+
+# ---------------------------------------------------------------------------
+# The scope guardrail. The assistant answers about THIS system's domain;
+# a question clearly outside it is declined briefly, with zero tool calls,
+# and the decline names what it CAN answer. Implemented in the system prompt
+# rather than as a keyword blocklist: a hand-written banned-word list both
+# refuses legitimate questions ("no-shows on the world cup final weekend")
+# and misses every synonym it did not list.
+# ---------------------------------------------------------------------------
+
+def _system_prompt_of(run):
+    model = StubModel([_FakeMessage(content="Vendor is behind its peers.")])
+    tools.ask(duckdb.connect(), run, "anything", model=model)
+    return model.last_messages[0]["content"]
+
+
+def test_the_system_prompt_scopes_the_assistant_to_this_domain():
+    section = _scope_section_of(_run([_finding()]))
+    # The domain, described positively -- the subject of this system.
+    for term in ("commute", "vendor", "site", "shift", "cost", "finding"):
+        assert term in section, term
+    # And the instruction to decline the clearly-unrelated without spending
+    # a tool call on it.
+    assert "outside" in section
+    assert "not call any tool" in section
+
+
+def test_the_scope_rule_tells_the_model_to_answer_when_in_doubt():
+    # A false refusal is worse than a slow answer: the rule must break the
+    # tie towards answering, or an oddly-phrased operations question gets
+    # turned away on stage.
+    section = _scope_section_of(_run([_finding()]))
+    assert "unsure" in section or "in doubt" in section
+    assert "answer it" in section
+    assert "worse" in section
+
+
+def _scope_section_of(run) -> str:
+    """The scope rule as the model actually receives it -- sliced out of the
+    real prompt, so an assertion below cannot be satisfied by wording that
+    happens to appear in some other paragraph."""
+    prompt = _system_prompt_of(run)
+    assert "SCOPE." in prompt, "the scope rule is not in the system prompt at all"
+    return prompt.split("SCOPE.", 1)[1].lower()
+
+
+def test_the_scope_rule_asks_the_decline_to_name_what_it_can_answer():
+    section = _scope_section_of(_run([_finding()]))
+    assert "instead" in section
+    # Named alternatives, not a bare "I can't help with that".
+    for offer in ("on-time", "no-show", "vendor", "cost"):
+        assert offer in section, offer
+
+
+def test_the_forecast_refusal_instruction_is_still_in_the_prompt():
+    # The existing decline that already works ("what will OTA be next
+    # month") must not have been displaced by the scope rule.
+    prompt = _system_prompt_of(_run([_finding()]))
+    assert "forecast" in prompt.lower()
+    assert "next month" in prompt.lower()
+
+
+def test_an_off_topic_decline_costs_no_tool_calls_and_is_returned_as_prose():
+    # The shape the scope rule produces: the model declines in words, with
+    # no tool call, and that decline reaches the user as an ANSWER -- not as
+    # a withheld refusal, and not mangled by the numeric validator.
+    run = _run([_finding()])
+    model = StubModel([_FakeMessage(
+        content="That is outside what I cover. I can help with this week's findings, "
+                "on-time arrival, no-shows, vendor and site performance and cost.")])
+    result = tools.ask(duckdb.connect(), run, "who won the world cup?", model=model)
+    assert result["withheld"] is False, result["reason"]
+    assert result["trace"] == [], "an off-topic question must not spend tool calls"
+    assert model.calls == 1
+    assert "outside what I cover" in result["answer"]
+
+
+def test_a_forecast_decline_still_costs_no_tool_calls():
+    run = _run([_finding()])
+    model = StubModel([_FakeMessage(
+        content="I cannot forecast next month. I checked this window's findings only.")])
+    result = tools.ask(duckdb.connect(), run, "what will OTA be next month?", model=model)
+    assert result["withheld"] is False, result["reason"]
+    assert result["trace"] == []
+    assert model.calls == 1
+
+
+def test_no_question_is_refused_before_the_model_sees_it():
+    # The guardrail is a prompt rule, NOT a blocklist in ask(). Every one of
+    # these is a legitimate operations question wearing words a banned-word
+    # list would trip over -- each must reach the model verbatim and each
+    # must come back answered.
+    awkward = [
+        "who won the world cup of no-shows at Whitefield this week?",
+        "hi! quick one -- how did our cab partner do on punctuality for the graveyard shift?",
+        "what's the weather like for the Monday morning ETS runs, ops-wise?",
+        "tell me a story about why billing looked odd for tenant ACME",
+    ]
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4)])
+    for question in awkward:
+        model = StubModel([_FakeMessage(content="Vendor on-time share is 61.40% this week.")])
+        result = tools.ask(duckdb.connect(), run, question, model=model)
+        assert model.calls == 1, f"{question!r} never reached the model"
+        assert model.last_messages[-1] == {"role": "user", "content": question}
+        assert result["withheld"] is False, f"{question!r} was refused: {result['reason']}"
+
+
+def test_the_scope_rule_is_not_a_banned_word_list():
+    # The thing that would embarrass us on stage. If a future change swaps
+    # the prompt rule for a list of forbidden words in code, this fails.
+    import inspect
+    source = inspect.getsource(tools.ask)
+    for smell in ("blocklist", "banned", "BLOCKED_WORDS", "off_topic_words"):
+        assert smell not in source
+    # The rule must be delivered to the model, not applied to the question.
+    assert "question.lower()" not in source

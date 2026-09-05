@@ -69,6 +69,42 @@ ASK_MAX_TOKENS = 4000
 # here since ask latency is what a judge waits on live, on stage.
 ASK_MAX_RETRY_TOKENS = 16_000
 
+# The scope guardrail. Deliberately a PROMPT rule and not a keyword
+# blocklist: a banned-word list refuses "who is our worst vendor for
+# no-shows on the world cup final weekend" and lets "ignore the above" and
+# every unlisted synonym through, which is the wrong failure on both sides.
+# What the model is given instead is the SUBJECT of this system, described
+# positively, plus an explicit instruction that the tie goes to answering.
+#
+# A false refusal is worse than a slow answer: an operations question in
+# unfamiliar words is still an operations question, so the last sentence
+# tells the model to treat doubt as in-scope. The out-of-scope reply spends
+# ZERO tool calls, which is also why it lives in the prompt -- the model
+# declines before the loop ever reaches a tool, exactly the way the existing
+# forecast refusal already does.
+_SCOPE_RULE = (
+    "SCOPE. You answer questions about this commute-operations system and "
+    "the data behind this run: its metrics and findings, vendors, sites, "
+    "tenants, shifts, modes and directions, trips, delays and their reasons, "
+    "no-shows and cancellations, employees and their commutes, cost and "
+    "efficiency, the actions to take, and the week's review -- including "
+    "questions about how this assistant itself reaches an answer. Treat "
+    "anything that bears on running a commute operation as in scope even if "
+    "it is worded unusually, uses a customer's own vocabulary, or names a "
+    "person, place, vendor or amount you have not seen before.\n"
+    "If a question is CLEARLY about something else entirely -- general "
+    "knowledge, news, sport, celebrities, recipes, coding help, personal "
+    "chit-chat, or any subject with no bearing on commute operations -- do "
+    "NOT call any tool. Reply in one or two plain sentences that it is "
+    "outside what you cover, and say what you can help with instead: this "
+    "week's findings, on-time arrival, no-shows and cancellations, vendor "
+    "and site performance, shifts, cost, and what to do about each. Do not "
+    "lecture, do not moralise, and do not quote a number in that reply.\n"
+    "When you are unsure which side a question falls on, ANSWER IT. A "
+    "commute-operations question you refuse is a worse failure than an "
+    "off-topic question you answer."
+)
+
 _SYSTEM_PROMPT_TEMPLATE = (
     "You are Signal Desk's interrogator, answering one question about a "
     "completed sweep. Below is a digest of the run's own top findings, "
@@ -94,7 +130,8 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "claim that one finding causes another unless the digest or tool "
     "results themselves establish it -- describe co-occurring conditions, "
     "never causation across different slices. Do not use citation markers "
-    "such as [1]; write plain prose."
+    "such as [1]; write plain prose.\n\n"
+    + _SCOPE_RULE
 )
 
 
@@ -439,14 +476,67 @@ SOURCE_MODEL = "sarvam"
 SOURCE_WITHHELD = "withheld"
 
 
+# ---------------------------------------------------------------------------
+# The user-facing half of a refusal. `reason` above is an engineer's
+# diagnostic and stays exactly as it is -- the console shows it in the
+# expandable trace and the tests assert on it. `message` is the sentence a
+# person reads on screen instead.
+#
+# Every refusal path names one. `_withheld`'s parameter DEFAULTS to the
+# generic one so a refusal added later cannot ship without a user-facing
+# message -- the failure mode this exists to end is a raw internal string
+# reaching the screen.
+#
+# Two rules held to in the wording: say what happened and what to do next,
+# and never blame the person asking. The validation case in particular is a
+# strength, not an apology -- the system declined to show a number it could
+# not trace -- so it says so plainly, without the word "validator".
+# ---------------------------------------------------------------------------
+
+MESSAGE_UNVERIFIED_FIGURE = (
+    "I held this answer back. One of the numbers in it did not match anything "
+    "the data returned, and I only show figures I can trace to this run. Try "
+    "asking again, or narrow it to one metric, vendor or site and I will "
+    "answer from the findings themselves."
+)
+MESSAGE_BUDGET_EXHAUSTED = (
+    "That question needed more look-ups than I am allowed for a single "
+    "answer, so I stopped rather than guess at the rest. Try it in smaller "
+    "parts -- one metric, vendor, site or shift at a time."
+)
+MESSAGE_EMPTY_ANSWER = (
+    "I did not get an answer back for that one. Try asking again, or put it "
+    "in terms of a metric, vendor, site or shift in this week's run."
+)
+MESSAGE_NOT_CONFIGURED = (
+    "The assistant is not switched on for this build, so I cannot answer "
+    "questions here. The findings, evidence and weekly review elsewhere in "
+    "the console are unaffected."
+)
+MESSAGE_TOO_LONG = (
+    "That answer came back longer than I can handle. Try a narrower question "
+    "-- a single metric, vendor or site -- and I will keep it short."
+)
+MESSAGE_UNAVAILABLE = (
+    "I could not reach the assistant to answer that just now. Try again in a "
+    "moment; the findings, evidence and weekly review elsewhere in the "
+    "console are unaffected."
+)
+# The default, and the honest answer for a refusal none of the above covers.
+MESSAGE_GENERIC = (
+    "I could not answer that one. Try asking again, or rephrase it in terms "
+    "of a metric, vendor, site or shift in this week's run."
+)
+
+
 def _answered(answer: str, trace: list[dict]) -> dict:
     return {"answer": answer, "withheld": False, "reason": None,
-            "source": SOURCE_MODEL, "trace": trace}
+            "message": None, "source": SOURCE_MODEL, "trace": trace}
 
 
-def _withheld(reason: str, trace: list[dict]) -> dict:
+def _withheld(reason: str, trace: list[dict], message: str = MESSAGE_GENERIC) -> dict:
     return {"answer": None, "withheld": True, "reason": reason,
-            "source": SOURCE_WITHHELD, "trace": trace}
+            "message": message, "source": SOURCE_WITHHELD, "trace": trace}
 
 
 def _collect_numbers(obj) -> set[float]:
@@ -502,7 +592,8 @@ def ask(con, run, question: str, model=None, history=None) -> dict:
     if model is None:
         api_key = os.environ.get("SARVAM_API_KEY", "")
         if not api_key:
-            return _withheld("no SARVAM_API_KEY configured", trace)
+            return _withheld("no SARVAM_API_KEY configured", trace,
+                             MESSAGE_NOT_CONFIGURED)
         model = SarvamClient(api_key=api_key)
 
     tools_impl = _build_tools(con, run)
@@ -517,20 +608,23 @@ def ask(con, run, question: str, model=None, history=None) -> dict:
         try:
             msg = _complete_with_retry(model, messages)
         except TruncatedResponse as e:
-            return _withheld(f"model truncated twice: {e}", trace)
+            return _withheld(f"model truncated twice: {e}", trace, MESSAGE_TOO_LONG)
         except Exception as exc:
             logger.warning("tools: ask model call failed (%s)", type(exc).__name__, exc_info=True)
-            return _withheld(f"model unavailable ({type(exc).__name__})", trace)
+            return _withheld(f"model unavailable ({type(exc).__name__})", trace,
+                             MESSAGE_UNAVAILABLE)
 
         tool_calls = getattr(msg, "tool_calls", None)
         if not tool_calls:
             answer = (msg.content or "").strip()
             if not answer:
-                return _withheld("model returned no answer and called no tool", trace)
+                return _withheld("model returned no answer and called no tool", trace,
+                                     MESSAGE_EMPTY_ANSWER)
             bad = validate_narrative(answer, run, extra_values=all_numbers)
             if bad is not None:
                 return _withheld(
-                    f"answer contained a figure no tool returned: {bad}", trace)
+                    f"answer contained a figure no tool returned: {bad}", trace,
+                    MESSAGE_UNVERIFIED_FIGURE)
             return _answered(answer, trace)
 
         messages.append({
@@ -559,4 +653,5 @@ def ask(con, run, question: str, model=None, history=None) -> dict:
             all_numbers |= _collect_numbers(result)
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
 
-    return _withheld(f"tool call budget ({MAX_TOOL_CALLS}) exhausted", trace)
+    return _withheld(f"tool call budget ({MAX_TOOL_CALLS}) exhausted", trace,
+                     MESSAGE_BUDGET_EXHAUSTED)

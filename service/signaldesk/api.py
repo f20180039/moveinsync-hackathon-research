@@ -151,6 +151,28 @@ def startup(state: State, data_dir: str | None = None):
     logger.info("sweep run_id=%s findings=%d (unprompted, on startup)",
                 run.run_id, len(run.findings))
 
+    # And a MONTH sweep behind it, on its own thread and its own cursor, so
+    # the monthly review has real monthly data without anyone pressing a
+    # button that takes 98 seconds. It never becomes "latest" -- the weekly
+    # run stays the one the Overview reads -- and until it lands the monthly
+    # route answers 404 "no month run yet" rather than a week of data wearing
+    # a month's label. Off with SIGNALDESK_STARTUP_MONTH_SWEEP=0 for a cold
+    # start that must not do the extra work.
+    if os.environ.get("SIGNALDESK_STARTUP_MONTH_SWEEP", "1") != "0":
+        threading.Thread(target=_startup_month_sweep, args=(state,), daemon=True,
+                         name="startup-month-sweep").start()
+
+
+def _startup_month_sweep(state: State) -> None:
+    try:
+        run = sweep(state.con.cursor(), state.clock, state.health,
+                   window_days=WINDOW_DAYS_BY_KIND["month"], window_kind="month")
+        STORE.put(run, make_latest=False)
+        logger.info("sweep run_id=%s findings=%d (month, background, on startup)",
+                    run.run_id, len(run.findings))
+    except Exception:
+        logger.warning("api: background month sweep failed", exc_info=True)
+
 
 def finding_to_json(f: Finding) -> dict:
     """The frozen contract (Controller ruling, task-5): EXACTLY the shape of
@@ -331,8 +353,25 @@ def create_app(data_dir: str | None = None) -> FastAPI:
         return {**job, "pollUrl": f"/api/sweep/{job['jobId']}"}
 
     @app.get("/api/runs/{run_id}/findings")
-    def get_run_findings(run_id: str):
-        run = STORE.get(run_id)
+    def get_run_findings(run_id: str, window: str | None = None):
+        """`window` narrows "latest" to the latest run of that window kind.
+
+        Without it this behaves exactly as it always has. With it, a monthly
+        page asks for a MONTH run and gets a month run or a 404 -- never the
+        weekly run relabelled, which is what made the Overview, the weekly
+        review and the monthly review all render the same figures."""
+        if window is None:
+            run = STORE.get(run_id)
+        else:
+            kind = window.lower()
+            if kind not in WINDOW_DAYS_BY_KIND:
+                valid = ", ".join(WINDOW_DAYS_BY_KIND)
+                raise HTTPException(status_code=422, detail={
+                    "error": f"unknown window {window!r}; valid values are {valid}"})
+            run = STORE.get(run_id, window_kind=kind)
+            if run is None:
+                raise HTTPException(status_code=404, detail={
+                    "error": f"no {kind} run yet"})
         if run is None:
             _not_found("run", run_id)
         return _run_to_json(run)
@@ -596,6 +635,12 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "answer": result["answer"],
             "withheld": result["withheld"],
             "reason": result["reason"],
+            # Two fields, on purpose. `reason` is the engineer's diagnostic
+            # ("answer contained a figure no tool returned: 14.8") and the
+            # console keeps it in the expandable trace, where it is a
+            # selling point. `message` is the sentence a person reads --
+            # null on an answered response, always present on a refusal.
+            "message": result["message"],
             # UAT task 1: provenance, in the same vocabulary the brief uses.
             # "sarvam" means the model wrote these words and every figure in
             # them was checked against a tool result; "withheld" means
