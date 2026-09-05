@@ -142,7 +142,9 @@ WHERE 1 = 1
 # and marshal_compliance (Task 11) have no direction concept at all -- their
 # source rows (bill, marshal_population) carry no trip_direction of their
 # own that a DIRECTION slice could meaningfully partition -- so they share
-# this same reduced set.
+# this same reduced set. Task 15's late_pickup_rate/cost_per_rider join them
+# for the same reason (per-employee/per-trip readings, not a LOGIN/LOGOUT
+# concept).
 _DIMS_EXCEPT_DIRECTION = tuple(d for d in Dimension if d not in (Dimension.NONE, Dimension.DIRECTION))
 
 # Task 11: the marshal-required population, derived once in ingest.py as its
@@ -157,6 +159,51 @@ SELECT 100.0 * sum(CASE WHEN t.actual_escort THEN 1 ELSE 0 END) / nullif(count(*
        count(*) AS n
 FROM marshal_population t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  {{SLICE}}
+"""
+
+# Task 15: the delay EXPERIENCED by an employee -- a leg picked up more than
+# ON_TIME_GRACE_MS after its own planned_pickup_at. This is deliberately a
+# different reading from ota/otd (which measure the TRIP's arrival/departure
+# against planned_end_at) and from delay_reason = 'EMPLOYEE' (which measures
+# delay CAUSED by an employee, e.g. a late report-in) -- late_pickup_rate is
+# the employee-experienced side of the same story: "how often is MY pickup
+# late", regardless of who or what caused it.
+#
+# Window and slice both bind on t. (not e.) so a slice means the same trip
+# population here as it does on every metric in this file -- joining in
+# emp_legs must not change what "sliced by VENDOR/SITE/..." means.
+#
+# Grace is a STRICT >, not >=: a pickup exactly ON_TIME_GRACE_MIN late is
+# still on time (same boundary convention as _ON_TIME_BASE's own <=), proven
+# by test_registry.py's dedicated boundary test.
+_LATE_PICKUP_SQL = f"""
+SELECT 100.0 * sum(CASE WHEN e.actual_pickup_at > e.planned_pickup_at + {C.ON_TIME_GRACE_MS}
+                        THEN 1 ELSE 0 END)
+       / nullif(count(*), 0),
+       count(*) AS n
+FROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND e.planned_pickup_at IS NOT NULL AND e.actual_pickup_at IS NOT NULL
+  {{{{SLICE}}}}
+"""
+
+# Task 15: the employee-level COST reading, as distinct from cost_per_km's
+# per-distance reading -- Sigma(bill.trip_cost) / Sigma(trips.actualemployee_cnt),
+# over trips that actually carried at least one employee. bill carries
+# MULTIPLE line items per trip on ~0.2% of real trip_ids (data/real: 620,942
+# bill rows over 613,784 distinct trip_ids) -- joining bill straight to trips
+# would silently multiply that trip's actualemployee_cnt into the denominator
+# once per extra bill line (proven by this file's own dedicated dedup test in
+# test_registry.py). Aggregating bill to one row per trip_id FIRST, then
+# joining once, is the fix: n counts TRIPS, never bill line items.
+_COST_PER_RIDER_SQL = """
+SELECT sum(bt.trip_cost) / nullif(sum(t.actualemployee_cnt), 0),
+       count(*) AS n
+FROM (SELECT trip_id, sum(trip_cost) AS trip_cost FROM bill GROUP BY trip_id) bt
+JOIN trips t ON t.trip_id = bt.trip_id
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND t.actualemployee_cnt IS NOT NULL AND t.actualemployee_cnt > 0
   {{SLICE}}
 """
 
@@ -200,13 +247,28 @@ METRICS: tuple[Metric, ...] = (
     Metric("marshal_compliance", "Marshal compliance", "%", Direction.HIGHER,
            _MARSHAL_SQL, (ReferenceKind.TARGET,), "trips", ("actual_escort",),
            target=100.0, hard_target=True, dims=_DIMS_EXCEPT_DIRECTION),
+    # Task 15: the employee-experienced delay reading -- source is emp_legs
+    # (not trips), so coverage() checks planned_pickup_at/actual_pickup_at
+    # against emp_legs alone, exactly like every other metric's
+    # required_columns is checked against its own `source` table.
+    Metric("late_pickup_rate", "Late pickups (employee legs)", "%", Direction.LOWER,
+           _LATE_PICKUP_SQL, (ReferenceKind.TREND, ReferenceKind.PEER), "emp_legs",
+           ("planned_pickup_at", "actual_pickup_at"), dims=_DIMS_EXCEPT_DIRECTION),
+    # Task 15: the employee-level cost reading. required_columns is checked
+    # against `source` ("bill") alone -- same reasoning as cost_per_km:
+    # actualemployee_cnt lives on trips, not bill, and coverage() has no join.
+    Metric("cost_per_rider", "Cost per rider", "INR", Direction.LOWER,
+           _COST_PER_RIDER_SQL, (ReferenceKind.TREND, ReferenceKind.PEER), "bill",
+           ("trip_cost",), dims=_DIMS_EXCEPT_DIRECTION),
 )
 
 # EV share is a later task (cheap, but out of scope here). experience was
 # dropped (Task 11): its ratings include 0 values that may mean "unrated",
 # the only one of the six needing a judgement call about its own data.
+# Task 15 adds late_pickup_rate and cost_per_rider: employee-related delay
+# and cost were previously invisible to the sweep entirely.
 ACTIVE_METRICS = ("ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
-                  "marshal_compliance")
+                  "marshal_compliance", "late_pickup_rate", "cost_per_rider")
 # Compatibility alias -- every pre-Task-11 caller (sweep.py's default,
 # api.py's /api/health, the test suite) keeps working unchanged; new code
 # should read ACTIVE_METRICS.
@@ -448,3 +510,130 @@ def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:
     if slc.dim is not Dimension.NONE:
         sql = sql.replace("?", "'" + slc.value.replace("'", "''") + "'", 1)
     return sql.strip()
+
+
+def trend_reference(con, metric: Metric, slc: "Slice | tuple[Slice, ...]",
+                    window: Window, windows: int = 4) -> float | None:
+    """Mean of the metric over the `windows` COMPLETE PRECEDING periods --
+    the same calculation references._trend makes for a Finding's Reference,
+    exposed here as a bare number for a caller (api.py's /api/employees/impact)
+    that needs "this metric's own trend" without building a full Finding.
+    None when every preceding window is itself unmeasurable, exactly like
+    references._trend."""
+    values = [v for v in (evaluate(con, metric, slc, window.shifted_back(b))
+                         for b in range(1, windows + 1)) if v is not None]
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+# ---------------------------------------------------------------------------
+# Task 15: GET /api/employees/impact -- employee-related delay and cost were
+# invisible to the console entirely (no metric read emp_legs, and the only
+# cost metric normalised per km, not per employee). Both queries below join
+# emp_legs to trips on t.trip_id and bind the window on t.scheduled_at, same
+# convention as every metric in this file, so "the window" means the same
+# trip population here as everywhere else.
+#
+# "Late" here is deliberately the SAME grace and direction as late_pickup_rate
+# above (actual_pickup_at strictly more than ON_TIME_GRACE_MS after
+# planned_pickup_at) -- this is the delay an employee EXPERIENCES. It is a
+# different reading from employee_caused_delay_share below, which is the
+# delay an employee CAUSES (trips.delay_reason = 'EMPLOYEE'): the two numbers
+# are not the same question and the endpoint labels them accordingly.
+# ---------------------------------------------------------------------------
+
+_EMPLOYEE_LEGS_CTE = f"""
+WITH legs AS (
+    SELECT e.stwid, e.is_no_show,
+           CASE WHEN e.actual_pickup_at IS NOT NULL AND e.planned_pickup_at IS NOT NULL
+                THEN (e.actual_pickup_at - e.planned_pickup_at) / 60000.0 END AS delay_min
+    FROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id
+    WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+)
+"""
+
+_EMPLOYEE_IMPACT_TOTALS_SQL = _EMPLOYEE_LEGS_CTE + f"""
+SELECT
+    count(DISTINCT stwid) AS riders_in_window,
+    count(DISTINCT CASE WHEN is_no_show OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000})
+                        THEN stwid END) AS employees_impacted,
+    sum(CASE WHEN is_no_show THEN 1 ELSE 0 END) AS no_show_legs,
+    sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000}
+             THEN 1 ELSE 0 END) AS late_pickup_legs,
+    avg(delay_min) AS avg_pickup_delay_min,
+    median(delay_min) AS median_pickup_delay_min
+FROM legs
+"""
+
+# The delay an employee CAUSES, not experiences: trips whose delay_reason is
+# 'EMPLOYEE', as a share of every LATE trip (delay_minutes strictly more than
+# the same grace, in minutes -- trips.delay_minutes is already in minutes,
+# see docs/real-dataset-mapping.md §4). NODELAY trips are excluded by the
+# delay_minutes > grace predicate itself, same reasoning as
+# delay_reason_breakdown's own NODELAY exclusion above.
+_EMPLOYEE_CAUSED_DELAY_SHARE_SQL = f"""
+SELECT sum(CASE WHEN delay_reason = 'EMPLOYEE' THEN 1 ELSE 0 END),
+       count(*)
+FROM trips t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND t.delay_minutes IS NOT NULL AND t.delay_minutes > {C.ON_TIME_GRACE_MS / 60_000}
+"""
+
+
+def employee_impact_totals(con, window: Window) -> dict:
+    """The overview numbers for /api/employees/impact: population counts plus
+    both delay readings (experienced and caused), reconciled into one dict so
+    api.py never touches SQL. employee_caused_delay_share is None when the
+    window has no late trips at all (nullif(count(*), 0) would otherwise
+    divide by zero -- guarded in Python here since this query returns two
+    raw columns, not a ready ratio, unlike every metric in METRICS)."""
+    row = con.execute(_EMPLOYEE_IMPACT_TOTALS_SQL, [window.start_ms, window.end_ms]).fetchone()
+    caused, late_trips = con.execute(
+        _EMPLOYEE_CAUSED_DELAY_SHARE_SQL, [window.start_ms, window.end_ms]).fetchone()
+    return {
+        "riders_in_window": int(row[0] or 0),
+        "employees_impacted": int(row[1] or 0),
+        "no_show_legs": int(row[2] or 0),
+        "late_pickup_legs": int(row[3] or 0),
+        "avg_pickup_delay_min": float(row[4]) if row[4] is not None else None,
+        "median_pickup_delay_min": float(row[5]) if row[5] is not None else None,
+        "employee_caused_delay_share":
+            (float(caused) / late_trips) if late_trips else None,
+    }
+
+
+# Restricted to exactly the three dimensions the endpoint asks for (SHIFT,
+# SITE, VENDOR) -- dim.column is one of Dimension's own fixed enum values,
+# never a caller-supplied string, so this is no less safe than distinct_values'
+# own f-string interpolation of the same property.
+def employee_impact_by_dim(con, dim: Dimension, window: Window,
+                           limit: "int | None" = None) -> list[dict]:
+    """legs/noShows/latePickups/impacted grouped by `dim` -- the byShiftBand/
+    bySite/byVendor breakdowns on /api/employees/impact. `limit`, when given,
+    keeps only the top rows BY IMPACTED (bySite/byVendor are top-10; byShiftBand
+    passes no limit, since the task wants every band that is actually present,
+    not a truncated top-N of four)."""
+    order_limit = f" ORDER BY impacted DESC LIMIT {int(limit)}" if limit else ""
+    sql = _EMPLOYEE_LEGS_CTE.replace(
+        "SELECT e.stwid, e.is_no_show,",
+        f"SELECT {dim.column} AS grp, e.stwid, e.is_no_show,",
+    ).replace(
+        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ?",
+        f"WHERE t.scheduled_at >= ? AND t.scheduled_at < ? AND {dim.column} IS NOT NULL",
+    ) + f"""
+    SELECT grp,
+           count(*) AS legs,
+           sum(CASE WHEN is_no_show THEN 1 ELSE 0 END) AS no_shows,
+           sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000}
+                    THEN 1 ELSE 0 END) AS late_pickups,
+           count(DISTINCT CASE WHEN is_no_show
+                                OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000})
+                           THEN stwid END) AS impacted
+    FROM legs
+    GROUP BY grp
+    {order_limit}
+    """
+    rows = con.execute(sql, [window.start_ms, window.end_ms]).fetchall()
+    return [{"value": r[0], "legs": int(r[1]), "no_shows": int(r[2]),
+             "late_pickups": int(r[3]), "impacted": int(r[4])} for r in rows]

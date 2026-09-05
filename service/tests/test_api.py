@@ -41,8 +41,11 @@ def test_health_is_ok_after_startup(client):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
+    # Task 11 activated cost_per_km/marshal_compliance; Task 15 adds
+    # late_pickup_rate/cost_per_rider -- 8 active metrics now.
     assert set(body["activeMetrics"]) == {
-        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km", "marshal_compliance"}
+        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
+        "marshal_compliance", "late_pickup_rate", "cost_per_rider"}
     assert isinstance(body["clock"], int)
 
 
@@ -415,6 +418,58 @@ def test_cost_snapshot_has_the_expected_shape(client):
 # ---------------------------------------------------------------------------
 # GET /api/dispatch/log
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# GET /api/employees/impact -- Task 15
+# ---------------------------------------------------------------------------
+
+def test_employees_impact_shape_and_totals_reconcile(client):
+    r = client.get("/api/employees/impact", params={"runId": "latest"})
+    assert r.status_code == 200
+    body = r.json()
+    expected_keys = {
+        "runId", "window", "employeesImpacted", "ridersInWindow",
+        "noShowLegs", "latePickupLegs", "avgPickupDelayMin", "medianPickupDelayMin",
+        "employeeCausedDelayShare", "byShiftBand", "bySite", "byVendor",
+        "costPerRider", "costPerRiderTrend"}
+    assert set(body.keys()) == expected_keys
+    assert set(body["window"].keys()) == {"start", "end", "label"}
+
+    # The two properties that actually matter: employeesImpacted is a subset
+    # of both "had any leg" and "had a no-show or late-pickup event".
+    assert body["employeesImpacted"] <= body["ridersInWindow"]
+    assert body["noShowLegs"] + body["latePickupLegs"] >= body["employeesImpacted"]
+
+    if body["employeeCausedDelayShare"] is not None:
+        assert 0.0 <= body["employeeCausedDelayShare"] <= 1.0
+
+    for row in body["byShiftBand"]:
+        assert set(row.keys()) == {"shiftBand", "legs", "noShows", "latePickups", "impacted"}
+    bands = {row["shiftBand"] for row in body["byShiftBand"]}
+    assert bands <= {"EARLY", "DAY", "EVENING", "NIGHT"}
+    assert len(bands) >= 2, "fixture assumption: at least two shift bands appear in this window"
+
+    for row in body["bySite"]:
+        assert set(row.keys()) == {"site", "legs", "noShows", "latePickups", "impacted"}
+    assert len(body["bySite"]) <= 10
+
+    for row in body["byVendor"]:
+        assert set(row.keys()) == {"vendor", "legs", "noShows", "latePickups", "impacted"}
+    assert len(body["byVendor"]) <= 10
+
+
+def test_employees_impact_default_run_id_is_latest(client):
+    r = client.get("/api/employees/impact")
+    assert r.status_code == 200
+    latest = client.get("/api/runs/latest/findings").json()
+    assert r.json()["runId"] == latest["runId"]
+
+
+def test_employees_impact_for_an_unknown_run_is_404(client):
+    r = client.get("/api/employees/impact", params={"runId": "no-such-run-ever"})
+    assert r.status_code == 404
+    assert r.json()
+
 
 def test_dispatch_log_is_a_list_of_json_records(client):
     r = client.get("/api/dispatch/log")

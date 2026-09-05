@@ -81,6 +81,35 @@ def test_the_slice_value_is_interpolated_and_an_unsliced_finding_reads_sensibly(
     assert action != ""
 
 
+def test_late_pickup_rate_and_cost_per_rider_have_dedicated_peer_and_trend_actions():
+    # Task 15: these two must not fall through to the generic _BY_CAUSE
+    # fallback -- they get their own, specific action lines.
+    for metric_id in ("late_pickup_rate", "cost_per_rider"):
+        for cause in (Cause.PEER_LAGGARD, Cause.TREND_REGRESSION):
+            assert (metric_id, cause) in _ACTIONS, (
+                f"{metric_id}/{cause.value} must have its own dedicated action, "
+                f"not the generic fallback")
+            f = _finding(metric_id=metric_id, cause=cause, tier=Tier.CONCERN,
+                        slc=Slice(Dimension.SITE, "Clearwater Campus"))
+            action = action_for(f)
+            assert action != "" and "{slice_value}" not in action
+            assert "Clearwater Campus" in action
+
+
+def test_late_pickup_rate_action_routes_to_the_vendor_not_the_employee():
+    f = _finding(metric_id="late_pickup_rate", cause=Cause.PEER_LAGGARD, tier=Tier.CONCERN,
+                slc=Slice(Dimension.SITE, "Clearwater Campus"))
+    action = action_for(f).lower()
+    assert "dispatch" in action or "vendor" in action
+
+
+def test_cost_per_rider_action_mentions_seat_utilisation_or_no_shows():
+    f = _finding(metric_id="cost_per_rider", cause=Cause.PEER_LAGGARD, tier=Tier.CONCERN,
+                slc=Slice(Dimension.SITE, "Clearwater Campus"))
+    action = action_for(f).lower()
+    assert "seat" in action or "utilisation" in action or "no-show" in action
+
+
 def test_low_confidence_says_fix_the_data_not_act_on_the_number():
     f = _finding(cause=Cause.LOW_CONFIDENCE, tier=Tier.WATCH)
     action = action_for(f)

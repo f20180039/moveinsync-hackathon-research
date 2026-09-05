@@ -236,6 +236,67 @@
         }
       ],
       "evidenceSql": "SELECT sum(b.trip_cost) / nullif(sum(b.total_trip_km), 0)\nFROM bill b JOIN trips t ON t.trip_id = b.trip_id\nWHERE t.scheduled_at >= 1785024000000 AND t.scheduled_at < 1785542400000\n  AND t.mode = 'BUS'"
+    },
+    {
+      "id": "93e499991c00",
+      "metricId": "late_pickup_rate",
+      "metricLabel": "Late pickups (employee legs)",
+      "unit": "%",
+      "sliceLabel": "vendor Pooja Mikhailov Travel",
+      "tier": "BREACH",
+      "cause": "PEER_LAGGARD",
+      "action": "Share the late-pickup list for Pooja Mikhailov Travel with the vendor's dispatch lead -- pickup slippage is a routing or driver-reporting problem, not an employee one.",
+      "owns": [],
+      "observed": 90.0,
+      "gap": 63.65,
+      "confidence": 0.81,
+      "audiences": [
+        "TRANSPORT_MANAGER",
+        "FACILITIES_HEAD"
+      ],
+      "references": [
+        {
+          "kind": "TREND",
+          "value": 34.85,
+          "label": "4-week average"
+        },
+        {
+          "kind": "PEER",
+          "value": 26.35,
+          "label": "peer median"
+        }
+      ],
+      "evidenceSql": "SELECT 100.0 * sum(CASE WHEN e.actual_pickup_at > e.planned_pickup_at + 300000\n                        THEN 1 ELSE 0 END)\n       / nullif(count(*), 0),\n       count(*) AS n\nFROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id\nWHERE t.scheduled_at >= 1784937600000 AND t.scheduled_at < 1785542400000\n  AND e.planned_pickup_at IS NOT NULL AND e.actual_pickup_at IS NOT NULL\n  AND t.vendor_id = 'Pooja Mikhailov Travel'"
+    },
+    {
+      "id": "2cbf4ff36e0d",
+      "metricId": "cost_per_rider",
+      "metricLabel": "Cost per rider",
+      "unit": "INR",
+      "sliceLabel": "tenant orbit-Slc",
+      "tier": "CONCERN",
+      "cause": "TREND_REGRESSION",
+      "action": "Look at what changed in cab occupancy for orbit-Slc over the last few weeks -- a rising cost per rider usually means falling seat utilisation, not falling volume.",
+      "owns": [],
+      "observed": 618.02,
+      "gap": 152.8,
+      "confidence": 0.99,
+      "audiences": [
+        "TRANSPORT_MANAGER"
+      ],
+      "references": [
+        {
+          "kind": "TREND",
+          "value": 465.22,
+          "label": "4-week average"
+        },
+        {
+          "kind": "PEER",
+          "value": 580.6,
+          "label": "peer median"
+        }
+      ],
+      "evidenceSql": "SELECT sum(bt.trip_cost) / nullif(sum(t.actualemployee_cnt), 0),\n       count(*) AS n\nFROM (SELECT trip_id, sum(trip_cost) AS trip_cost FROM bill GROUP BY trip_id) bt\nJOIN trips t ON t.trip_id = bt.trip_id\nWHERE t.scheduled_at >= 1784937600000 AND t.scheduled_at < 1785542400000\n  AND t.actualemployee_cnt IS NOT NULL AND t.actualemployee_cnt > 0\n  AND t.business_unit = 'orbit-Slc'"
     }
   ],
   "causeBreakdown": {

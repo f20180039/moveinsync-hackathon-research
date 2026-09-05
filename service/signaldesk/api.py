@@ -23,7 +23,7 @@ from .compose import brief_with_source
 from .decompose import decompose, valid_dims
 from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
-from .schemas import Audience, Finding
+from .schemas import Audience, Dimension, Finding, Slice
 from .sweep import STORE, ReplayClock, sweep
 from .tools import ask as ask_question
 
@@ -328,6 +328,61 @@ def create_app(data_dir: str | None = None) -> FastAPI:
                 }
                 for r in records
             ],
+        }
+
+    @app.get("/api/employees/impact")
+    def get_employees_impact(runId: str = "latest"):
+        """Task 15: employee-related delay and cost, previously invisible to
+        the console entirely. Both delay readings appear, labelled apart:
+        latePickupLegs/avgPickupDelayMin/medianPickupDelayMin are the delay
+        an employee EXPERIENCES (their own pickup, late against their own
+        planned time); employeeCausedDelayShare is the delay employees
+        CAUSE (trips.delay_reason = 'EMPLOYEE'). All SQL lives in
+        registry.py's own helpers -- this route only shapes the JSON."""
+        run = STORE.get(runId)
+        if run is None:
+            _not_found("run", runId)
+        window = run.window
+
+        totals = registry.employee_impact_totals(state.con, window)
+        by_shift = registry.employee_impact_by_dim(state.con, Dimension.SHIFT, window)
+        by_site = registry.employee_impact_by_dim(state.con, Dimension.SITE, window, limit=10)
+        by_vendor = registry.employee_impact_by_dim(state.con, Dimension.VENDOR, window, limit=10)
+
+        cost_metric = registry.by_id("cost_per_rider")
+        cost_per_rider = registry.evaluate(state.con, cost_metric, Slice.all(), window)
+        cost_per_rider_trend = registry.trend_reference(state.con, cost_metric, Slice.all(), window)
+
+        def _round(v, n=2):
+            return round(v, n) if v is not None else None
+
+        return {
+            "runId": run.run_id,
+            "window": {"start": window.start_ms, "end": window.end_ms, "label": window.label},
+            "employeesImpacted": totals["employees_impacted"],
+            "ridersInWindow": totals["riders_in_window"],
+            "noShowLegs": totals["no_show_legs"],
+            "latePickupLegs": totals["late_pickup_legs"],
+            "avgPickupDelayMin": _round(totals["avg_pickup_delay_min"]),
+            "medianPickupDelayMin": _round(totals["median_pickup_delay_min"]),
+            "employeeCausedDelayShare": _round(totals["employee_caused_delay_share"], 4),
+            "byShiftBand": [
+                {"shiftBand": r["value"], "legs": r["legs"], "noShows": r["no_shows"],
+                 "latePickups": r["late_pickups"], "impacted": r["impacted"]}
+                for r in by_shift
+            ],
+            "bySite": [
+                {"site": r["value"], "legs": r["legs"], "noShows": r["no_shows"],
+                 "latePickups": r["late_pickups"], "impacted": r["impacted"]}
+                for r in by_site
+            ],
+            "byVendor": [
+                {"vendor": r["value"], "legs": r["legs"], "noShows": r["no_shows"],
+                 "latePickups": r["late_pickups"], "impacted": r["impacted"]}
+                for r in by_vendor
+            ],
+            "costPerRider": _round(cost_per_rider),
+            "costPerRiderTrend": _round(cost_per_rider_trend),
         }
 
     @app.get("/api/cost")

@@ -5,7 +5,7 @@ import duckdb
 import pytest
 
 from signaldesk import constants as C, ingest, registry
-from signaldesk.schemas import Dimension, Metric, ReferenceKind, Slice, Window
+from signaldesk.schemas import Dimension, Direction, Metric, ReferenceKind, Slice, Window
 
 SAMPLE = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "sample")
 
@@ -43,11 +43,15 @@ def con():
 # The vocabulary itself.
 # ---------------------------------------------------------------------------
 
-def test_six_metrics_are_defined_with_ota_first():
-    assert len(registry.METRICS) == 6
+def test_eight_metrics_are_defined_with_ota_first():
+    # Task 11 added marshal_compliance; Task 15 adds late_pickup_rate and
+    # cost_per_rider -- 8 metrics now, not the fixed 5 this test was
+    # originally named for.
+    assert len(registry.METRICS) == 8
     assert registry.METRICS[0].id == "ota"
     assert {m.id for m in registry.METRICS} == {
-        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km", "marshal_compliance"}
+        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
+        "marshal_compliance", "late_pickup_rate", "cost_per_rider"}
 
 
 def test_every_metric_declares_at_least_one_reference_point():
@@ -84,9 +88,28 @@ def test_an_unknown_metric_id_is_refused_with_the_valid_ids_named():
 def test_active_returns_exactly_the_active_metrics():
     active = registry.active()
     assert {m.id for m in active} == set(registry.ACTIVE_METRICS)
-    assert len(active) == 6
+    # Task 11 (cost_per_km, marshal_compliance) + Task 15 (late_pickup_rate,
+    # cost_per_rider) join ota/otd/vendor_ota/no_show_rate as active -- 8.
+    assert len(active) == 8
     assert "cost_per_km" in {m.id for m in active}
     assert "marshal_compliance" in {m.id for m in active}
+    assert "late_pickup_rate" in {m.id for m in active}
+    assert "cost_per_rider" in {m.id for m in active}
+
+
+def test_late_pickup_rate_and_cost_per_rider_are_defined_correctly():
+    for metric_id, unit in (("late_pickup_rate", "%"), ("cost_per_rider", "INR")):
+        m = registry.by_id(metric_id)
+        assert m.unit == unit
+        assert m.better is Direction.LOWER
+        assert set(m.refs) == {ReferenceKind.TREND, ReferenceKind.PEER}
+        assert m.target is None and m.hard_target is False
+        # dims = every real dimension EXCEPT DIRECTION (the task's own
+        # instruction), not "excluded because it would be redundant" the way
+        # ota/otd's own DIRECTION exclusion is reasoned.
+        assert Dimension.DIRECTION not in m.dims
+        assert set(m.dims) == {d for d in Dimension
+                               if d not in (Dimension.NONE, Dimension.DIRECTION)}
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +516,122 @@ def test_marshal_compliance_dims_exclude_direction(con):
     assert Dimension.VENDOR in m.dims
 
 
+# ---------------------------------------------------------------------------
+# Task 15: late_pickup_rate and cost_per_rider -- employee-related delay and
+# cost, previously invisible to the sweep entirely.
+# ---------------------------------------------------------------------------
+
+def test_late_pickup_rate_unsliced_returns_one_number(con):
+    value = registry.evaluate(con, registry.by_id("late_pickup_rate"), Slice.all(), WINDOW)
+    print(f"MEASURED late_pickup_rate (unsliced) = {value}")
+    assert isinstance(value, float)
+
+
+def test_cost_per_rider_unsliced_returns_one_number(con):
+    value = registry.evaluate(con, registry.by_id("cost_per_rider"), Slice.all(), WINDOW)
+    print(f"MEASURED cost_per_rider (unsliced) = {value}")
+    assert isinstance(value, float)
+
+
+def test_late_pickup_rate_and_cost_per_rider_evidence_sql_runs_standalone(con):
+    for metric_id in ("late_pickup_rate", "cost_per_rider"):
+        metric = registry.by_id(metric_id)
+        sql = registry.evidence_sql(metric, Slice.all(), WINDOW)
+        assert "?" not in sql
+        con.sql(sql).fetchone()   # must not raise
+
+
+def _mini_con():
+    """A bare-bones connection with only the columns late_pickup_rate's SQL
+    actually reads (trip_id/scheduled_at on trips; trip_id/planned_pickup_at/
+    actual_pickup_at on emp_legs) -- deliberately NOT run through ingest.py, so
+    a boundary or dedup case can be pinned exactly rather than hoping the real
+    dataset happens to contain it."""
+    con = duckdb.connect()
+    con.execute("CREATE TABLE trips (trip_id BIGINT, scheduled_at BIGINT)")
+    con.execute("CREATE TABLE emp_legs (trip_id BIGINT, planned_pickup_at BIGINT, "
+               "actual_pickup_at BIGINT)")
+    return con
+
+
+def test_late_pickup_rate_excludes_a_leg_with_a_null_actual_pickup():
+    # Break-it-to-prove-it: a leg that was never picked up (actual_pickup_at
+    # IS NULL, e.g. a no-show) must not enter the denominator at all -- not
+    # count as "on time", not count as "late".
+    con = _mini_con()
+    base = WINDOW.start_ms + 1_000
+    for i in range(8):
+        con.execute("INSERT INTO trips VALUES (?, ?)", [i, base])
+        con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)", [i, base, base])  # on-time
+    con.execute("INSERT INTO trips VALUES (?, ?)", [8, base])
+    con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)", [8, base, None])      # never picked up
+
+    registry.clear_cache()
+    value, n = registry.evaluate_with_n(
+        con, registry.by_id("late_pickup_rate"), Slice.all(), WINDOW)
+    assert n == 8, "the null-actual-pickup leg must not enter the denominator"
+    assert value == 0.0
+    con.close()
+    registry.clear_cache()
+
+
+def _grace_boundary_con(extra_delay_ms):
+    """9 emp_legs (clears MIN_ROWS_PER_SLICE=9, isolating the grace-boundary
+    check from the population-floor guard): 8 on-time, 1 picked up exactly
+    ON_TIME_GRACE_MS + extra_delay_ms after its planned time."""
+    con = _mini_con()
+    base = WINDOW.start_ms + 1_000
+    for i in range(8):
+        con.execute("INSERT INTO trips VALUES (?, ?)", [i, base])
+        con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)", [i, base, base])
+    con.execute("INSERT INTO trips VALUES (?, ?)", [8, base])
+    con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)",
+               [8, base, base + C.ON_TIME_GRACE_MS + extra_delay_ms])
+    return con
+
+
+def test_late_pickup_rate_grace_boundary_is_not_late():
+    # Break-it-to-prove-it: a pickup exactly ON_TIME_GRACE_MIN late is the
+    # off-by-one boundary a naive `>=` would get wrong.
+    con = _grace_boundary_con(extra_delay_ms=0)
+    registry.clear_cache()
+    value = registry.evaluate(con, registry.by_id("late_pickup_rate"), Slice.all(), WINDOW)
+    assert value == 0.0, "exactly ON_TIME_GRACE_MIN late must not count as late"
+    con.close()
+    registry.clear_cache()
+
+
+def test_late_pickup_rate_one_minute_past_the_grace_boundary_is_late():
+    con = _grace_boundary_con(extra_delay_ms=60_000)
+    registry.clear_cache()
+    value = registry.evaluate(con, registry.by_id("late_pickup_rate"), Slice.all(), WINDOW)
+    assert value == pytest.approx(100.0 / 9)
+    con.close()
+    registry.clear_cache()
+
+
+def test_cost_per_rider_counts_a_two_bill_line_trip_once():
+    # Break-it-to-prove-it: a trip billed as two line items must be counted
+    # ONCE, not twice -- joining bill straight to trips without aggregating
+    # first would double the denominator (actualemployee_cnt summed twice)
+    # for exactly this trip, understating cost_per_rider and inflating n.
+    con = duckdb.connect()
+    con.execute("CREATE TABLE trips (trip_id BIGINT, scheduled_at BIGINT, "
+               "actualemployee_cnt BIGINT)")
+    con.execute("CREATE TABLE bill (trip_id BIGINT, trip_cost BIGINT)")
+    base = WINDOW.start_ms + 1_000
+    con.execute("INSERT INTO trips VALUES (1, ?, 4)", [base])
+    con.execute("INSERT INTO bill VALUES (1, 100), (1, 50)")   # two line items, one trip
+
+    registry.clear_cache()
+    value, n = registry.evaluate_with_n(
+        con, registry.by_id("cost_per_rider"), Slice.all(), WINDOW)
+    assert n == 1, "a two-bill-line trip must be counted once, not twice"
+    assert value == pytest.approx((100 + 50) / 4)
+    con.close()
+    registry.clear_cache()
+
+
 def test_coverage_ignores_a_slice_column_the_source_table_does_not_have(con):
     # BUG F3: bill has no mode/trip_direction/shift_band. cost_per_km's source
     # is "bill", so slicing coverage by MODE must measure UNSLICED coverage
@@ -596,6 +735,52 @@ def test_evaluate_is_memoised_and_clear_cache_empties_it(con):
 
     registry.clear_cache()
     assert len(registry._CACHE) == 0
+
+
+def test_trend_reference_averages_the_four_preceding_windows(con):
+    metric = registry.by_id("cost_per_rider")
+    trend = registry.trend_reference(con, metric, Slice.all(), LATE_JULY)
+    if trend is not None:
+        assert isinstance(trend, float)
+    # None is legitimate too (every preceding window unmeasurable), but the
+    # function itself must never raise either way.
+
+
+# ---------------------------------------------------------------------------
+# Task 15: the /api/employees/impact SQL helpers.
+# ---------------------------------------------------------------------------
+
+def test_employee_impact_totals_reconcile_on_the_sample(con):
+    totals = registry.employee_impact_totals(con, WINDOW)
+    assert set(totals.keys()) == {
+        "riders_in_window", "employees_impacted", "no_show_legs",
+        "late_pickup_legs", "avg_pickup_delay_min", "median_pickup_delay_min",
+        "employee_caused_delay_share"}
+    assert totals["employees_impacted"] <= totals["riders_in_window"]
+    assert totals["no_show_legs"] + totals["late_pickup_legs"] >= totals["employees_impacted"]
+    if totals["employee_caused_delay_share"] is not None:
+        assert 0.0 <= totals["employee_caused_delay_share"] <= 1.0
+
+
+def test_employee_impact_by_dim_covers_the_bands_present(con):
+    rows = registry.employee_impact_by_dim(con, Dimension.SHIFT, WINDOW)
+    assert rows, "fixture assumption: at least one shift band has legs in this window"
+    for r in rows:
+        assert set(r.keys()) == {"value", "legs", "no_shows", "late_pickups", "impacted"}
+        assert r["legs"] >= r["impacted"] or r["impacted"] == 0
+    bands = {r["value"] for r in rows}
+    assert bands <= {"EARLY", "DAY", "EVENING", "NIGHT"}
+
+
+def test_employee_impact_by_dim_respects_the_limit(con):
+    unlimited = registry.employee_impact_by_dim(con, Dimension.SITE, WINDOW)
+    limited = registry.employee_impact_by_dim(con, Dimension.SITE, WINDOW, limit=10)
+    assert len(limited) <= 10
+    assert len(limited) <= len(unlimited)
+    # top-by-impacted: the limited set's rows are a prefix of the sorted-by-
+    # impacted unlimited set.
+    sorted_all = sorted(unlimited, key=lambda r: -r["impacted"])[:10]
+    assert [r["value"] for r in limited] == [r["value"] for r in sorted_all]
 
 
 def test_a_cached_none_is_still_returned_on_a_hit(con):

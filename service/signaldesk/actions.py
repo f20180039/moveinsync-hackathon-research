@@ -10,10 +10,11 @@ no_show_rate, cost_per_km, with BELOW_TARGET handled for when a target
 metric became active but none did yet. Task 11 activated marshal_compliance
 -- the one hard target in the product -- so BELOW_TARGET is now reachable
 for real (registry.py's own test:
-test_marshal_compliance_is_the_one_hard_target_metric). There is no
-Cause.ANOMALY yet (it returns with Task 8c), so the two ANOMALY entries the
-plan text sketched are dropped here rather than raising an AttributeError on
-an enum member that does not exist.
+test_marshal_compliance_is_the_one_hard_target_metric). Task 15 adds
+late_pickup_rate and cost_per_rider (employee-related delay and cost).
+There is no Cause.ANOMALY yet (it returns with Task 8c), so the two ANOMALY
+entries the plan text sketched are dropped here rather than raising an
+AttributeError on an enum member that does not exist.
 """
 from __future__ import annotations
 
@@ -64,6 +65,27 @@ _ACTIONS: dict[tuple[str, Cause], str] = {
         "Audit escort sign-ins at {slice_value} for the affected trips. A female "
         "employee cannot board before a marshal signs in, so this is a safety "
         "breach and not a metric miss.",
+    # Task 15: employee-related delay and cost. late_pickup_rate is the delay
+    # an employee EXPERIENCES (their own pickup, late against their own
+    # planned time) -- the action routes to the vendor/dispatch side on
+    # purpose, because a rider cannot fix a driver arriving late to collect
+    # them; that is a routing or driver-reporting problem, never a "tell the
+    # employees to be ready sooner" one.
+    ("late_pickup_rate", Cause.PEER_LAGGARD):
+        "Share the late-pickup list for {slice_value} with the vendor's dispatch "
+        "lead -- pickup slippage is a routing or driver-reporting problem, not "
+        "an employee one.",
+    ("late_pickup_rate", Cause.TREND_REGRESSION):
+        "Compare {slice_value}'s late-pickup trend against the vendor's dispatch "
+        "record before the next review -- pickup slippage usually traces to "
+        "routing, not the workforce.",
+    ("cost_per_rider", Cause.PEER_LAGGARD):
+        "Check seat utilisation for {slice_value}: cost per rider rises when "
+        "cabs run under-filled -- pair with the no-show list.",
+    ("cost_per_rider", Cause.TREND_REGRESSION):
+        "Look at what changed in cab occupancy for {slice_value} over the last "
+        "few weeks -- a rising cost per rider usually means falling seat "
+        "utilisation, not falling volume.",
 }
 
 # Fallback by cause alone, so a metric added later still says something useful
