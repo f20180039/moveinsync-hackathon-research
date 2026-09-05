@@ -4,12 +4,8 @@ import { isDismissed } from '../api/dismissed.ts'
 import type { Finding } from '../api/types.ts'
 import { isAlertTier } from '../api/types.ts'
 import { AskBar } from '../components/AskBar.tsx'
-import { KpiCard } from '../components/KpiCard.tsx'
+import { KpiRow } from '../components/KpiRow.tsx'
 import { PriorityActionCard } from '../components/PriorityActionCard.tsx'
-
-function findOverall(findings: Finding[], metricId: string): Finding | undefined {
-  return findings.find((f) => f.metricId === metricId && f.sliceLabel === 'overall')
-}
 
 export interface OverviewPageProps {
   windowLabel: string | null
@@ -37,12 +33,7 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
         <p>{windowLabel ?? 'Loading the current window…'}</p>
       </div>
 
-      <div className="kpi-row">
-        <KpiCard title="On-time arrival" finding={findOverall(findings, 'ota')} />
-        <KpiCard title="On-time departure" finding={findOverall(findings, 'otd')} />
-        <KpiCard title="No-show rate" finding={findOverall(findings, 'no_show_rate')} />
-        <KpiCard title="Cost per km" finding={findOverall(findings, 'cost_per_km')} />
-      </div>
+      <KpiRow findings={findings} />
 
       <section className="priority-actions" aria-label="Priority actions">
         <div className="priority-actions__header">

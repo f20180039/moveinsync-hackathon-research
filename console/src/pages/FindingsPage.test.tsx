@@ -101,4 +101,31 @@ describe('FindingsPage', () => {
     expect(within(nav).getByRole('button', { name: /previous/i })).toBeDisabled()
     expect(within(nav).getByRole('button', { name: /next/i })).toBeDisabled()
   })
+
+  it('ignores a bogus tier in the URL rather than crashing (?tiers=BOGUS,BREACH keeps only Breach)', () => {
+    renderFindings('/findings?tiers=BOGUS,BREACH')
+
+    const breachCount = findings.filter((f) => f.tier === 'BREACH').length
+    expect(metricNames()).toHaveLength(breachCount)
+    expect(screen.getByRole('checkbox', { name: /breach/i })).toBeChecked()
+    // Only a real tier ever gets checked -- there's no checkbox for "BOGUS"
+    // to begin with, so nothing else to assert unchecked against it.
+    expect(screen.getByRole('checkbox', { name: /watch/i })).not.toBeChecked()
+  })
+
+  it('clamps a negative page (?page=-3) to page 1, not a crash or a blank page', () => {
+    renderFindings('/findings?page=-3')
+
+    const nav = screen.getByRole('navigation', { name: /pagination/i })
+    expect(within(nav).getByText(/^Page 1 of/)).toBeInTheDocument()
+    expect(metricNames()).toHaveLength(findings.length)
+  })
+
+  it('clamps a non-numeric page (?page=abc) to page 1, not a crash or a blank page', () => {
+    renderFindings('/findings?page=abc')
+
+    const nav = screen.getByRole('navigation', { name: /pagination/i })
+    expect(within(nav).getByText(/^Page 1 of/)).toBeInTheDocument()
+    expect(metricNames()).toHaveLength(findings.length)
+  })
 })

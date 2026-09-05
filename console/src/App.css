@@ -1376,3 +1376,26 @@ body {
   color: var(--ink-3);
   white-space: nowrap;
 }
+
+/* Weekly/monthly review report */
+
+.report-page__error {
+  color: var(--tier-breach);
+}
+
+.report-page__window {
+  color: var(--ink-2);
+  font-size: var(--font-md);
+  margin: var(--space-3) 0;
+}
+
+.report-page__note {
+  color: var(--tier-concern);
+  font-size: var(--font-sm);
+}
+
+.report-page__brief {
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}

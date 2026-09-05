@@ -43,6 +43,14 @@ export function findReference(finding: Pick<Finding, 'references'>, kind: string
   return finding.references.find((ref) => ref.kind === kind)
 }
 
+// The unsliced ("overall") finding for one metric, if the sweep produced
+// one -- used by every KPI row (Overview, and the weekly/monthly review
+// pages). Absent means the metric isn't active at the overall level yet,
+// not an error; callers render "Not active yet" (KpiCard already does).
+export function findOverall(findings: Finding[], metricId: string): Finding | undefined {
+  return findings.find((f) => f.metricId === metricId && f.sliceLabel === 'overall')
+}
+
 // The one reference the priority-card sentence quotes -- prefer the peer
 // comparison (closest to "is 92% good or bad, compared to whom"), then a
 // hard target, then the trend, then whatever's first.

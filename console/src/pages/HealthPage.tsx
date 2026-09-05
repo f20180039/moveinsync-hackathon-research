@@ -30,7 +30,13 @@ export function HealthPage({ feeds }: { feeds: FeedHealth[] }) {
               <ul>
                 {feed.quirks!.map((quirk) => (
                   <li key={quirk.name}>
-                    <strong>{quirk.name}</strong>: {quirk.rows.toLocaleString()} rows -- {quirk.detail}
+                    {/* en-IN explicitly, not the runtime default locale --
+                        this is an India-based commute-data product (₹
+                        already throughout), so the lakh/crore grouping
+                        (247,914 -> 2,47,914) is the deliberate choice, and
+                        an explicit locale keeps it identical regardless of
+                        the deployment environment's own default locale. */}
+                    <strong>{quirk.name}</strong>: {quirk.rows.toLocaleString('en-IN')} rows -- {quirk.detail}
                   </li>
                 ))}
               </ul>

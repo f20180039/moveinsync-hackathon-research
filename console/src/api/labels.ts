@@ -81,6 +81,11 @@ const PURPOSE_LABELS: Record<string, string> = {
   ask: 'Ask',
 }
 
+const WINDOW_KIND_LABELS: Record<string, string> = {
+  week: 'Weekly',
+  month: 'Monthly',
+}
+
 // The /decompose dimension selector (VENDOR/SITE/SHIFT/DELAY_REASON, etc.)
 // -- same treatment as everything else, never rendered as a raw enum.
 const DIMENSION_LABELS: Record<string, string> = {
@@ -104,6 +109,7 @@ export type LabelKind =
   | 'metric'
   | 'purpose'
   | 'dimension'
+  | 'windowKind'
 
 // Humanises anything not in a map: underscores become spaces, sentence
 // case. An unrecognised value from the service still renders as words,
@@ -147,6 +153,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(PURPOSE_LABELS, value)
     case 'dimension':
       return lookup(DIMENSION_LABELS, value)
+    case 'windowKind':
+      return lookup(WINDOW_KIND_LABELS, value)
   }
 }
 
