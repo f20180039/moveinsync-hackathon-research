@@ -21,7 +21,7 @@ services:
   - type: web
     name: signal-desk-api
     runtime: python
-    plan: starter
+    plan: free
     buildCommand: pip install -r service/requirements.txt
     startCommand: cd service && uvicorn signaldesk.api:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/health
