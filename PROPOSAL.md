@@ -115,14 +115,14 @@ dimension we can demonstrate rather than an interface we can point at.
 ## 5. Where we deviate from the statement's preferences, and why
 
 The statement says: *"Open / participant's choice — preferably **Java, Angular,
-AWS** resources, but not restrictive."* We are 1 for 3, and it is worth being
+AWS** resources, but not restrictive."* We are roughly 1½ for 3, and it is worth being
 straight about that rather than hoping nobody notices.
 
 | Preference | Ours | Honest reasoning |
 |---|---|---|
 | **Java** | Python 3.12 | An earlier version of this proposal chose Java precisely *because* it is the platform's own language, which converts "deployable into an existing platform" from an argument into a fact. **We gave that up for build speed** when the real ~6-hour budget became clear. It is a real cost under criterion 3, and the mitigation is that the architecture — not the language — is what is portable: a stateless service, a repository seam, no backing stores. |
 | **Angular** | React 19 | Team familiarity. Lower cost than the Java swap, since the console is a thin client over a documented HTTP contract and could be rewritten in Angular without touching the service. |
-| **AWS** | **Yes** | S3 for the trip logs read directly by DuckDB's `httpfs`, App Runner or Lambda for the service, S3 + CloudFront for the console, SES for email. |
+| **AWS** | **Partly** — Render for compute, AWS SES for email | The service and console deploy to Render from a blueprint in the repo (public URL, sample dataset; the scored demo runs the full dataset on the laptop). Email goes through AWS SES. S3 + DuckDB `httpfs` remains the production data seam — `source_for()` takes an `s3://` prefix — but is not exercised in the demo. |
 
 If asked "why not Java?", the answer is six hours, said plainly — not a
 retrofitted technical argument.

@@ -173,42 +173,34 @@ Not optional, and none of it needs the dataset. Every one of these is something 
 
 ---
 
-## Work split from 10:05
+## Work split — one developer (revised 10:05, 5 Sep)
 
-The contracts in Task 1 exist so three people work in parallel without blocking. **Agree them at 10:05 and do not renegotiate them at 12:00.** The lanes below are the same three as [`handoff/README.md`](../../../handoff/README.md) — one person, one directory, and the letters A/B/C are used in the Tier 2 running order.
+**The team is one person.** Anshuman builds everything, using Claude Code as
+the controller that dispatches one implementer subagent per task and an
+independent reviewer per diff (`.superpowers/sdd/…/progress.md` is the ledger).
+The three human lanes in earlier revisions are gone; what remains of them is the
+*file* partition — service, console, docs — because that is what lets several
+agents work at once without conflicts:
 
-| Lane | Owner | Scope | Directory |
-|---|---|---|---|
-| **A** | **Anshuman** (data spine) | Tasks 2–5: ingest, registry, verdict engine, sweep. The critical path — nothing downstream is real until `Finding` objects flow. From 13:00: 8a → 8 → 11 → R1 → 8b → R3 → (8c only before 15:10). | `service/signaldesk/` |
-| **B** | **Teammate A** (console) | Task 7 against **`handoff/fake-findings.json` from minute one** — do not wait for real data. From 13:00: CostMeter/BriefPreview → Task 10 replay controls → CauseBreakdown → latency line → InterrogationPanel/ToolTrace → tenant selector → **screenshots of every beat**. | `console/` |
-| **C** | **Teammate B** (delivery → tools → deliverables → deck) | Task 6 delivery in Tier 1. **From 13:00: Task 9** (tools + `/api/ask`) → R7 leadership export → **8e diagram + 8f README + 8g sample I/O** (must start by 14:30) → deck from 15:05. | `service/signaldesk/delivery.py`, `tools.py`, `deck/`, `docs/` |
+| Partition | Files | Agents may run in parallel with |
+|---|---|---|
+| **Service** | `service/signaldesk/`, `service/tests/` | console, docs |
+| **Console** | `console/` | service, docs |
+| **Docs / deploy** | `README.md`, `docs/`, `render.yaml`, `PROPOSAL.md`, deck | service, console |
 
-The person on the deck starts at 15:05 at the latest, whatever is unfinished.
+Two implementers never edit the same file at once; every implementer commits
+only its own files by path; every commit lands on `main`.
 
-**Task 9 now has an owner, and it needs a write grant to go with it.** The judge
-review found the conversational agent — the only feature where the model
-*reasons* rather than narrates, and the whole of criterion 2's "AI solving a
-genuine problem rather than decorating" — sat in nobody's lane: `handoff/README.md`
-gives Anshuman `service/signaldesk/`, and rule 1 forbids editing outside your
-directory. So at **13:00, in the channel, Anshuman says explicitly**: *Teammate B
-owns `tools.py`, the ask-path in `model.py`, and one route in `api.py` from now
-until freeze.* Said out loud so rule 1 is waived rather than broken.
+**Tier 1 was built overnight** (Tasks 1–7 plus follow-ups 3b, 6b/6c, 7b/7c) and
+the 13:00 gate was run at 09:42 — see the ledger. **The order after Tier 1 is:**
 
-**Every Tier 2 item needs a name against it by 13:05.** Two independent reviews
-of this plan agreed on this and disagreed on the arithmetic. The first said
-540 person-minutes against ~200 of work "fits twice over". The second did the
-subtraction: 540 − 60 (deck lane from 15:05) − ~90 (Tier 1 slippage, since the
-critical path is ~140 sequential minutes on one person) ≈ **390 usable**, against
-260 estimated minutes of Tier 2 that run to **~390 at the 1.5× hackathon
-multiplier**. So under the old rule "no reserve item before Tier 2 is done",
-**no reserve item was ever going to be built** — including the two (R1, R3) that
-answer things the PDF names. That is why the Tier 2 order below *swaps* rather
-than appends. Unowned work is what does not get done; so is work behind a rule
-that never fires.
+1. Whole-branch review of Tier 1; README / architecture refresh; sample I/O (8g).
+2. **Task 12R — deploy to Render** (service + console). The user's call: a public URL
+   before any Tier 2 feature.
+3. Tier 2 in the single-developer order below, to the 15:30 abort line.
 
-**And revise the Tier 1 target to 13:30.** The critical path (Tasks 2→5) is ~185
-minutes, not the ~2h50 stated earlier. Task 2 is already done, which buys some of
-that back.
+**The Task 9 write grant is moot** — there is nobody to grant it to. Task 9 is
+just the next service task.
 
 ---
 
@@ -2103,29 +2095,33 @@ Unchanged from the second revision: 8a first, Task 9 third, AWS out (R0),
 | — | 8d Shift readiness | **→ R9** | — | swapped out; see above |
 | — | 12 AWS deployment | **→ R0** | — | unchanged; 16:00 step edits `PROPOSAL.md` §5 to the truth if it did not happen |
 
-### The running order, by lane
+### The running order — one developer, agents in parallel by partition
 
-**Pre-condition, checked at 12:30:** if the 13:00 gate will not be fully green by
-13:15, the only Tier 2 items anyone may touch are **8b and R1** — single-file,
-fifteen minutes each. Everything else waits for the gate.
+**Pre-condition:** Tier 1 whole-branch review clean and **Task 12R (Render) live**
+before the first Tier 2 feature. Then, in this order — the *service* column is the
+critical path; console and docs items run alongside it as separate agents:
 
-| Time | **Lane A — Anshuman** (`service/signaldesk/`) | **Lane B — Teammate A** (`console/`) | **Lane C — Teammate B** (delivery → tools → deliverables → deck) |
+| Slot | **Service** (`service/`) | **Console** (`console/`) | **Docs / deck** |
 |---|---|---|---|
-| 13:00 | **Gate.** Confirm the OTA target line (data-derived or absent). Say the Task 9 write grant in the channel. | `CostMeter` + `BriefPreview` (console-brief Tier 2 #1–2) | **Task 9** tools + `/api/ask` (45–60) |
-| 13:15 | **8a action lines** (15) | | |
-| 13:30 | **Task 8 decomposition** (30) | `ReplayControls` (Task 10, 20) | |
-| 14:00 | **Task 11** `marshal_compliance`, `cost_per_km` (30) | `CauseBreakdown` (20) | **R7 leadership export** (30) |
-| 14:20 | | Latency line in the cost panel from `/api/cost` (10) | |
-| 14:30 | **R1 EV share** (15) | `InterrogationPanel` + `ToolTrace` against a fake trace (45) | **8e diagram + 8f README + 8g sample I/O** (45). Hard start — if R7 is not done, R7 stops here. |
-| 14:45 | **8b latency** (15) — full sweep on `data/real`; p50/p95 and sweep-seconds into the channel for the deck | | |
-| 15:00 | **R3 two-tenant SLA** (20) — two `business_unit`s, two targets, one sweep | Tenant selector on the findings list (15) — makes R3 a screen | |
-| 15:05 | | | **Deck starts** (screenshots come from B) |
-| 15:10 | 8c anomaly **only if** A is green and it is not yet 15:10; else R4/R6 filler or help B/C | | |
-| **15:30** | **⛔ ABORT LINE — see below** | **Screenshots of every beat, in order** | Deck, script, screenshot fallbacks |
-| 16:00 | **Freeze.** Edit `PROPOSAL.md` §5 AWS row to the truth. Push. | | |
-| 16:15 | Offline rehearsal (beats 1–6 WiFi off) | | |
-| 16:30 | **Task 13 — demo video: raised to Anshuman** once its gates are green | | |
+| 1 | **8a action lines** (15) | CostMeter latency line waits for 8b | README/architecture refresh to the deployed state (15) |
+| 2 | **Task 9 tools + `/api/ask`** (45–60) | `InterrogationPanel` + `ToolTrace` against a fake trace (45) | — |
+| 3 | **Task 8 decomposition** (30) | `CauseBreakdown` (20) | — |
+| 4 | **Task 11 marshal + cost/km** (30) | `ReplayControls` (Task 10, 20) | 8e diagram refresh (10) |
+| 5 | **R1 EV share** (15) | tenant selector (R3's screen, 15) | — |
+| 6 | **8b latency** (15) | latency line in the cost panel (10) | numbers into the deck |
+| 7 | **R3 two-tenant SLA** (20) | — | **R7 leadership export** (30, service+console) |
+| 8 | 8c anomaly — **only before 15:10** | screenshots of every beat | deck from 15:05 |
+| **15:30** | **⛔ ABORT LINE** | screenshots | deck, script, fallbacks |
+| 16:00 | **Freeze.** Push. Redeploy Render from `main`. | | `PROPOSAL.md` §5 already says Render — verify |
+| 16:15 | Offline rehearsal, beats 1–6 | | |
+| 16:30 | **Task 13 demo video — raised to Anshuman** when its gates are green | | |
 | 17:00 | **Submit.** | | |
+
+Sequential service minutes: 15 + 60 + 30 + 30 + 15 + 15 + 20 = **185 at 1.0×,
+~280 at 1.5×** — 4.6 hours from an 11:00 start lands at ~15:40, so 8c is
+already outside the line and R3 is the first thing to drop if Task 9 runs long.
+Console and docs items are not on the critical path; they must never make the
+service column wait.
 
 ### ⛔ 15:30 abort line
 
@@ -2785,15 +2781,124 @@ exist (`trip_cost`, `total_trip_km`, `actual_escort`, `gender`,
 `WOMAN_TRAVELLING_ALONE` alerts). Do `marshal_compliance` first — it is the
 safety story and the demo's most quotable finding.
 
-### Task 12: AWS deployment (~50 min) — **MOVED TO RESERVE, see R0**
+### Task 12R: Deploy to Render (~45 min) — **runs before any Tier 2 feature**
 
-*Unchanged in content, demoted in priority.* Everything above closes a named
-sub-criterion or solution form; this closes half of one bonus bullet, for a story
-the laptop demo does not depend on. Do it if the clock allows, and cut it without
-regret if it does not — S3 + `httpfs` behind the source seam is already the
-*architecture* of the deployability answer, and that is what criterion 3 grades.
+*User's decision 10:05: deploy first, then proceed. Replaces the AWS deploy (R0)
+as the deployability story; SES (AWS) stays as the email channel.*
 
----
+**Files:** `render.yaml`, `service/.python-version` (or `PYTHON_VERSION` env),
+`README.md` (deploy section), `docs/architecture.md` (deployment note),
+`PROPOSAL.md` §5 (already corrected).
+
+**What is deployed, and with what data.** Render's starter instances have
+512 MB RAM; loading the 570 MB real dataset into DuckDB needs several GB, and the
+dataset is git-ignored. So the deployed instance runs on **`data/sample`** (3.5 MB,
+committed) — the same code, the same sweep, the same brief, smaller numbers — and
+**the scored demo still runs on the laptop against `data/real`**, as the plan has
+always said. The deployed URL proves deployability, delivery and the model path
+from a public host. If a Standard instance (2 GB+) and a persistent disk are set
+up later, `SIGNALDESK_DATA` points at the disk and nothing else changes. Say
+exactly this on stage if asked which data the URL is on.
+
+- [ ] **Step 1: `render.yaml` blueprint at the repo root** — two services:
+
+```yaml
+services:
+  - type: web
+    name: signal-desk-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r service/requirements.txt
+    startCommand: cd service && uvicorn signaldesk.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      - key: SIGNALDESK_DATA
+        value: ../data/sample
+      - key: SIGNALDESK_CORS_ORIGINS
+        sync: false            # set to the console's https URL after the first deploy
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: SES_FROM
+        sync: false
+      - key: SES_TO
+        sync: false
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+  - type: web
+    name: signal-desk-console
+    runtime: static
+    buildCommand: cd console && npm ci && npm run build
+    staticPublishPath: console/dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE
+        sync: false            # the api service's https URL
+      - key: NODE_VERSION
+        value: "22.12.0"
+```
+
+  `sync: false` means "set in the dashboard, never in the repo" — a webhook URL
+  is a credential. Verify the blueprint keys against the current Render
+  blueprint spec before committing (field names have changed between versions:
+  `runtime: static` vs `type: static`, `staticPublishPath`, `routes`).
+
+- [ ] **Step 2: Make the service deployable as-is.** `PORT` from the
+  environment (uvicorn `--port $PORT` — done by the start command); startup must
+  not depend on `.env` existing (`load_dotenv()` is a no-op without the file);
+  `/api/health` returns 200 once the startup sweep completes (it does — the
+  lifespan runs the sweep before serving). Confirm `data/sample` is committed and
+  the path resolves from `service/` (`../data/sample`). Confirm `requirements.txt`
+  installs on Linux (no macOS-only pins).
+
+- [ ] **Step 3: Console against a remote API.** `client.ts` already reads
+  `VITE_API_BASE`; confirm a production build with `VITE_API_BASE=https://example`
+  produces absolute `/api` URLs and that the SPA rewrite serves `/brief`,
+  `/health`, `/cost` on refresh (Task 7c's routes).
+
+- [ ] **Step 4: Deploy.** Render dashboard → New → Blueprint → this repo → `main`.
+  Fill the `sync: false` env vars. After the first deploy: copy the api URL into
+  the console's `VITE_API_BASE` and the console URL into the api's
+  `SIGNALDESK_CORS_ORIGINS`; redeploy both. **Prove the deployed pair with the
+  laptop service stopped**, so there is no chance of reading a local API.
+
+- [ ] **Step 5: Verify from a shell, and record it in the README**:
+
+```sh
+curl -s https://<api>.onrender.com/api/health                 # {"status":"ok",...}
+curl -s https://<api>.onrender.com/api/runs/latest/findings | head -c 300
+curl -s -X POST https://<api>.onrender.com/api/dispatch/latest  # a Slack message from the cloud
+curl -si -X OPTIONS https://<api>.onrender.com/api/runs/latest/findings \
+  -H 'Origin: https://<console>.onrender.com' -H 'Access-Control-Request-Method: GET' | grep -i access-control-allow-origin
+```
+
+  Open the console URL; it must show a completed sweep, expand to evidence SQL,
+  fetch a brief (`source` may be `template` on the sample if the model truncates —
+  say which), and dispatch.
+
+- [ ] **Step 6: Docs.** README gets a "Deployed" section with both URLs and the
+  sentence about sample vs real data; `docs/architecture.md` gets one line under
+  "Data behind one seam". Free-tier caveat: the api spins down after 15 idle
+  minutes and cold-starts in ~30–60 s — **warm it before presenting** (already in
+  the before-presenting list).
+
+- [ ] **Step 7: Commit** — `feat(deploy): Render blueprint for the service and console`.
+  Nothing credential-shaped in `render.yaml`.
+
+**Cost:** starter web service + static site is ~$7/month; the free tier also
+works for a demo day, with the cold-start caveat.
 
 ## RESERVE — ready to pick up on short notice
 
@@ -2809,7 +2914,7 @@ minutes, reasons kept below so nobody re-litigates them at 15:00. What remains
 (R0, R4, R6, R9, R10) is the true reserve: pick one only when your lane is green
 and it is before 15:10; R4 and R6 are the 15-minute fillers for whoever is idle.
 
-### R0. AWS deployment (~50 min) — **demoted here, and this is a call for the team**
+### R0. AWS deployment (~50 min) — **superseded by Task 12R (Render), 10:05 5 Sep. Kept for the reasoning only.**
 
 Its bonus bullet reads: *"Credible deployability story into an existing enterprise
 mobility platform — **multi-tenancy, latency, cost**."* The deploy answers none of

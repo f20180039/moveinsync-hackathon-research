@@ -1,5 +1,11 @@
 # How three people build this in six hours
 
+> **10:05, 5 Sep — superseded.** The team is one person; the build runs through
+> Claude Code with one implementer agent per task and an independent reviewer per
+> diff. This file is kept as the original lane design; the live order is the plan's
+> "running order — one developer" and the ledger in `.superpowers/sdd/`.
+
+
 **Read this file. Do not read the 1,900-line build plan** —
 `docs/superpowers/plans/2026-09-05-signal-desk-python-build.md` is written for
 whoever is on the backend critical path and is full of Python you should not
