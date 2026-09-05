@@ -11,8 +11,21 @@ import type { Finding, Reference } from './types.ts'
 // colour and a priority card's framing never disagree with each other.
 const LOWER_IS_BETTER_METRICS = new Set(['no_show_rate', 'cost_per_km', 'sev1_alert_rate'])
 
+// Task 18: metrics with NO good direction at all -- a demand/volume reading
+// where a spike and a collapse are both problems, for opposite reasons (the
+// backend's schemas.Metric.better is null for these, and verdict.py judges
+// them against constants.BANDS["TWO_SIDED"]). Kept as its own set rather than
+// squeezed into the two above, because "lower is better" is exactly the claim
+// that is false here: a demand collapse is not an improvement, and colouring
+// it green would tell a manager the opposite of what the finding says.
+const TWO_SIDED_METRICS = new Set(['riders_per_day'])
+
 export function isLowerBetter(metricId: string): boolean {
   return LOWER_IS_BETTER_METRICS.has(metricId)
+}
+
+export function isTwoSided(metricId: string): boolean {
+  return TWO_SIDED_METRICS.has(metricId)
 }
 
 export interface Delta {
@@ -29,7 +42,11 @@ export interface Delta {
 export function computeDelta(observed: number, referenceValue: number, metricId: string, unit: string): Delta {
   const value = observed - referenceValue
   const arrow = value > 0 ? '↑' : value < 0 ? '↓' : '→'
-  const improved = value === 0 ? true : isLowerBetter(metricId) ? value < 0 : value > 0
+  // For a two-sided metric only being ON the reference is "improved": any
+  // move away from it is a finding, whichever way it went.
+  const improved = value === 0 ? true
+    : isTwoSided(metricId) ? false
+    : isLowerBetter(metricId) ? value < 0 : value > 0
   return {
     value,
     arrow,

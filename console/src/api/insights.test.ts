@@ -6,6 +6,7 @@ import {
   computeDelta,
   groupFindingsByMetric,
   isLowerBetter,
+  isTwoSided,
   isRecurring,
   selectPriorityFindings,
   sortRecurringFirst,
@@ -40,6 +41,14 @@ describe('isLowerBetter', () => {
   it('is false for a higher-is-better metric', () => {
     expect(isLowerBetter('ota')).toBe(false)
   })
+
+  // Task 18: a two-sided metric must not fall through to "higher is better".
+  it('is false for the two-sided demand metric, which is two-sided instead', () => {
+    expect(isLowerBetter('riders_per_day')).toBe(false)
+    expect(isTwoSided('riders_per_day')).toBe(true)
+    expect(isTwoSided('ota')).toBe(false)
+    expect(isTwoSided('no_show_rate')).toBe(false)
+  })
 })
 
 describe('computeDelta', () => {
@@ -55,6 +64,19 @@ describe('computeDelta', () => {
     const delta = computeDelta(12, 8, 'no_show_rate', '%')
     expect(delta.arrow).toBe('↑')
     expect(delta.improved).toBe(false)
+  })
+
+  it('never marks a demand move as an improvement, in either direction', () => {
+    // Both a surge and a collapse are findings for a two-sided metric, so
+    // neither may be coloured as an improvement. A one-directional fallback
+    // would make one of these true.
+    expect(computeDelta(120, 100, 'riders_per_day', 'riders/day').improved).toBe(false)
+    expect(computeDelta(80, 100, 'riders_per_day', 'riders/day').improved).toBe(false)
+    // ... and on-reference is still neutral-good, so this is not "always red".
+    expect(computeDelta(100, 100, 'riders_per_day', 'riders/day').improved).toBe(true)
+    // Arrows still tell the reader which way it moved.
+    expect(computeDelta(120, 100, 'riders_per_day', 'riders/day').arrow).toBe('↑')
+    expect(computeDelta(80, 100, 'riders_per_day', 'riders/day').arrow).toBe('↓')
   })
 
   it('marks a fall as an improvement for a lower-is-better metric', () => {
