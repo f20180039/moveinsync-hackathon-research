@@ -222,6 +222,14 @@ def _run_to_json(run) -> dict:
         "windowLabel": run.window.label,
         "windowDays": (run.window.end_ms - run.window.start_ms) // DAY_MS,
         "windowKind": run.window_kind,
+        # The EXACT window bounds, not only the human label. Task 19: the
+        # trigger/ agents run as separate processes and must evaluate the SAME
+        # window this run did, or a Slack brief and the console can each be
+        # internally correct and still disagree -- and a label ("2026-07-25..
+        # 2026-07-31") is not a window a query can bind. Additive: every
+        # existing consumer reads by key and ignores what it does not know.
+        "windowStartMs": run.window.start_ms,
+        "windowEndMs": run.window.end_ms,
         "findings": [finding_to_json(f) for f in run.findings],
     }
 

@@ -62,6 +62,14 @@ def slack_text(plan: ShiftPlan, stats: dict, source: str) -> str:
         f"_Feed confidence: {confidence}. Written by: {source}._",
     ]
 
+    # Task 19: PROVENANCE, last line, always present. Either this brief names
+    # the sweep run it agrees with -- so a reader can open that run in the
+    # console and match the figures -- or it says plainly that it could not
+    # reconcile and may differ. A brief that quietly diverges from the console
+    # is the failure this line exists to prevent.
+    if w.get("provenance"):
+        lines += ["", f"_{w['provenance']}_"]
+
     text = "\n".join(lines)
     if len(text) > MAX_CHARS:
         text = text[:MAX_CHARS - 20].rstrip() + "\n_…truncated_"

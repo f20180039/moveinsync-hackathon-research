@@ -76,16 +76,35 @@ def load(data_dir: str) -> tuple[duckdb.DuckDBPyConnection, dict]:
     return con, summary
 
 
-def target_window(con, cfg) -> dict:
+def target_window(con, cfg, run=None) -> dict:
     """The day being planned for, and the history window behind it.
 
     Default target day is the day AFTER the last scheduled trip in the data
     -- the same replay convention `api.startup` uses, so a re-run of the same
     dataset always plans the same morning instead of drifting with wall
     clock. TRIGGER_TARGET_DATE overrides it.
+
+    Task 19 -- RECONCILIATION. `run` is a trigger.common.run_context.RunContext.
+    When it is reconciled with a real sweep, the anchor is the RUN'S OWN
+    WINDOW END rather than max(scheduled_at) from this process's own DuckDB.
+    Those two agree whenever both sides read the same files, and the point is
+    that they agree BY CONSTRUCTION rather than by coincidence: the sweep's
+    window end is midnight after its last trip, so the day being planned here
+    is exactly the day the console's own outlook projects. Without a
+    reconciled run the old self-derived anchor is used unchanged, and the
+    caller says so in the output (RunContext.provenance_line).
+
+    The returned dict carries the run id and window under "run", so every
+    downstream formatter can stamp provenance without re-resolving anything.
     """
     off = cfg.tz_offset_min * 60_000
-    latest = ingest.latest_scheduled_ms(con)
+    if run is not None and run.reconciled and run.window_end_ms is not None:
+        # -1 so the anchor lands on the last INSTANT inside the run's window
+        # rather than the first instant outside it; `// DAY_MS + 1` below then
+        # yields the day after the window, which is the day being planned.
+        latest = run.window_end_ms - 1
+    else:
+        latest = ingest.latest_scheduled_ms(con)
     if cfg.target_date:
         d = datetime.strptime(cfg.target_date, "%Y-%m-%d").date()
         target_day = (d - date(1970, 1, 1)).days
@@ -100,6 +119,10 @@ def target_window(con, cfg) -> dict:
         "windowEndMs": int(start_ms),
         "historyDays": cfg.history_days,
         "dataLatestDate": _epoch_day_to_date((latest + off) // DAY_MS),
+        # Task 19: provenance travels with the window it describes, so a
+        # formatter never has to guess which run a figure belongs to.
+        "run": (run.as_json() if run is not None else None),
+        "provenance": (run.provenance_line() if run is not None else None),
     }
 
 
@@ -431,12 +454,16 @@ def _forecast(daily, same_weekday, hour_profile, band_profile, profile_basis,
 
 
 
-def build(cfg) -> dict:
-    """Everything the planner needs, as one JSON-serialisable dict."""
+def build(cfg, run=None) -> dict:
+    """Everything the planner needs, as one JSON-serialisable dict.
+
+    `run` is the reconciled sweep run (trigger.common.run_context.RunContext),
+    or None to keep the pre-Task-19 self-derived behaviour.
+    """
     con, health = load(cfg.data_dir)
     try:
         off = cfg.tz_offset_min * 60_000
-        w = target_window(con, cfg)
+        w = target_window(con, cfg, run)
         daily = _daily(con, w, off)
         same_weekday = _same_weekday(con, w, off)
         reliability = _reliability(con, w)

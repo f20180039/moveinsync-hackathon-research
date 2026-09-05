@@ -19,6 +19,7 @@ import sys
 from dotenv import load_dotenv
 
 from ..common import config as _cfg    # noqa: F401  -- puts service/ on sys.path
+from ..common import run_context
 from ..common.config import ROOT
 from .config import Config
 from . import chain, format as fmt, stats as stats_mod
@@ -44,8 +45,13 @@ def run(argv: list[str] | None = None) -> int:
         os.environ["TRIGGER_TARGET_DATE"] = args.date
     cfg = Config.from_env()
 
+    # Task 19: which sweep run is this brief speaking for? Resolved BEFORE
+    # the data is read, because it decides the window the data is read over.
+    run = run_context.resolve("week")
+    logger.info("trigger: run context %s (%s)", run.source, run.run_id or run.detail)
+
     logger.info("trigger: loading feeds from %s", cfg.data_dir)
-    s = stats_mod.build(cfg)
+    s = stats_mod.build(cfg, run)
     w = s["window"]
     logger.info("trigger: planning %s (%s), %d days of history, %d trips in window",
                 w["targetDate"], w["targetWeekday"], w["historyDays"],

@@ -211,9 +211,18 @@ def build_chain(cfg, llm=None):
     if llm is None and not api_key:
         return None, None
 
-    from langchain_core.output_parsers import PydanticOutputParser
-    from langchain_core.prompts import ChatPromptTemplate
-    from langchain_openai import ChatOpenAI
+    # Task 19: langchain is an OPTIONAL dependency (trigger/requirements.txt,
+    # not service/requirements.txt), so a service-venv run must degrade to the
+    # deterministic plan rather than dying on an import. "The model is
+    # unavailable" and "the model package is not installed" are the same
+    # situation to a Transport Manager at 06:30.
+    try:
+        from langchain_core.output_parsers import PydanticOutputParser
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_openai import ChatOpenAI
+    except ImportError as exc:
+        logger.info("trigger: langchain not installed (%s), using deterministic plan", exc.name)
+        return None, None
 
     parser = PydanticOutputParser(pydantic_object=ShiftPlan)
     prompt = ChatPromptTemplate.from_messages(
