@@ -93,6 +93,19 @@ NORMALISE = {
           -- written for. See docs/real-dataset-mapping.md §2.
           TRY_CAST(REPLACE(CAST(planned_start_epoch AS VARCHAR), ',', '') AS BIGINT) * 1000 AS scheduled_at,
           TRY_CAST(REPLACE(CAST(actual_end_epoch   AS VARCHAR), ',', '') AS BIGINT) * 1000 AS actual_at,
+          TRY_CAST(REPLACE(CAST(planned_end_epoch  AS VARCHAR), ',', '') AS BIGINT) * 1000 AS planned_end_at,
+          -- shift_type is "HH:MM" (~99 distinct values, see docs/real-dataset-
+          -- mapping.md §6) -- unusable as a slice dimension directly (a wall of
+          -- ~99 findings). Bucket by the HOUR into four time-of-day bands;
+          -- NULL when shift_type is NULL or the hour cannot be parsed, rather
+          -- than guessing a band.
+          CASE
+            WHEN TRY_CAST(split_part(shift_type, ':', 1) AS INTEGER) BETWEEN 4 AND 7   THEN 'EARLY'
+            WHEN TRY_CAST(split_part(shift_type, ':', 1) AS INTEGER) BETWEEN 8 AND 15  THEN 'DAY'
+            WHEN TRY_CAST(split_part(shift_type, ':', 1) AS INTEGER) BETWEEN 16 AND 21 THEN 'EVENING'
+            WHEN TRY_CAST(split_part(shift_type, ':', 1) AS INTEGER) IS NOT NULL       THEN 'NIGHT'
+            ELSE NULL
+          END AS shift_band,
           delay_reason,
           TRY_CAST(REPLACE(CAST(delay_minutes AS VARCHAR), ',', '') AS BIGINT) AS delay_minutes,
           is_driver_nc, is_cab_nc,

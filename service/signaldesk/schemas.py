@@ -60,12 +60,20 @@ class Audience(Enum):
 class Dimension(Enum):
     """The enumerated slice dimensions. The model selects from these; it never
     composes a join. These column names are the only ones that reach SQL —
-    values are always bound as parameters."""
+    values are always bound as parameters.
+
+    Real-data columns (docs/real-dataset-mapping.md §6): vendor_id/site_id/mode
+    are named identically in the trips view; business_unit is the tenant
+    (5 values, present on every feed); trip_direction replaces the guessed
+    "direction"; shift_band is the ingest-time bucketing of the raw shift_type
+    HH:MM string (~99 distinct values) into four time-of-day bands.
+    """
     VENDOR = "t.vendor_id"
     SITE = "t.site_id"
-    SHIFT = "t.shift"
+    TENANT = "t.business_unit"
     MODE = "t.mode"
-    DIRECTION = "t.direction"
+    DIRECTION = "t.trip_direction"
+    SHIFT = "t.shift_band"
     NONE = ""
 
     @property

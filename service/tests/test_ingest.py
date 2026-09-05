@@ -128,6 +128,30 @@ def test_epochs_come_out_in_milliseconds_not_seconds(con):
     assert legs_ms > 1_000_000_000_000
 
 
+def test_shift_band_buckets_the_raw_hh_mm_string_into_at_most_four_bands(con):
+    # docs/real-dataset-mapping.md §6: shift_type is a raw "HH:MM" shift-start
+    # time with ~99 distinct values -- unusable as a slice dimension directly.
+    # Bucketing must collapse it to the four named bands, never leak the raw
+    # string through.
+    ingest.load_all(con, ingest.source_for(SAMPLE))
+    bands = {r[0] for r in con.sql(
+        "SELECT DISTINCT shift_band FROM trips").fetchall()}
+    bands.discard(None)
+    assert len(bands) <= 4
+    assert bands <= {"EARLY", "DAY", "EVENING", "NIGHT"}
+    assert ":" not in "".join(bands), "the raw HH:MM string must never leak through"
+
+
+def test_planned_end_at_is_populated_in_milliseconds_like_scheduled_at(con):
+    ingest.load_all(con, ingest.source_for(SAMPLE))
+    row = con.sql("""
+        SELECT count(*), min(planned_end_at) FROM trips WHERE planned_end_at IS NOT NULL
+    """).fetchone()
+    assert row[0] > 0
+    # same magnitude as scheduled_at (epoch ms, not seconds)
+    assert row[1] > 1_000_000_000_000
+
+
 def test_a_negative_planned_km_becomes_null_rather_than_a_negative_average(con):
     ingest.load_all(con, ingest.source_for(SAMPLE))
     row = con.sql("""
