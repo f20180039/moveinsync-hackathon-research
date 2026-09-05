@@ -1,0 +1,37 @@
+{
+ "3431481": {
+  "fingerprint": "ETA_DEVIATION+PICKUP_SLIP|HIGH|4",
+  "at": 1788603168721,
+  "severity": "HIGH"
+ },
+ "3433526": {
+  "fingerprint": "DRIVER_LATE_START+ETA_DEVIATION+PICKUP_SLIP+SAFETY_ALERT|HIGH|2",
+  "at": 1788603168721,
+  "severity": "HIGH"
+ },
+ "3431731": {
+  "fingerprint": "DRIVER_LATE_START+ETA_DEVIATION+PICKUP_SLIP|HIGH|2",
+  "at": 1788603168721,
+  "severity": "HIGH"
+ },
+ "3430303": {
+  "fingerprint": "DRIVER_LATE_START+ETA_DEVIATION+PICKUP_SLIP|HIGH|1",
+  "at": 1788603168721,
+  "severity": "HIGH"
+ },
+ "1348469": {
+  "fingerprint": "ETA_DEVIATION|MEDIUM|1",
+  "at": 1788603168721,
+  "severity": "MEDIUM"
+ },
+ "3433776": {
+  "fingerprint": "DRIVER_LATE_START+PICKUP_SLIP|MEDIUM|1",
+  "at": 1788603168721,
+  "severity": "MEDIUM"
+ },
+ "5071405": {
+  "fingerprint": "SAFETY_ALERT|LOW|na",
+  "at": 1788603168721,
+  "severity": "LOW"
+ }
+}

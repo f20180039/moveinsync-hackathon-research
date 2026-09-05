@@ -1,113 +1,260 @@
-# `trigger/` — Solution 1: Transport Manager, automated daily shift planning
+# `trigger/` — automated LangChain agents
 
-Every morning: load the ride history → compute the day's forecast →
-LangChain writes the shift plan → Slack delivers it to the Transport Manager.
+Two agents, one shared spine. Nothing outside this folder is modified.
 
-Nothing outside this folder is modified. Two pieces of the existing system
-are **imported and reused unchanged**:
+| Agent | Runs | Asks |
+|---|---|---|
+| **Transport Manager** (`shift_planning_TransportManager/`) | once each morning | *what should tomorrow's roster be?* |
+| **Team Manager** (`delay_management_TransportManager/`) | every few minutes | *which rides need me right now?* |
+
+## Structure
+
+```
+trigger/
+├── requirements.txt              the ONE dependency file for both agents
+├── README.md
+├── run_daily.py                  back-compat shim → shift_planning_TransportManager.run_daily
+├── selftest.py                   back-compat shim → shift_planning_TransportManager.selftest
+│
+├── common/                       shared by both agents
+│   ├── config.py                 env knobs, BaseConfig, data-directory resolver
+│   ├── data.py                   DuckDB connection via signaldesk.ingest + trip_ops view
+│   ├── llm.py                    the LangChain model factory (Sarvam, OpenAI-compatible)
+│   ├── slack.py                  wraps signaldesk.delivery.slack_send, adds paging
+│   └── state.py                  lightweight JSON dedup store (NEW / UPDATED / REPEAT)
+│
+├── shift_planning_TransportManager/            Solution 1 — daily shift planning
+│   ├── config.py                 forecast knobs
+│   ├── stats.py                  loads feeds, computes the forecast inputs
+│   ├── schema.py                 ShiftPlan / ShiftBlock
+│   ├── chain.py                  the LangChain chain + deterministic fallback
+│   ├── format.py                 renders the Slack message
+│   ├── run_daily.py              the morning job
+│   ├── scheduler.py              optional stdlib "fire at 06:30" loop
+│   └── selftest.py               12 checks, no network
+│
+└── delay_management_TransportManager/                 Solution 2 — escalation & delay management
+    ├── config.py                 escalation thresholds
+    ├── rides.py                  THE RIDE ADAPTER — the only static-data-aware file
+    ├── delay_analyzer.py         deterministic metrics, factors, severity floor
+    ├── escalation_agent.py       LangChain reasoning, one call per ride
+    ├── schema.py                 Escalation
+    ├── format.py                 renders the Slack escalation message
+    ├── run_escalations.py        the job
+    └── selftest.py               26 checks, no network
+```
+
+## Reused, never rebuilt
 
 | Reused | From | Why |
 |---|---|---|
-| `ingest.load_all` / `ingest.source_for` | `service/signaldesk/ingest.py` | The tolerant DuckDB loader. It normalises the three different `trip_id` formats, converts epoch seconds to ms, and buckets `shift_type` into EARLY/DAY/EVENING/NIGHT. Re-deriving that here would have been a second, worse copy. |
-| `delivery.slack_send` | `service/signaldesk/delivery.py` | The existing Slack channel: reads `SLACK_WEBHOOK_URL`, posts `{"text": ...}`, never raises. No new Slack integration was written. |
-| `model.BASE_URL` / `model.MODEL` | `service/signaldesk/model.py` | The Sarvam endpoint and model name, so a change there carries here. |
-| `constants.ON_TIME_GRACE_MIN`, `MIN_ROWS_PER_SLICE` | `service/signaldesk/constants.py` | On-time is measured exactly as the rest of the repo measures it. |
+| `ingest.load_all` / `source_for` | `service/signaldesk/ingest.py` | The tolerant DuckDB loader: normalises three different `trip_id` formats, epoch seconds → ms, `shift_type` → EARLY/DAY/EVENING/NIGHT. |
+| `delivery.slack_send` | `service/signaldesk/delivery.py` | The existing Slack channel: reads `SLACK_WEBHOOK_URL`, posts `{"text": ...}`, never raises. **No second Slack integration exists.** |
+| `model.BASE_URL` / `model.MODEL` | `service/signaldesk/model.py` | Sarvam's endpoint and model id. |
+| `constants.ON_TIME_GRACE_MIN`, `SLA_BREACH_MS`, `MIN_ROWS_PER_SLICE` | `service/signaldesk/constants.py` | On-time and breach mean here what they mean everywhere else in the repo. |
 
-## Files
-
-| File | Does |
-|---|---|
-| `config.py` | Every env knob, and the data-directory resolver |
-| `stats.py` | Loads the feeds and computes the forecast inputs |
-| `schema.py` | `ShiftPlan` / `ShiftBlock` — the structured output |
-| `chain.py` | The LangChain chain, plus the deterministic fallback |
-| `format.py` | Renders the plan as the Slack message |
-| `run_daily.py` | The morning job (entry point) |
-| `scheduler.py` | Optional stdlib "fire at 06:30" loop |
-| `selftest.py` | End-to-end check, no network, posts nothing |
-
-## Run it
+## Run
 
 ```bash
-pip install -r trigger/requirements.txt      # langchain-core, langchain-openai
-python -m trigger.selftest                   # 12 checks, no network, no post
-python -m trigger.run_daily --dry-run        # full run, prints, does not post
-python -m trigger.run_daily                  # full run, posts to Slack
-python -m trigger.run_daily --date 2026-07-29 --dry-run   # plan a specific day
+pip install -r trigger/requirements.txt
+
+# Transport Manager
+python -m trigger.shift_planning_TransportManager.selftest
+python -m trigger.shift_planning_TransportManager.run_daily --dry-run
+python -m trigger.run_daily --dry-run                 # old command, still works
+
+# Team Manager
+python -m trigger.delay_management_TransportManager.selftest
+python -m trigger.delay_management_TransportManager.run_escalations --scan          # find a good demo moment
+python -m trigger.delay_management_TransportManager.run_escalations --dry-run --now "2026-07-22 23:15"
+python -m trigger.delay_management_TransportManager.run_escalations                 # posts to Slack
 ```
 
-Schedule it with whatever already runs on the box — the repo has no
-scheduling framework to reuse, so none was added:
+Schedule with whatever already runs on the box — the repo has no scheduling
+framework to reuse, so none was added:
 
 ```cron
-30 6 * * *  cd /path/to/repo && .venv/bin/python -m trigger.run_daily >> /var/log/shiftplan.log 2>&1
+30 6  * * *  cd /path/to/repo && .venv/bin/python -m trigger.shift_planning_TransportManager.run_daily
+*/10 * * * *  cd /path/to/repo && .venv/bin/python -m trigger.delay_management_TransportManager.run_escalations
 ```
-
-or, to keep it inside a running process: `python -m trigger.scheduler`.
 
 ## Environment
 
-Existing variables, already in `.env` — reused, never redefined:
+Existing variables, reused as-is: `SLACK_WEBHOOK_URL`, `SARVAM_API_KEY`,
+`SIGNALDESK_DATA`. The committed `SIGNALDESK_DATA` points at
+`../data/fixture`, which is not in the tree, so `resolve_data_dir()` falls
+back to `data/sample` rather than crashing.
 
-- `SLACK_WEBHOOK_URL` — where the plan is delivered
-- `SARVAM_API_KEY` — the LLM; without it the job still ships the
-  deterministic plan
-- `SIGNALDESK_DATA` — the dataset. The committed value (`../data/fixture`)
-  does not exist in the tree, so `config.resolve_data_dir()` falls back to
-  `data/sample` rather than crashing.
+Shared, all optional: `TRIGGER_DATA`, `TRIGGER_TZ_OFFSET_MIN` (330),
+`TRIGGER_MODEL`, `TRIGGER_BASE_URL`, `TRIGGER_MAX_TOKENS` (16000),
+`TRIGGER_TEMPERATURE` (0.2), `TRIGGER_DRY_RUN`.
 
-Optional `TRIGGER_*` variables, all with working defaults:
+Transport Manager: `TRIGGER_HISTORY_DAYS` (28), `TRIGGER_TARGET_DATE`,
+`TRIGGER_PEAK_HOURS` (3), `TRIGGER_CAPACITY_BUFFER_PCT` (10),
+`TRIGGER_RUN_AT` (06:30).
 
-| Variable | Default | Meaning |
+Team Manager: `TEAM_NOW`, `TEAM_LOOKAHEAD_MIN` (45), `TEAM_LOOKBACK_MIN` (60),
+`TEAM_ETA_DEVIATION_MIN` (15, from `SLA_BREACH_MS`), `TEAM_DRIVER_LATE_MIN` (10),
+`TEAM_PICKUP_SLIP_MIN` (10), `TEAM_NOSHOW_LEGS_MIN` (2),
+`TEAM_MAX_ESCALATIONS` (8), `TEAM_SEND_REPEATS` (false), `TEAM_STATE_PATH`.
+
+---
+
+# Team Manager agent
+
+## End to end
+
+```
+run_escalations
+   ↓  rides.StaticCsvRideSource      pick a simulated "now", load rides in scope
+   ↓  delay_analyzer.find_escalations deterministic factors + severity floor
+   ↓  common.state.SeenStore          NEW / UPDATED / REPEAT — drop repeats
+   ↓  escalation_agent.reason         ONE LangChain call per ride, in parallel
+   ↓  format.messages                 one Slack message, worst first, paged if long
+   ↓  common.slack.send_all           signaldesk.delivery.slack_send
+```
+
+## What triggers an escalation
+
+Every threshold is env-tunable; every figure is computed in Python.
+
+| Factor | Condition | Source columns |
 |---|---|---|
-| `TRIGGER_DATA` | — | Override the dataset directory |
-| `TRIGGER_HISTORY_DAYS` | `28` | History behind the forecast |
-| `TRIGGER_TARGET_DATE` | day after the last trip | Plan a specific date |
-| `TRIGGER_TZ_OFFSET_MIN` | `330` | Local clock the plan is written in |
-| `TRIGGER_PEAK_HOURS` | `3` | How many peak hours to name |
-| `TRIGGER_CAPACITY_BUFFER_PCT` | `10` | Standby vehicles above forecast |
-| `TRIGGER_RUN_AT` | `06:30` | Fire time for `scheduler.py` |
-| `TRIGGER_MODEL` | `signaldesk.model.MODEL` | Model id |
-| `TRIGGER_BASE_URL` | `signaldesk.model.BASE_URL` | OpenAI-compatible endpoint (point it at a local or proxied server without touching code) |
-| `TRIGGER_MAX_TOKENS` | `16000` | Completion ceiling |
-| `TRIGGER_TEMPERATURE` | `0.2` | Sampling temperature |
-| `TRIGGER_DRY_RUN` | `false` | Build the message, never post |
+| `ETA_DEVIATION` | expected arrival ≥ 15 min later than planned | `planned_end_epoch`, projected or actual arrival |
+| `OVERDUE` | in flight and ≥ 15 min past planned arrival | `planned_end_epoch` vs now |
+| `DRIVER_LATE_START` | driver started ≥ 10 min after schedule | `actual_start_epoch` − `planned_start_epoch` |
+| `DRIVER_CAUSE` | MoveInSync attributes the delay to the driver | `delay_reason = 'DRIVER'` |
+| `DRIVER_NON_COMPLIANCE` / `CAB_NON_COMPLIANCE` | flagged on the trip | `is_driver_nc`, `is_cab_nc` |
+| `PICKUP_SLIP` | worst rider pickup ≥ 10 min behind | `emp_legs.actual_pickup_epoch` − `planned_pickup_epoch` |
+| `LATE_BOOKING` | riders added outside the planned roster | `emp_legs.signintype = 'Adhoc'` |
+| `BOOKING_CANCELLED` | booking pulled after the trip formed | `not_boarding_reason = 'TRIP_CANCELLED_FROM_DASHBOARD'` |
+| `NO_SHOW_IMPACT` | ≥ 2 riders did not travel | `not_boarding_reason = 'NO_SHOW'` |
+| `SAFETY_ALERT` | any alert on the trip | `alerts.event_type`, `severity` |
+| `CAPACITY_OVERFLOW` | more riders than seats | `actualemployee_cnt` vs `actual_cab_capacity` |
 
-## How the forecast works
+Severity floor: `CRITICAL` for a panic alert, `Sev-1`, or ≥45 min slip;
+`HIGH` for ≥30 min, `Sev-2`, a ≥20 min late start, or 3+ factors; `MEDIUM`
+for ≥15 min, a ≥10 min late start, or 2 factors; `LOW` otherwise.
 
-1. **Window.** The day planned for is the day after the last scheduled trip
-   in the data (the same replay convention `api.startup` uses), so a re-run
-   of the same dataset always plans the same morning. History is the
-   preceding 28 days.
-2. **Level — seasonal naive.** The mean of the last four *matching
-   weekdays*. A Sunday is forecast from Sundays: in `data/sample` a Sunday
-   runs ~2 trips against a weekday's ~50, and a plain trailing average
-   over-rosters the weekend by an order of magnitude.
-3. **Trend.** The last 14 days over the 14 before them, clipped to ±20%, so
-   one holiday week cannot swing the roster.
-4. **Split.** Each hour's and each shift-band × direction's historical
-   *share of the day* is applied to the forecast total, giving per-block
-   trips, employees and vehicles. The profile is taken from matching
-   weekdays when there are at least two, otherwise from all days — the
-   message says which.
-5. **Vehicles.** One trip is one vehicle dispatch in this dataset (there is
-   no separate fleet feed), plus the standby buffer.
-6. **LangChain.** The aggregates — never a trip row, never a `trip_id` —
-   go to `ChatPromptTemplate | ChatOpenAI(Sarvam) | PydanticOutputParser`,
-   which returns a `ShiftPlan`. The model is told, in the system prompt, that
-   every number it may use is already in the context and it must not compute
-   a new one; the arithmetic is Python's, the prose and the allocation
-   judgement are the model's.
-7. **Fallback.** No key, an unreachable model, or output that will not parse
-   → `chain.fallback_plan` builds the same `ShiftPlan` structure straight
-   from the forecast. The Slack footer always names which path wrote it. A
-   deterministic plan beats a missing one at 06:30.
+A slip beyond 24 hours is corrupt data, not a late cab — the sample carries a
+trip whose `actual_start` is ~58 days from its schedule. Those become a data
+caveat on the ride, never an "83,481 minute delay" in Slack.
 
-## What the data does and does not support
+## Deterministic vs LLM
 
-The dataset has **no cancellation flag**. "Failed rides" is therefore
-reported as the things the columns actually carry — no-show headcount,
-`delay_reason` other than `NODELAY`, driver/cab non-compliance, and riders
-whose `boarding_status` is not `Boarded` — rather than inventing a
-cancellation rate. ETA is `delay_minutes`, MoveInSync's own measurement,
-compared against `ON_TIME_GRACE_MIN` from `constants.py`.
+| Python (`delay_analyzer.py`) | The model (`escalation_agent.py`) |
+|---|---|
+| every minute figure | what actually happened, in words |
+| which thresholds were crossed | the likely cause when several factors collide |
+| how many factors a ride has | severity, at or above the floor |
+| the severity floor | whether the Team Manager must act now |
+| data-quality caveats | the concrete recommended action |
+
+`delay_minutes` is **overwritten** with the computed value after parsing, so
+a model slip cannot put a wrong number in front of a manager. Severity is
+clamped to the floor. The model never sees a raw row, a `trip_id` join or an
+employee id — only the computed picture.
+
+## Multiple rides
+
+Each flagged ride is its own chain invocation, dispatched through
+`chain.batch(..., max_concurrency=4, return_exceptions=True)`. Four
+problematic rides produce four independent pieces of reasoning, not one
+blended paragraph. A ride whose call fails or whose JSON will not parse falls
+back to its deterministic escalation; the others are unaffected, and the
+footer reports `mixed` when both paths fired in one run. `TEAM_MAX_ESCALATIONS`
+(8) caps how many reach the model in a single run, worst first.
+
+## Slack
+
+Option A: one message per run, ranked worst first, each ride its own block.
+If the run would exceed Slack's ~4k limit, `common.slack.chunk` pages it into
+`part 1 of 2` rather than truncating an escalation. Delivery is
+`signaldesk.delivery.slack_send`, unchanged.
+
+## Spam control
+
+`common/state.py` writes one JSON file (`trigger/.state/`, git-ignored).
+Each escalation has a fingerprint: sorted factor codes + severity + delay
+rounded to a 10-minute bucket.
+
+- **NEW** — never escalated → notify
+- **UPDATED** — fingerprint changed (got worse, or a new factor) → notify
+- **REPEAT** — identical situation → suppressed, counted in the footer
+
+State is only recorded after Slack accepts the message, so a failed delivery
+does not silence the next run. `--reset-state` clears it.
+
+## Static data: the assumptions, stated
+
+1. **There is no live feed.** The agent picks a moment *inside* the data and
+   treats it as now — by default the busiest in-flight quarter-hour in the
+   last week of data. `TEAM_NOW` overrides it; `--scan` reports which moments
+   carry the most escalations.
+2. **No future information is used.** For a ride still in flight,
+   `actual_end_epoch` is the future: the expected arrival is *projected* from
+   the driver's actual start plus the planned duration, and the ride carries
+   `etaBasis: projected`. A finished ride uses its real arrival
+   (`observed`). A ride that has not started reports no actual start at all.
+3. **There is no booking timestamp in the dataset.** `signintype = 'Adhoc'`
+   (a rider added outside the planned roster) and
+   `TRIP_CANCELLED_FROM_DASHBOARD` are the only booking-lateness signals
+   available, and they are labelled as proxies, not as a booking clock.
+4. **Alerts have no live state.** Every alert in the sample is `CLOSED`;
+   they are treated as "an alert fired on this ride", not as an open incident.
+5. **39 trip_ids appear on more than one row.** `trip_ops` keeps one row per
+   id — an unguarded join pairs one row's schedule with another's actual
+   start and manufactures delays that never happened.
+
+## Live data: what changes
+
+**One file.** `rides.py` holds the only static-data knowledge in the agent.
+A live source implements the same two methods:
+
+```python
+class LiveRideSource:
+    def now_ms(self) -> int:                 # real clock
+    def rides_in_scope(self) -> list[dict]:  # same RideContext keys
+```
+
+and fills `expectedArrivalLocal` from the *reported live ETA* with
+`etaBasis: "reported"` instead of projecting it. `delay_analyzer`,
+`escalation_agent`, `format`, `state` and the Slack path are untouched.
+
+| | Static (today) | Live |
+|---|---|---|
+| Trigger | cron every N minutes | ride event / ETA update |
+| Clock | simulated moment in the data | wall clock |
+| ETA | projected from actual start | reported by the driver app |
+| Scope query | rows around the simulated now | the rides the event touched |
+| Dedup | JSON file | same, or Redis for multi-worker |
+
+## Worked examples
+
+**Late booking** — Ride 1252013, 4 riders, one joined `Adhoc`; worst pickup
+12 min behind. → `LATE_BOOKING` + `PICKUP_SLIP`, 2 factors → floor MEDIUM →
+the model reads both and reports the pickup slip as downstream of the roster
+change, not as a driver failure → *"Confirm the roster with the booking
+desk"* → one MEDIUM block in the run's Slack message.
+
+**ETA worsening after the driver starts** — Ride 3452262 in flight: driver
+started on time, but at `now` it is 20 min past its planned arrival and the
+projected arrival is 14:15 against a planned 13:55. → `ETA_DEVIATION` +
+`OVERDUE` → MEDIUM → the model distinguishes "started fine, deteriorated in
+transit" from a late start → *"Call the driver, confirm whether the arrival
+can be held, warn the site if not."*
+
+**Driver-side delay** — Ride 3433776: driver started 22:10 against a
+scheduled 22:00, worst pickup 13 min behind. → `DRIVER_LATE_START` +
+`PICKUP_SLIP` → MEDIUM → cause attributed to the driver's start, not traffic
+→ *"Contact the vendor about this driver's start time."*
+
+**Multiple contributing factors** — Ride 3431731: 22 min arrival slip, 10 min
+late start, 10 min pickup slip. Three factors → floor HIGH → the model names
+the late start as the primary cause and the rest as consequences, rather than
+listing three equal problems.
+
+**Multiple simultaneous escalations** — the demo moment
+(`--now "2026-07-22 23:15"`) yields 7: 4 HIGH, 2 MEDIUM, 1 LOW, spanning ETA
+deviation, driver delay, pickup slip and a `WOMAN_TRAVELLING_ALONE` alert.
+Seven independent model calls, one Slack message in two parts, worst first.

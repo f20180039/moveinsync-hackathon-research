@@ -20,7 +20,7 @@ import logging
 import os
 import re
 
-from . import config as _cfg          # noqa: F401  -- puts service/ on sys.path
+from ..common import config as _cfg          # noqa: F401  -- puts service/ on sys.path
 from .schema import ShiftBlock, ShiftPlan
 from signaldesk import model as _model
 

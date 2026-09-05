@@ -24,7 +24,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import duckdb
 
-from . import config as _cfg          # noqa: F401  -- puts service/ on sys.path
+from ..common import config as _cfg          # noqa: F401  -- puts service/ on sys.path
 from signaldesk import constants as C
 from signaldesk import ingest
 
