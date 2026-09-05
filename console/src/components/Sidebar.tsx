@@ -1,27 +1,5 @@
 import { NavLink } from 'react-router-dom'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: string
-  end?: boolean
-}
-
-const MAIN_ITEMS: NavItem[] = [
-  { to: '/', label: 'Overview', icon: '◧', end: true },
-  { to: '/alerts', label: 'Alerts', icon: '⚠' },
-  { to: '/findings', label: 'Insights', icon: '☰' },
-  { to: '/employees', label: 'Employees', icon: '👥' },
-  { to: '/vendors', label: 'Vendors', icon: '🚌' },
-  { to: '/health', label: 'Data health', icon: '🩺' },
-  { to: '/cost', label: 'Cost', icon: '₹' },
-]
-
-const REPORT_ITEMS: NavItem[] = [
-  { to: '/reports/weekly', label: 'Weekly review', icon: '📅' },
-  { to: '/reports/monthly', label: 'Monthly review', icon: '🗓' },
-  { to: '/brief', label: 'Brief & dispatch', icon: '✉' },
-]
+import { MAIN_ITEMS, REPORT_ITEMS } from '../nav.ts'
 
 function linkClassName({ isActive }: { isActive: boolean }): string {
   return `sidebar__link${isActive ? ' sidebar__link--active' : ''}`

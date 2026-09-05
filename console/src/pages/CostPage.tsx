@@ -4,7 +4,6 @@ import { CostMeter } from '../components/CostMeter.tsx'
 export function CostPage({ cost }: { cost: Cost }) {
   return (
     <section>
-      <h1 className="page-heading">Cost</h1>
       <CostMeter cost={cost} />
       {cost.pricingConfigured && cost.calls > 0 && (
         <p className="cost-explainer">

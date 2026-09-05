@@ -32,7 +32,10 @@ afterEach(() => {
 })
 
 describe('BriefPage', () => {
-  it('renders its page heading', () => {
+  // The page's own <h1> moved to the shell's top bar (nav.ts titles every
+  // route), so a page rendered in isolation has no heading of its own --
+  // asserting one here would pin a duplicate back into place.
+  it('renders without a heading of its own, since the shell titles the page', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(() => notFound()),
@@ -40,7 +43,7 @@ describe('BriefPage', () => {
 
     render(<BriefPage runId="run-1" />)
 
-    expect(screen.getByRole('heading', { name: /brief/i, level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument()
   })
 
   it('renders per-channel dispatch results after Dispatch is pressed, with human-readable labels', async () => {

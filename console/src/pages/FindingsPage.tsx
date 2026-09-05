@@ -67,7 +67,6 @@ export function FindingsPage({ findings }: { findings: Finding[] }) {
 
   return (
     <section className="findings-section" data-testid="findings-section">
-      <h1 className="page-heading">Insights</h1>
 
       <FilterBar
         tiers={tiers}

@@ -62,7 +62,6 @@ export function BriefPage({ runId }: { runId: string }) {
 
   return (
     <section>
-      <h1 className="page-heading">Brief</h1>
 
       <div className="brief-preview__controls">
         <Select

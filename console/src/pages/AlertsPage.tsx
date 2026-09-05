@@ -29,7 +29,6 @@ export function AlertsPage({ findings, runId }: AlertsPageProps) {
 
   return (
     <section>
-      <h1 className="page-heading">Alerts</h1>
       {runId && <SafetyBanner runId={runId} />}
       {groups.length === 0 ? (
         <p>Nothing above watch needs attention this window.</p>

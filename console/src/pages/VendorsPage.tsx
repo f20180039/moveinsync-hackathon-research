@@ -18,7 +18,6 @@ export function VendorsPage({ findings }: { findings: Finding[] }) {
 
   return (
     <section>
-      <h1 className="page-heading">Vendors</h1>
       {groups.size === 0 ? (
         <p>No vendor-level findings in this window.</p>
       ) : (

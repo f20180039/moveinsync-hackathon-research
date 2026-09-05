@@ -28,14 +28,20 @@
      border) -- any other sticky element sharing its scroll container
      (the findings column header) offsets by this instead of also using
      top: 0, so the two don't fight for the same spot. */
-  --top-bar-height: 73px;
+  --top-bar-height: 82px;
   --focus-ring: 0 0 0 3px var(--accent-border);
   /* The floating assistant panel and launcher are the only elements that
      float free of the page's own flow -- a token (rather than an inline
      rgba literal) so it stays covered by the "no colours outside :root"
      hygiene check. */
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.18);
-  --btn-primary-text: #fff;
+  /* Dark ink, because --accent is now a LIGHT green: white on it fails
+     contrast, which is exactly how a bright brand colour usually breaks. */
+  --btn-primary-text: #04241a;
+  /* The dropdown chevron, as a data: URI so it needs no network and no
+     icon font. Its stroke is --ink-3 (#78717f) written literally, because
+     a var() cannot be interpolated inside an encoded SVG. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' fill='none' stroke='%2378717f' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
   /* Tier colours -- the one place BREACH/CONCERN/WATCH/PASS map to a
      colour. TierBadge, the feed-health flag and the confidence note all
@@ -343,15 +349,45 @@ body {
   flex-wrap: wrap;
 }
 
-.top-bar__run {
-  color: var(--text);
-  font-size: var(--font-md);
+/* The sticky .findings-header offsets by --top-bar-height, so that
+   constant must be a FLOOR this element actually honours rather than a
+   number someone measured once and left behind: enforced here, not
+   assumed. */
+.top-bar {
+  box-sizing: border-box;
+  min-height: var(--top-bar-height);
 }
 
+.top-bar__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.top-bar__title {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-h);
+}
+
+.top-bar__run {
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+  font-family: var(--mono);
+}
+
+/* flex-end, not center: the Select carries a visible label ABOVE its box,
+   so centring it left the dropdown sitting higher than the buttons beside
+   it. Aligning on the baseline of the controls themselves lines all three
+   bottoms up. */
 .top-bar__actions {
   display: flex;
   gap: var(--space-3);
-  align-items: center;
+  align-items: flex-end;
 }
 
 /* Greeting band */
@@ -385,6 +421,16 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
+}
+
+/* The Vendors page renders ONE FindingsList per vendor, and every one of
+   them carries the same sticky column header pinned to the same offset in
+   the same scroll container -- so scrolling stacked several headers on
+   top of each other and over the first rows of the group below. A sticky
+   header earns its place above one long table; above a dozen short
+   grouped ones it is just overlap. Static here, sticky everywhere else. */
+.vendor-group .findings-header {
+  position: static;
 }
 
 .page-heading {
@@ -472,7 +518,47 @@ body {
   color: var(--text);
 }
 
+/* One dropdown, everywhere. `appearance: none` plus an inline-SVG chevron
+   because the native control is a different width, height and font on every
+   platform -- which is what made the top bar's picker and the filter bar's
+   pickers look like two different components. The chevron is drawn in the
+   token colour, and the right padding reserves its space so a long option
+   can never run underneath it. */
 .select {
+  height: var(--control-height-md);
+  padding: 0 var(--space-6) 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 12px;
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--font-md);
+  line-height: 1;
+  box-sizing: border-box;
+  appearance: none;
+  cursor: pointer;
+  min-width: 160px;
+  text-overflow: ellipsis;
+}
+
+.select:hover {
+  border-color: var(--ink-3);
+}
+
+.select--sm {
+  height: var(--control-height-sm);
+  font-size: var(--font-sm);
+  min-width: 140px;
+}
+
+/* A text input sitting in a row of dropdowns is part of the same control
+   set and has to agree with them on height, radius and border -- it did
+   not, which is most of what read as "the filters are misaligned". */
+.filter-bar__observed-input {
   height: var(--control-height-md);
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
@@ -484,9 +570,9 @@ body {
   box-sizing: border-box;
 }
 
-.select--sm {
-  height: var(--control-height-sm);
-  font-size: var(--font-sm);
+.filter-bar__observed-input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* Legend dialog -- fixed-position overlay regardless of whether the
@@ -961,6 +1047,28 @@ body {
   font-weight: 600;
 }
 
+.cost-meter__latency {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cost-meter__latency-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.cost-meter__latency-row .cost-meter__value {
+  font-size: var(--font-md);
+}
+
+.cost-meter__latency-name {
+  font-size: var(--font-sm);
+  color: var(--text-muted, var(--text));
+  min-width: 14ch;
+}
+
 .cost-explainer {
   max-width: 60ch;
   color: var(--text);
@@ -1153,7 +1261,7 @@ body {
 .priority-actions__view-all {
   font-size: var(--font-sm);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 

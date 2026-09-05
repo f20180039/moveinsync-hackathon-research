@@ -19,6 +19,13 @@ export interface OverviewPageProps {
   windowLabel: string | null
   runId: string | null
   findings: Finding[]
+  // The run's findings BEFORE the role's findingsFilter. The KPI cards
+  // read from these: a role's filter says which findings that role
+  // triages, not what the overall number is -- and no shift-sliced
+  // finding is ever the "overall" one, so filtering first left a Line
+  // manager looking at four "Not active yet" cards. Optional, defaulting
+  // to `findings`, so every caller that does not filter is unaffected.
+  kpiFindings?: Finding[]
   // The three role-driven bits (roles.ts) -- all optional, defaulting to
   // Transport manager's behaviour, so every existing caller/test that
   // predates roles keeps working unchanged.
@@ -38,6 +45,7 @@ export function OverviewPage({
   windowLabel,
   runId,
   findings,
+  kpiFindings = findings,
   kpiMetricIds = DEFAULT_KPI_METRIC_IDS,
   kpiStripLabel = null,
   isPriorityFinding = (finding) => isAlertTier(finding.tier),
@@ -54,12 +62,12 @@ export function OverviewPage({
   return (
     <>
       <div className="greeting-band">
-        <h1>Here's what needs your attention</h1>
+        <h2>Here's what needs your attention</h2>
         <p>{windowLabel ?? 'Loading the current window…'}</p>
       </div>
 
       {kpiStripLabel && <p className="kpi-row__strip-label">{kpiStripLabel}</p>}
-      <KpiRow findings={findings} metricIds={kpiMetricIds} />
+      <KpiRow findings={kpiFindings} metricIds={kpiMetricIds} />
       {runId && <SafetyBanner runId={runId} />}
 
       <section className="priority-actions" aria-label="Priority actions">

@@ -109,7 +109,7 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
 
   return (
     <section>
-      <h1 className="page-heading">{title}</h1>
+      <h2 className="page-heading">{title}</h2>
 
       <Button onClick={runReview} busy={running}>
         Run {window} review

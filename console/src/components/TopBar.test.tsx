@@ -1,28 +1,47 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { TopBar } from './TopBar.tsx'
 
-function renderTopBar(overrides: Partial<React.ComponentProps<typeof TopBar>> = {}) {
+function renderTopBar(
+  overrides: Partial<React.ComponentProps<typeof TopBar>> = {},
+  route = '/findings',
+) {
   return render(
-    <TopBar
-      runId="run-1"
-      windowLabel="2026-07-25..2026-07-31"
-      onSweep={() => {}}
-      sweeping={false}
-      role="TRANSPORT_MANAGER"
-      onRoleChange={() => {}}
-      {...overrides}
-    />,
+    <MemoryRouter initialEntries={[route]}>
+      <TopBar
+        runId="run-1"
+        windowLabel="2026-07-25..2026-07-31"
+        onSweep={() => {}}
+        sweeping={false}
+        role="TRANSPORT_MANAGER"
+        onRoleChange={() => {}}
+        {...overrides}
+      />
+    </MemoryRouter>,
   )
 }
 
 describe('TopBar', () => {
-  it('shows the run id and window label', () => {
+  it('titles the page with the current nav item, not the run id', () => {
+    renderTopBar({}, '/findings')
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Insights')
+  })
+
+  it('follows the route, so the heading and the sidebar can never disagree', () => {
+    renderTopBar({}, '/vendors')
+
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Vendors')
+  })
+
+  it('still shows the run and its window, as provenance rather than as the title', () => {
     renderTopBar()
 
-    expect(screen.getByText(/2026-07-25\.\.2026-07-31/)).toBeInTheDocument()
-    expect(screen.getByText(/run-1/)).toBeInTheDocument()
+    const provenance = screen.getByText(/2026-07-25\.\.2026-07-31/)
+    expect(provenance).toHaveTextContent('run-1')
+    expect(provenance.tagName).not.toBe('H1')
   })
 
   it('shows a loading placeholder before the run is known', () => {

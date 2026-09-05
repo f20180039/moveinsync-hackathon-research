@@ -142,7 +142,6 @@ export function EmployeesPage({ runId }: { runId: string }) {
   if (status === 'loading') {
     return (
       <section>
-        <h1 className="page-heading">Employee impact</h1>
         <p className="console__status">Loading…</p>
       </section>
     )
@@ -151,7 +150,6 @@ export function EmployeesPage({ runId }: { runId: string }) {
   if (status === 'absent') {
     return (
       <section>
-        <h1 className="page-heading">Employee impact</h1>
         <p className="impact-absent">Employee impact is not available on this build.</p>
       </section>
     )
@@ -160,7 +158,6 @@ export function EmployeesPage({ runId }: { runId: string }) {
   if (status === 'error' || impact === null) {
     return (
       <section>
-        <h1 className="page-heading">Employee impact</h1>
         <p className="console__status console__status--error">{error}</p>
       </section>
     )
@@ -196,7 +193,6 @@ export function EmployeesPage({ runId }: { runId: string }) {
 
   return (
     <section>
-      <h1 className="page-heading">Employee impact</h1>
       <p className="impact-lede">
         Who the commute failures actually hit, and where — {impact.window.label}.
       </p>

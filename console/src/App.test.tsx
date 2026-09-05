@@ -271,12 +271,12 @@ describe('App', () => {
   })
 
   it.each([
-    ['/', /attention/i],
+    ['/', /overview/i],
     ['/alerts', /alerts/i],
     ['/findings', /insights/i],
-    ['/employees', /employee impact/i],
+    ['/employees', /employees/i],
     ['/vendors', /vendors/i],
-    ['/health', /feed health/i],
+    ['/health', /data health/i],
     ['/cost', /cost/i],
     ['/reports/weekly', /weekly review/i],
     ['/reports/monthly', /monthly review/i],

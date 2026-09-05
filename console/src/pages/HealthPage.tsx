@@ -7,7 +7,6 @@ export function HealthPage({ feeds }: { feeds: FeedHealth[] }) {
 
   return (
     <section>
-      <h1 className="page-heading">Feed health</h1>
       <FeedHealthStrip feeds={feeds} />
       <dl className="health-definitions">
         <dt>Quarantined</dt>
