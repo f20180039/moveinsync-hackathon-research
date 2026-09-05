@@ -1,8 +1,17 @@
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AskResponse } from '../api/types.ts'
 import { FloatingAssistant } from './FloatingAssistant.tsx'
+
+// The panel's Expand control is a router link (it navigates to /chat), so
+// every render needs a router around it -- the App shell mounts it inside
+// one.
+function renderPanel(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 const STORAGE_KEY = 'signal-desk:assistant-conversation'
 
@@ -75,7 +84,7 @@ afterEach(() => {
 describe('FloatingAssistant', () => {
   it('renders a closed launcher by default -- no panel in the document', () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /open mobility intelligence assistant/i })).toBeInTheDocument()
@@ -83,7 +92,7 @@ describe('FloatingAssistant', () => {
 
   it('opens a non-modal dialog panel on click', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
 
     await openPanel()
 
@@ -93,7 +102,7 @@ describe('FloatingAssistant', () => {
 
   it('shows the four default suggested chips', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     expect(screen.getByRole('button', { name: 'Why is on-time low this week?' })).toBeInTheDocument()
@@ -104,7 +113,7 @@ describe('FloatingAssistant', () => {
 
   it('lists the suggestions in their own column BEFORE the conversation', async () => {
     stubFetch({ health: () => healthResponse(['ask']) })
-    const { container } = render(<FloatingAssistant runId="run-1" />)
+    const { container } = renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     const body = container.querySelector('.assistant-panel__body') as HTMLElement
@@ -128,7 +137,7 @@ describe('FloatingAssistant', () => {
       health: () => healthResponse(['ask']),
       ask: () => jsonResponse(makeResponse({ answer: 'Vendor C is worst on on-time.' })),
     })
-    const { container } = render(<FloatingAssistant runId="run-1" />)
+    const { container } = renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     await screen.findByLabelText(/ask a question/i)
 
@@ -145,7 +154,7 @@ describe('FloatingAssistant', () => {
 
   it('accepts an override list of suggested questions (Stage 7 role-specific chips)', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    render(<FloatingAssistant runId="run-1" suggestedQuestions={['Which vendors are recurring laggards?']} />)
+    renderPanel(<FloatingAssistant runId="run-1" suggestedQuestions={['Which vendors are recurring laggards?']} />)
     await openPanel()
 
     expect(screen.getByRole('button', { name: 'Which vendors are recurring laggards?' })).toBeInTheDocument()
@@ -154,7 +163,7 @@ describe('FloatingAssistant', () => {
 
   it('disables the input when /api/health advertises capabilities without "ask"', async () => {
     stubFetch({ health: () => healthResponse(['decompose', 'safety', 'employees']) })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     expect(await screen.findByText('Interrogation lands with the tools — coming')).toBeInTheDocument()
@@ -165,7 +174,7 @@ describe('FloatingAssistant', () => {
     // Absence of evidence is not evidence of absence: a service that
     // predates the field still serves /api/ask.
     stubFetch({ health: () => healthResponse(undefined) })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     const input = await screen.findByLabelText(/ask a question/i)
@@ -175,7 +184,7 @@ describe('FloatingAssistant', () => {
 
   it('stays available when `capabilities` lists "ask"', async () => {
     stubFetch({ health: () => healthResponse(['ask', 'decompose']) })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     const input = await screen.findByLabelText(/ask a question/i)
@@ -184,7 +193,7 @@ describe('FloatingAssistant', () => {
 
   it('never probes /api/ask to feature-detect -- no request is sent until a question is asked', async () => {
     const fetchMock = stubFetch({ health: () => healthResponse(['ask']) })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
     await screen.findByLabelText(/ask a question/i)
 
@@ -200,7 +209,7 @@ describe('FloatingAssistant', () => {
       health: () => healthResponse(['ask']),
       ask: () => errorResponse(422, 'Unprocessable Entity'),
     })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     const input = await screen.findByLabelText(/ask a question/i)
 
@@ -214,7 +223,7 @@ describe('FloatingAssistant', () => {
 
   it('disables the assistant when /api/ask itself answers 404', async () => {
     stubFetch({ health: () => healthResponse(['ask']), ask: () => notFound() })
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     const input = await screen.findByLabelText(/ask a question/i)
 
@@ -225,9 +234,44 @@ describe('FloatingAssistant', () => {
     await waitFor(() => expect(screen.getByLabelText(/ask a question/i)).toBeDisabled())
   })
 
+  it('recovers when the run the console loaded has aged out of the service', async () => {
+    // The reported bug: the console holds the run id it fetched at startup,
+    // the service sweeps on and drops it, and the resulting 404 -- which
+    // names the missing RUN, not a missing route -- was reported as "this
+    // build does not serve the assistant endpoint" and disabled the
+    // assistant for the rest of the session.
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.includes('/api/health')) return healthResponse(['ask'])
+      if (!url.includes('/api/ask')) return notFound()
+      const body = JSON.parse(String(init?.body))
+      if (body.runId === 'latest') return jsonResponse(makeResponse({ answer: 'On-time fell to 88%.' }))
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => JSON.stringify({ detail: { error: `no run '${body.runId}'` } }),
+      } as Response)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPanel(<FloatingAssistant runId="run-1785542400000-b0" />)
+    const user = await openPanel()
+    await screen.findByLabelText(/ask a question/i)
+
+    await user.type(screen.getByLabelText(/ask a question/i), 'why did on-time fall?')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    expect(await screen.findByText('On-time fell to 88%.')).toBeInTheDocument()
+    expect(screen.queryByText(/does not serve the assistant endpoint/i)).not.toBeInTheDocument()
+    // Still usable: an aged-out run is a routine condition, not a build
+    // without an assistant.
+    expect(screen.getByLabelText(/ask a question/i)).toBeEnabled()
+  })
+
   it('Escape closes the panel and returns focus to the launcher', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
@@ -246,7 +290,7 @@ describe('FloatingAssistant', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
 
     await screen.findByLabelText(/ask a question/i)
@@ -274,7 +318,7 @@ describe('FloatingAssistant', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     await screen.findByLabelText(/ask a question/i)
 
@@ -298,7 +342,7 @@ describe('FloatingAssistant', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const { unmount } = render(<FloatingAssistant runId="run-1" />)
+    const { unmount } = renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     await screen.findByLabelText(/ask a question/i)
     await user.click(screen.getByRole('button', { name: 'Why is on-time low this week?' }))
@@ -312,7 +356,7 @@ describe('FloatingAssistant', () => {
     // A fresh mount (simulating a route change, or a reload since this is
     // backed by localStorage, not just component state) reads the same
     // history back.
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
     expect(screen.getByText('Vendor A and Vendor C are dragging on-time down.')).toBeInTheDocument()
   })
@@ -333,7 +377,7 @@ describe('FloatingAssistant', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     await screen.findByLabelText(/ask a question/i)
 
@@ -356,7 +400,7 @@ describe('FloatingAssistant', () => {
       ask: () => errorResponse(500, 'Internal Server Error'),
     })
 
-    render(<FloatingAssistant runId="run-1" />)
+    renderPanel(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
     await screen.findByLabelText(/ask a question/i)
 
@@ -367,9 +411,32 @@ describe('FloatingAssistant', () => {
     expect(screen.getByLabelText(/ask a question/i)).toBeEnabled()
   })
 
+  it('offers a link into the full chat page, which the conversation is already in', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/ask')) return jsonResponse(makeResponse())
+      return notFound()
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderPanel(<FloatingAssistant runId="run-1" />)
+    const user = await openPanel()
+    await screen.findByLabelText(/ask a question/i)
+    await user.click(screen.getByRole('button', { name: 'Why is on-time low this week?' }))
+    await screen.findByText('Vendor A and Vendor C are dragging on-time down.')
+
+    const expand = screen.getByRole('link', { name: /expand/i })
+    expect(expand).toHaveAttribute('href', '/chat')
+
+    // Nothing is handed over on the click: the exchange is already in the
+    // shared store, which is what the chat page reads on mount.
+    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? '[]')
+    expect(stored.at(-1).response.answer).toBe('Vendor A and Vendor C are dragging on-time down.')
+  })
+
   it('renders every control as the shared Button component', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
-    const { container } = render(<FloatingAssistant runId="run-1" />)
+    const { container } = renderPanel(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     const dialog = within(screen.getByRole('dialog'))

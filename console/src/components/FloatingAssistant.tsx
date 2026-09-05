@@ -1,52 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ApiError, ask, getCapabilities, hasCapability } from '../api/client.ts'
+import { Link } from 'react-router-dom'
+import { getCapabilities, hasCapability } from '../api/client.ts'
 import { DEFAULT_SUGGESTED_QUESTIONS } from '../api/insights.ts'
 import type { AskResponse } from '../api/types.ts'
+import { appendTurn, askTurn, loadCurrentTurns } from '../chat.ts'
+import type { ChatTurn as Exchange } from '../chat.ts'
 import { Button } from './Button.tsx'
-
-const STORAGE_KEY = 'signal-desk:assistant-conversation'
-// A long-running session shouldn't grow this file without bound -- the
-// oldest exchanges fall off once there are more than this many.
-const MAX_EXCHANGES = 50
-
-interface Exchange {
-  id: string
-  question: string
-  // Present on a real reply from the service (including a withheld one --
-  // withheld is carried on the response itself, not a separate error).
-  response: AskResponse | null
-  // Set only when the request itself failed (network error, or the
-  // endpoint isn't available) -- distinct from a withheld answer, which is
-  // a normal, non-error response the assistant chose not to answer.
-  error: string | null
-}
-
-// localStorage can throw (private browsing, a full quota, storage
-// disabled) -- every read/write is guarded so the conversation degrades to
-// "doesn't persist this session" rather than crashing the panel.
-function loadHistory(): Exchange[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveHistory(history: Exchange[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_EXCHANGES)))
-  } catch {
-    // Nothing to do -- the conversation still works for this render, it
-    // just won't survive a reload.
-  }
-}
-
-function makeId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
 
 export interface FloatingAssistantProps {
   runId: string
@@ -107,7 +66,10 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
   const [available, setAvailable] = useState<boolean | null>(null)
   const [question, setQuestion] = useState('')
   const [asking, setAsking] = useState(false)
-  const [history, setHistory] = useState<Exchange[]>(() => loadHistory())
+  // The same stored conversation the full chat page reads, so expanding
+  // the panel into /chat carries what was already asked rather than
+  // handing the user a blank screen.
+  const [history, setHistory] = useState<Exchange[]>(() => loadCurrentTurns())
 
   const launcherRef = useRef<HTMLButtonElement>(null)
   const previouslyFocusedRef = useRef<HTMLElement | null>(null)
@@ -164,31 +126,18 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
     if (!trimmed) return
     setQuestion('')
     setAsking(true)
-    let exchange: Exchange
-    try {
-      exchange = { id: makeId(), question: trimmed, response: await ask(runId, trimmed), error: null }
-    } catch (err) {
-      // Only a 404 means this build has no /api/ask; a 422, a 500 or a
-      // timeout is one question that failed, so the input stays enabled
-      // and the user can retry.
-      if (err instanceof ApiError && err.status === 404) setAvailable(false)
-      exchange = {
-        id: makeId(),
-        question: trimmed,
-        response: null,
-        error:
-          err instanceof ApiError && err.status === 404
-            ? 'This build does not serve the assistant endpoint.'
-            : 'Could not reach the assistant -- try again in a moment.',
-      }
-    } finally {
-      setAsking(false)
-    }
-    setHistory((prev) => {
-      const next = [...prev, exchange].slice(-MAX_EXCHANGES)
-      saveHistory(next)
-      return next
-    })
+    // askTurn carries the capped prior turns as `history` and does the
+    // failure mapping once, for this panel and the chat page both. The run
+    // id the console loaded at startup goes stale while the service keeps
+    // sweeping, and the 404 that produces names the missing RUN, not a
+    // missing route -- askTurn retries that against the latest run rather
+    // than reporting it, and `endpointMissing` is left for a 404 that
+    // genuinely means there is no such route. A 422, a 500 or a timeout is
+    // one question that failed and leaves the input enabled to retry.
+    const outcome = await askTurn(runId, trimmed, history)
+    setAsking(false)
+    if (outcome.endpointMissing) setAvailable(false)
+    setHistory(appendTurn(outcome.turn))
   }
 
   return (
@@ -207,6 +156,14 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
         <div className="assistant-panel" role="dialog" aria-modal="false" aria-label="Mobility Intelligence assistant">
           <div className="assistant-panel__header">
             <h2 className="assistant-panel__title">Mobility Intelligence</h2>
+            {/* A link, not a Button: it is navigation, so it has to be
+                middle-clickable and copyable like every other route in the
+                console. It carries no state of its own -- the conversation
+                is already in storage, which is what makes the hand-off to
+                the full page free. */}
+            <Link className="btn btn--ghost btn--sm assistant-panel__expand" to="/chat" onClick={close}>
+              Expand
+            </Link>
             <Button variant="ghost" size="sm" onClick={close}>
               Close
             </Button>

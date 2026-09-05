@@ -43,6 +43,17 @@ function jsonResponse(body: unknown) {
   return Promise.resolve({ ok: true, json: async () => body } as Response)
 }
 
+// What the deployed service actually answers when the run id has aged out
+// of its in-process store -- a 404 that names the missing RUN.
+function staleRunResponse(runId: string) {
+  return Promise.resolve({
+    ok: false,
+    status: 404,
+    statusText: 'Not Found',
+    text: async () => JSON.stringify({ detail: { error: `no run '${runId}'` } }),
+  } as Response)
+}
+
 function errorResponse(status: number, statusText: string) {
   return Promise.resolve({ ok: false, status, statusText, text: async () => '' } as Response)
 }
@@ -255,11 +266,60 @@ describe('askTurn', () => {
     })
   })
 
-  it('reports a 404 as a missing endpoint', async () => {
+  it('reports a 404 with no run named as a genuinely missing endpoint', async () => {
     vi.stubGlobal('fetch', vi.fn(() => errorResponse(404, 'Not Found')))
     const outcome = await askTurn('run-1', 'anything', [])
     expect(outcome.endpointMissing).toBe(true)
     expect(outcome.turn.error).toMatch(/does not serve the assistant endpoint/i)
+  })
+
+  it('retries against the latest run when the run the console holds has aged out', async () => {
+    // The service keeps sweeping (and restarts) while the console holds the
+    // run id it loaded at startup, so this 404 is routine -- and it names
+    // the missing RUN, not a missing route.
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body))
+      if (body.runId === 'latest') return jsonResponse(answer('on-time fell to 88%'))
+      return staleRunResponse(body.runId)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const outcome = await askTurn('run-1785542400000-b0', 'why did on-time fall?', [])
+
+    expect(outcome.endpointMissing).toBe(false)
+    expect(outcome.turn.error).toBeNull()
+    expect(outcome.turn.response?.answer).toBe('on-time fell to 88%')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).runId).toBe('latest')
+  })
+
+  it('an aged-out run never reports the build as lacking the endpoint', async () => {
+    // Even when the retry fails too: the endpoint answered, twice. Claiming
+    // the build has no assistant is both false and unrecoverable -- it
+    // disabled a working assistant for the rest of the session.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+        staleRunResponse(JSON.parse(String(init?.body)).runId),
+      ),
+    )
+
+    const outcome = await askTurn('run-1785542400000-b0', 'why did on-time fall?', [])
+
+    expect(outcome.endpointMissing).toBe(false)
+    expect(outcome.turn.error).toMatch(/sweep has expired/i)
+  })
+
+  it('does not retry when the question already asked for the latest run', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) =>
+      staleRunResponse(JSON.parse(String(init?.body)).runId),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    const outcome = await askTurn('latest', 'why did on-time fall?', [])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(outcome.endpointMissing).toBe(false)
   })
 
   it('reports a 500 as one failed question, leaving the endpoint available', async () => {

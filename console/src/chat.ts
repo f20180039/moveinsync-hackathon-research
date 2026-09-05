@@ -158,33 +158,63 @@ export function toHistoryMessages(turns: ChatTurn[], max = MAX_HISTORY_MESSAGES)
 
 export interface AskOutcome {
   turn: ChatTurn
-  /** True only for a 404 -- this build serves no /api/ask, so the feature
-   * turns itself off. A 422, a 500 or a timeout is one question that
-   * failed and must leave the composer enabled to retry. */
+  /** True only when the route itself is absent -- and even then the
+   * authoritative answer is /api/health's capabilities list, which is what
+   * the surfaces feature-detect on. A 404 from the POST is far more often
+   * a run that has aged out of the service's store. */
   endpointMissing: boolean
+}
+
+// The service resolves this itself, and it is the run the user is looking
+// at: the console loads findings once at startup, while the deployed
+// service keeps sweeping (and restarts), so the run id held on screen goes
+// stale on its own.
+const LATEST_RUN_ID = 'latest'
+
+// Two different 404s wear the same status code. `POST /api/ask` answers 404
+// with `{"detail":{"error":"no run 'run-...'"}}` when the RUN has aged out
+// of the service's in-process store -- the endpoint is right there, working.
+// Reading that as "this build has no assistant" is what disabled a working
+// assistant against a working backend and told the user a falsehood about
+// the build.
+function isStaleRun(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404 && /no run/i.test(err.message)
+}
+
+function isMissingEndpoint(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404 && !isStaleRun(err)
+}
+
+function failedTurn(id: string, question: string, err: unknown): AskOutcome {
+  const message = isMissingEndpoint(err)
+    ? 'This build does not serve the assistant endpoint.'
+    : isStaleRun(err)
+      ? 'That sweep has expired -- ask again and the latest run will answer.'
+      : 'Could not reach the assistant -- try again in a moment.'
+  return { turn: { id, question, response: null, error: message }, endpointMissing: isMissingEndpoint(err) }
 }
 
 /** Asks one question, carrying the capped prior turns as `history`, and
  * maps every failure onto a turn the UI can render. Shared by the floating
  * panel and the full chat page so the two cannot drift on what a withheld
- * answer, a 404 and a 500 each mean. */
+ * answer, a stale run and a real outage each mean.
+ *
+ * A run that has aged out is recovered from rather than reported: the ask
+ * is retried once against the latest run, which is the one the user means
+ * anyway. Only a genuinely absent route reports an absent route. */
 export async function askTurn(runId: string, question: string, priorTurns: ChatTurn[]): Promise<AskOutcome> {
   const id = makeId()
+  const history = toHistoryMessages(priorTurns)
   try {
-    const response = await ask(runId, question, toHistoryMessages(priorTurns))
+    const response = await ask(runId, question, history)
     return { turn: { id, question, response, error: null }, endpointMissing: false }
   } catch (err) {
-    const missing = err instanceof ApiError && err.status === 404
-    return {
-      turn: {
-        id,
-        question,
-        response: null,
-        error: missing
-          ? 'This build does not serve the assistant endpoint.'
-          : 'Could not reach the assistant -- try again in a moment.',
-      },
-      endpointMissing: missing,
+    if (!isStaleRun(err) || runId === LATEST_RUN_ID) return failedTurn(id, question, err)
+    try {
+      const response = await ask(LATEST_RUN_ID, question, history)
+      return { turn: { id, question, response, error: null }, endpointMissing: false }
+    } catch (retryErr) {
+      return failedTurn(id, question, retryErr)
     }
   }
 }
