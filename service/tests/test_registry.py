@@ -20,9 +20,12 @@ def _ms(y, m, d):
     return int(dt.datetime(y, m, d, tzinfo=dt.UTC).timestamp() * 1000)
 
 
-# The one-week window the sweep golden tests use (see test_sweep.py's CLOCK_MS
-# and constants.py's MIN_ROWS_PER_SLICE comment, both measured against this
-# same window): the smaller a window, the smaller a slice's population, which
+# NOT the same window as test_sweep.py's CLOCK_MS-derived week (that one is
+# [2026-07-25, 2026-08-01), one day later) -- this is WINDOW_TESTFILES in
+# constants.py's MIN_ROWS_PER_SLICE comment, the window that comment's part
+# (c) measurements (the ota x SHIFT=EVENING trend-cascade discovery) were
+# taken against. Either one-week window works equally well for what this
+# file needs: the smaller a window, the smaller a slice's population, which
 # is exactly the regime the population guard needs to be tested in.
 LATE_JULY = Window.week_ending(_ms(2026, 7, 31))
 
