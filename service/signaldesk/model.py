@@ -20,7 +20,18 @@ class TruncatedResponse(RuntimeError):
     catches it and sends the template brief; the interrogator catches it and
     withholds. Silently returning a half-written brief is the one outcome
     neither of them should have to guess at.
+
+    Carries the usage figures (never the prompt) so the caller's fallback log
+    line can say WHY -- prompt size, completion tokens spent, and the ceiling
+    that was hit -- without that becoming the caller's job to re-derive.
     """
+
+    def __init__(self, message: str, *, prompt_tokens: int | None = None,
+                 completion_tokens: int | None = None, max_tokens: int | None = None):
+        super().__init__(message)
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
+        self.max_tokens = max_tokens
 
 
 @dataclass
@@ -103,9 +114,22 @@ class SarvamClient:
     # completion_tokens without surfacing them in message.content. Replying with
     # the single word "READY" cost 195 completion tokens; one tool call cost
     # 199; a ten-word translation cost 19. So the overhead is real, variable,
-    # and up to ~200 tokens BEFORE any prose. A 700-token ceiling on a
-    # 200-word brief is uncomfortably close to truncating.
-    DEFAULT_MAX_TOKENS = 1600
+    # and up to ~200 tokens BEFORE any prose on a TRIVIAL reply.
+    #
+    # MEASURED 2026-09-05, on data/real (run-1785542400000-d0), a genuine
+    # brief-writing call -- TRANSPORT_MANAGER, the top 8 (capped) findings,
+    # 543 prompt tokens: max_tokens=3200 exhausted the ENTIRE ceiling on
+    # reasoning alone (completion_tokens=3200, finish_reason="length", zero
+    # characters of content). Raising the ceiling to 8000 let the same call
+    # finish naturally at completion_tokens=3473 (finish_reason="stop") with
+    # a full, validated brief. So reasoning overhead for a real multi-finding
+    # judgment call is roughly an order of magnitude larger than the ~200
+    # tokens measured on a trivial reply above -- it scales with the
+    # REASONING TASK (weighing 8 findings against each other), not with
+    # prompt size. 6000 leaves real headroom above the one measured
+    # successful call (3473) while staying well clear of the measured
+    # failure point (3200).
+    DEFAULT_MAX_TOKENS = 6000
 
     def complete(self, messages: list[dict], purpose: str = "brief",
                  max_tokens: int | None = None) -> str:
@@ -117,15 +141,23 @@ class SarvamClient:
         choice = r.choices[0]
         text = (choice.message.content or "").strip()
 
+        ceiling = max_tokens or self.DEFAULT_MAX_TOKENS
+        prompt_tokens = getattr(r.usage, "prompt_tokens", None) if r.usage else None
+        completion_tokens = getattr(r.usage, "completion_tokens", None) if r.usage else None
+
         # A truncated brief is the DANGEROUS failure, not an obvious one: half a
         # sentence whose every figure is correct passes the numeric validator
         # and goes on stage mid-word. Treat it as a hard failure so the caller
         # falls back to the deterministic template.
         if choice.finish_reason == "length":
             raise TruncatedResponse(
-                f"{purpose} hit the {max_tokens or self.DEFAULT_MAX_TOKENS}-token "
-                f"ceiling; reasoning overhead is billed but not returned")
+                f"{purpose} hit the {ceiling}-token ceiling; reasoning overhead "
+                f"is billed but not returned",
+                prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+                max_tokens=ceiling)
         if not text:
-            raise TruncatedResponse(f"{purpose} returned empty content "
-                                    f"(finish_reason={choice.finish_reason})")
+            raise TruncatedResponse(
+                f"{purpose} returned empty content (finish_reason={choice.finish_reason})",
+                prompt_tokens=prompt_tokens, completion_tokens=completion_tokens,
+                max_tokens=ceiling)
         return text

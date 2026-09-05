@@ -109,6 +109,17 @@ def _audience_label(audience: Audience) -> str:
     return audience.value.replace("_", " ").title()
 
 
+def _top_findings_for(run, audience: Audience) -> list[Finding]:
+    """Findings arrive already ranked worst-first (verdict.rank); this is the
+    ONE cap both the template and the model's prompt share -- PASS is never
+    shown, and at most MAX_FINDINGS_PER_BRIEF survive. On the real dataset an
+    audience can carry 150+ findings; sending all of them to the model blew
+    the token ceiling with zero prose to show for it (measured 2026-09-05,
+    see model.DEFAULT_MAX_TOKENS)."""
+    relevant = [f for f in run.findings if audience in f.audiences]
+    return [f for f in relevant if f.tier is not Tier.PASS][:MAX_FINDINGS_PER_BRIEF]
+
+
 def _feed_disclosures(run) -> list[str]:
     out = []
     for h in run.feed_health.values():
@@ -165,7 +176,7 @@ def template_brief(run, audience: Audience) -> str:
     if disclosures:
         context += " " + "; ".join(disclosures)
 
-    above_pass = [f for f in relevant if f.tier is not Tier.PASS][:MAX_FINDINGS_PER_BRIEF]
+    above_pass = _top_findings_for(run, audience)
 
     lines = [header, "", context, ""]
     if not above_pass:
@@ -195,10 +206,11 @@ _SYSTEM_PROMPT = (
 
 
 def _findings_as_text(run, audience: Audience) -> str:
+    """The same top-8, non-PASS, worst-first subset `template_brief` shows --
+    never every finding for the audience (a real-dataset audience can carry
+    150+; the model would rather see the same short list a human does)."""
     lines = []
-    for f in run.findings:
-        if audience not in f.audiences:
-            continue
+    for f in _top_findings_for(run, audience):
         metric = registry.by_id(f.metric_id)
         parts = [
             f"metric={metric.label}",
@@ -232,9 +244,11 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
 
     try:
         narrative = model.complete(messages, purpose="brief")
-    except TruncatedResponse:
-        logger.warning("compose: model response truncated, falling back to template "
-                       "(audience=%s)", audience.value)
+    except TruncatedResponse as e:
+        logger.warning("compose: model response truncated (prompt_tokens=%s "
+                       "completion_tokens=%s ceiling=%s), falling back to template "
+                       "(audience=%s)", e.prompt_tokens, e.completion_tokens,
+                       e.max_tokens, audience.value)
         return template_brief(run, audience), "template"
     except Exception as exc:
         logger.warning("compose: model call failed (%s), falling back to template "

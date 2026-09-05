@@ -182,6 +182,18 @@ def test_the_prompt_carries_findings_not_rows_and_no_sql():
     assert "SELECT" not in prompt_text
 
 
+def test_the_prompt_carries_at_most_eight_findings():
+    # On the real dataset one audience can carry 150+ findings; the prompt
+    # must cap at the same top-8 the template shows, never send them all.
+    findings = [_finding(slc=Slice(Dimension.VENDOR, f"Vendor {i}")) for i in range(12)]
+    run = _run(findings)
+    model = StubModel(text="placeholder narrative, not validated by this test")
+    sarvam_brief(run, Audience.TRANSPORT_MANAGER, model=model)
+    prompt_text = model.last_messages[1]["content"]
+    finding_lines = [line for line in prompt_text.splitlines() if line.startswith("[")]
+    assert len(finding_lines) == 8
+
+
 def test_one_model_call_per_brief():
     run = _run([_finding()])
     model = StubModel(text=("Vendor on-time share is 61.40%, below the 4-week average of "
@@ -191,9 +203,14 @@ def test_one_model_call_per_brief():
 
 
 def test_the_default_token_ceiling_leaves_room_for_reasoning_overhead():
-    # Measured: ~200 completion tokens of reasoning before any prose.
-    # A 200-word brief is ~280 tokens of prose. 1600 leaves real headroom.
-    assert SarvamClient.DEFAULT_MAX_TOKENS >= 1200
+    # MEASURED 2026-09-05 on data/real: a real 8-finding brief call needed
+    # 3473 completion tokens (reasoning + prose) to finish at finish_reason
+    # "stop"; the same call truncated at max_tokens=3200 with ZERO content.
+    # 6000 leaves real headroom above that -- reasoning overhead scales with
+    # the judgment task, not just the prompt, so this floor is well above
+    # the one measured successful call rather than a small multiple of the
+    # ~200-token trivial-reply overhead.
+    assert SarvamClient.DEFAULT_MAX_TOKENS >= 5000
 
 
 class _FakeChoice:
