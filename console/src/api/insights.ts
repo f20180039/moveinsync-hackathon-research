@@ -39,6 +39,46 @@ export function computeDelta(observed: number, referenceValue: number, metricId:
   }
 }
 
+export interface BarDomain {
+  min: number
+  max: number
+}
+
+// The comparison bar's SCALE. It used to be the values' own min and max,
+// which made the widget a lie by construction: the smallest value always
+// sat hard left and the largest always hard right, so a 0.2-point gap and
+// a 40-point gap drew exactly the same picture. Distance carried no
+// information at all.
+//
+// A percentage has a real, universally understood axis, so use it: 0..100.
+// Anything else (a cost per km, a rate) has no natural ceiling, so the
+// domain is the values' range padded by 60% of the span on each side --
+// the markers then sit INSIDE the track, and the space between them is
+// proportional to the gap that actually exists.
+export function barDomain(values: number[], unit: string): BarDomain {
+  if (unit === '%') return { min: 0, max: 100 }
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = max - min
+  // Every value identical: give it a symmetric window so the dots land in
+  // the middle, stacked, rather than dividing by a zero span.
+  if (span === 0) {
+    const pad = Math.abs(min) * 0.1 || 1
+    return { min: min - pad, max: max + pad }
+  }
+  const pad = span * 0.6
+  return { min: min - pad, max: max + pad }
+}
+
+// Where a value sits on that domain, as a percentage of the track. Clamped:
+// a reference outside the domain pins to the end rather than escaping the
+// track, which is what a value beyond 100% on a percentage axis would do.
+export function barPercent(value: number, domain: BarDomain): number {
+  const span = domain.max - domain.min || 1
+  return Math.min(100, Math.max(0, ((value - domain.min) / span) * 100))
+}
+
 export function findReference(finding: Pick<Finding, 'references'>, kind: string): Reference | undefined {
   return finding.references.find((ref) => ref.kind === kind)
 }

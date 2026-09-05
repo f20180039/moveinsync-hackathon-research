@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  barDomain,
+  barPercent,
   buildFindingSentence,
   computeDelta,
   groupFindingsByMetric,
@@ -228,5 +230,44 @@ describe('groupFindingsByMetric', () => {
     expect(groups[0].findings.map((f) => f.id)).toEqual(['a', 'c'])
     expect(groups[0].metricLabel).toBe('Marshal compliance (dark hours)')
     expect(groups[1].findings.map((f) => f.id)).toEqual(['b'])
+  })
+})
+
+// The comparison bar's scale. See barDomain's own comment for why the
+// previous min/max-of-its-own-values version drew every gap identically.
+describe('barDomain / barPercent', () => {
+  it('uses the real 0..100 axis for a percentage, not the values own range', () => {
+    expect(barDomain([78, 84.6], '%')).toEqual({ min: 0, max: 100 })
+  })
+
+  it('draws a small gap small and a large gap large', () => {
+    const domain = barDomain([78, 84.6], '%')
+    const smallGap = barPercent(84.6, domain) - barPercent(78, domain)
+
+    const wideDomain = barDomain([40, 90], '%')
+    const largeGap = barPercent(90, wideDomain) - barPercent(40, wideDomain)
+
+    expect(largeGap).toBeGreaterThan(smallGap * 5)
+  })
+
+  it('keeps every marker inside the track for a unit with no natural ceiling', () => {
+    const values = [24.5, 31.2]
+    const domain = barDomain(values, 'INR/km')
+
+    for (const v of values) {
+      expect(barPercent(v, domain)).toBeGreaterThan(0)
+      expect(barPercent(v, domain)).toBeLessThan(100)
+    }
+  })
+
+  it('centres identical values instead of dividing by a zero span', () => {
+    const domain = barDomain([12, 12], 'INR')
+    expect(barPercent(12, domain)).toBeCloseTo(50)
+  })
+
+  it('clamps a value beyond the axis to the end of the track', () => {
+    const domain = barDomain([50], '%')
+    expect(barPercent(140, domain)).toBe(100)
+    expect(barPercent(-10, domain)).toBe(0)
   })
 })

@@ -1,4 +1,4 @@
-import { computeDelta, findReference } from '../api/insights.ts'
+import { barDomain, barPercent, computeDelta, findReference } from '../api/insights.ts'
 import { label } from '../api/labels.ts'
 import { formatMetricValue } from '../api/types.ts'
 import type { Finding, Reference } from '../api/types.ts'
@@ -33,13 +33,16 @@ export function KpiCard({ title, finding }: KpiCardProps) {
   const delta = trendRef ? computeDelta(finding.observed, trendRef.value, finding.metricId, finding.unit) : null
 
   // Comparison bar: observed vs every reference, each a marker on one
-  // track, positioned by relative value (not a sparkline -- there's no
-  // honest 5-point history to draw one from).
+  // track (not a sparkline -- there's no honest 5-point history to draw
+  // one from). The SCALE is barDomain's, not the values' own min and max:
+  // normalising to the data itself pinned the lowest value hard left and
+  // the highest hard right every time, so a 0.2-point gap and a 40-point
+  // gap drew an identical picture -- two dots at the ends of a line, which
+  // is exactly what it looked like. The axis is now stated, and labelled
+  // at both ends, so the distance between markers means something.
   const values = [finding.observed, ...finding.references.map((ref) => ref.value)]
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const percentFor = (v: number) => ((v - min) / span) * 100
+  const domain = barDomain(values, finding.unit)
+  const percentFor = (v: number) => barPercent(v, domain)
 
   const barLabelParts = [
     `Observed ${formatMetricValue(finding.observed, finding.unit)}`,
@@ -85,11 +88,29 @@ export function KpiCard({ title, finding }: KpiCardProps) {
             />
           ))}
         </div>
+        <div className="kpi-card__bar-axis" aria-hidden="true">
+          <span>{formatMetricValue(domain.min, finding.unit)}</span>
+          <span>{formatMetricValue(domain.max, finding.unit)}</span>
+        </div>
+        {/* Each legend entry carries the dot's own colour, so a reader can
+            tell which marker is which -- an unkeyed list of words could
+            not. */}
         <div className="kpi-card__bar-legend">
-          <span>Observed</span>
-          {trendRef && <span>Trend</span>}
+          <span className="kpi-card__bar-key">
+            <span className="kpi-card__bar-swatch kpi-card__bar-marker--observed" />
+            Observed
+          </span>
+          {trendRef && (
+            <span className="kpi-card__bar-key">
+              <span className="kpi-card__bar-swatch kpi-card__bar-marker--trend" />
+              Trend
+            </span>
+          )}
           {otherRefs.map((ref) => (
-            <span key={ref.kind}>{ref.label || label('referenceKind', ref.kind)}</span>
+            <span key={ref.kind} className="kpi-card__bar-key">
+              <span className="kpi-card__bar-swatch kpi-card__bar-marker--peer" />
+              {ref.label || label('referenceKind', ref.kind)}
+            </span>
           ))}
         </div>
       </div>
