@@ -1568,12 +1568,22 @@ body {
   box-shadow: var(--shadow-elevated), var(--focus-ring);
 }
 
+/* The panel grows UPWARD from the launcher, so its height budget is
+   everything between the launcher's top edge and the top of the viewport,
+   not a flat 70vh. 70vh left ~30vh of unusable space above the panel while
+   the panel's own children fought over a box too small for all of them:
+   at a 600px-tall viewport the content overflowed its own max-height box
+   and `overflow: hidden` clipped the bottom of it (measured: scrollHeight
+   428 vs clientHeight 420), collapsing the message list to its 80px floor
+   and, on shorter viewports still, clipping the composer away entirely.
+   56px launcher + its offset from the bottom + the gap above it + one
+   space of breathing room at the top. */
 .assistant-panel {
   position: absolute;
   right: 0;
   bottom: calc(56px + var(--space-3));
   width: min(380px, calc(100vw - var(--space-6)));
-  max-height: min(70vh, 640px);
+  max-height: min(640px, calc(100vh - 56px - var(--space-5) - var(--space-3) - var(--space-4)));
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -1599,9 +1609,14 @@ body {
   margin: 0;
 }
 
+/* `min-height: 0` (not the 80px floor this used to carry) is the whole
+   fix: a flex item's default min-height is its content, so the message
+   list refused to shrink, forced the panel's content past its max-height
+   and pushed the composer into the clipped region. It shrinks freely now
+   and scrolls internally instead. */
 .assistant-panel__history {
-  flex: 1;
-  min-height: 80px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-3) var(--space-4);
   display: flex;
@@ -1662,6 +1677,9 @@ body {
   overflow-y: auto;
 }
 
+/* Was `flex-shrink: 0` with four wrapped chips -- 177px, a third of the
+   panel, that no viewport height could reclaim. It gives now, and scrolls
+   within its own cap rather than eating the conversation or the composer. */
 .assistant-panel__chips {
   display: flex;
   gap: var(--space-2);
@@ -1669,7 +1687,10 @@ body {
   padding: 0 var(--space-4) var(--space-3);
   border-top: 1px solid var(--border);
   padding-top: var(--space-3);
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 132px;
+  overflow-y: auto;
 }
 
 .assistant-panel__form {
