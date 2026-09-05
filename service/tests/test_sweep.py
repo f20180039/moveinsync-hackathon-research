@@ -285,7 +285,38 @@ def test_the_tier_distribution_is_printed_for_calibration(con_and_health):
     # (two more active metrics) and more BREACHes (marshal_compliance's hard
     # target breaches almost every slice it produces -- see
     # test_marshal_compliance_breaches_almost_every_overall_and_vendor_slice_on_real_data).
+    #
+    # Task 18 (riders_per_day, the demand metric, activated), RE-MEASURED on
+    # data/sample over this same late-July week:
+    #   PASS 117 / WATCH 53 / CONCERN 47 / BREACH 20 of 237 findings.
+    # The demand metric alone contributes 39 of those 237 (PASS 11 / WATCH 19
+    # / CONCERN 8 / BREACH 1) -- it slices by every dimension, which is why it
+    # adds a hundred findings on its own. Its causes split 16 DEMAND_SURGE /
+    # 12 DEMAND_DROP / 11 ON_REFERENCE: BOTH SIDES of the two-sided band fire
+    # on real sample data, which is the property the metric exists for.
     assert set(counts) == {"PASS", "WATCH", "CONCERN", "BREACH"}
+
+
+def test_the_demand_metric_is_swept_and_fires_on_both_sides(con_and_health):
+    # Task 18, end to end through the real sweep rather than through
+    # verdict.delta in isolation: the two-sided band must produce findings in
+    # BOTH directions on real data, or it is a one-sided band with extra
+    # words. MEASURED on data/sample, late-July week: 39 riders_per_day
+    # findings, 16 DEMAND_SURGE / 12 DEMAND_DROP / 11 ON_REFERENCE (a PASS).
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+
+    demand = [f for f in run.findings if f.metric_id == "riders_per_day"]
+    assert demand, "the demand metric must appear in the sweep at all"
+    causes = Counter(f.cause.value for f in demand)
+    print(f"MEASURED riders_per_day (data/sample): {len(demand)} findings, "
+          f"tiers {dict(Counter(f.tier.name for f in demand))}, causes {dict(causes)}")
+    assert causes["DEMAND_SURGE"] >= 1, "no demand surge found -- the band is one-sided"
+    assert causes["DEMAND_DROP"] >= 1, "no demand drop found -- the band is one-sided"
+    # Sliced by time of day, which is what the metric was asked for.
+    assert any(f.slice.dim is Dimension.SHIFT for f in demand)
+    # A two-sided finding never carries a negative (accusatory-backwards) gap.
+    assert all(f.gap >= 0.0 for f in demand)
 
 
 def test_the_degrading_vendor_appears_as_a_watch_or_worse(con_and_health):
@@ -367,6 +398,18 @@ def test_at_least_one_vendor_ota_finding_is_watch_or_worse_on_the_sample(con_and
 # (peer median far lower -- see the registry measurement in the task-15
 # report). This is a genuine new signal from a metric that previously did not
 # exist, not drift in an existing one -- raised to 8 rather than excluded.
+#
+# Task 18: RE-MEASURED after activating riders_per_day (the demand metric).
+# The ceiling is STILL 8 -- unchanged, and that is a measurement, not an
+# assumption. riders_per_day produces 53 findings on data/real this window
+# (PASS 34 / WATCH 16 / CONCERN 2 / BREACH 1) and its single BREACH is at
+# SITE level (San Jose Commons, 3.00 riders/day against a 1.50 four-week
+# trend -- a doubling), so it contributes ZERO overall+vendor BREACHes and
+# the same eight findings as before are the ones this ceiling counts:
+# cost_per_rider x Meera Lebedev Travel; ota and vendor_ota x Pooja Sokolov
+# Travel; no_show_rate x five vendors. The whole-run distribution DID move,
+# from 380 to 433 findings (PASS 244 / WATCH 77 / CONCERN 49 / BREACH 63),
+# because the new metric slices by every dimension.
 REAL_DATA = os.environ.get("SIGNALDESK_REAL_DATA", REAL_DEFAULT)
 BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL = 8
 

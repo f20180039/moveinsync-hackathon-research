@@ -43,15 +43,16 @@ def con():
 # The vocabulary itself.
 # ---------------------------------------------------------------------------
 
-def test_eight_metrics_are_defined_with_ota_first():
+def test_nine_metrics_are_defined_with_ota_first():
     # Task 11 added marshal_compliance; Task 15 adds late_pickup_rate and
-    # cost_per_rider -- 8 metrics now, not the fixed 5 this test was
-    # originally named for.
-    assert len(registry.METRICS) == 8
+    # cost_per_rider; Task 18 adds riders_per_day, the first VOLUME metric --
+    # 9 now, not the fixed 5 this test was originally named for.
+    assert len(registry.METRICS) == 9
     assert registry.METRICS[0].id == "ota"
     assert {m.id for m in registry.METRICS} == {
         "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
-        "marshal_compliance", "late_pickup_rate", "cost_per_rider"}
+        "marshal_compliance", "late_pickup_rate", "cost_per_rider",
+        "riders_per_day"}
 
 
 def test_every_metric_declares_at_least_one_reference_point():
@@ -89,8 +90,10 @@ def test_active_returns_exactly_the_active_metrics():
     active = registry.active()
     assert {m.id for m in active} == set(registry.ACTIVE_METRICS)
     # Task 11 (cost_per_km, marshal_compliance) + Task 15 (late_pickup_rate,
-    # cost_per_rider) join ota/otd/vendor_ota/no_show_rate as active -- 8.
-    assert len(active) == 8
+    # cost_per_rider) + Task 18 (riders_per_day) join ota/otd/vendor_ota/
+    # no_show_rate as active -- 9.
+    assert len(active) == 9
+    assert "riders_per_day" in {m.id for m in active}
     assert "cost_per_km" in {m.id for m in active}
     assert "marshal_compliance" in {m.id for m in active}
     assert "late_pickup_rate" in {m.id for m in active}

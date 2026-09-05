@@ -43,10 +43,12 @@ def test_health_is_ok_after_startup(client):
     body = r.json()
     assert body["status"] == "ok"
     # Task 11 activated cost_per_km/marshal_compliance; Task 15 adds
-    # late_pickup_rate/cost_per_rider -- 8 active metrics now.
+    # late_pickup_rate/cost_per_rider; Task 18 adds riders_per_day (the demand
+    # metric) -- 9 active metrics now.
     assert set(body["activeMetrics"]) == {
         "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
-        "marshal_compliance", "late_pickup_rate", "cost_per_rider"}
+        "marshal_compliance", "late_pickup_rate", "cost_per_rider",
+        "riders_per_day"}
     assert isinstance(body["clock"], int)
 
 
