@@ -29,7 +29,8 @@ from .schemas import Dimension, Direction, Metric, ReferenceKind, Slice, Window
 # sliced by direction), vendor_ota carries neither filter.
 _ON_TIME_BASE = f"""
 SELECT 100.0 * sum(CASE WHEN t.actual_at <= t.planned_end_at + {C.ON_TIME_GRACE_MS} THEN 1 ELSE 0 END)
-       / nullif(count(*), 0)
+       / nullif(count(*), 0),
+       count(*) AS n
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
@@ -44,8 +45,14 @@ _VENDOR_OTA_SQL = _ON_TIME_BASE.replace("__DIRECTION__", "")
 # noshow_cnt / plannedemployee_cnt are both per-trip headcounts on the trips
 # view -- real MoveInSync vocabulary (docs/real-dataset-mapping.md §8), and a
 # direct capacity-waste signal.
+#
+# Task 3b: the metric's own denominator is sum(plannedemployee_cnt) (a
+# headcount), but the population guard means "trips", not "employees" --
+# one trip with 40 planned employees is still one data point, not 40. So the
+# second column is count(*) of trips, not the formula's own denominator.
 _NO_SHOW_SQL = """
-SELECT 100.0 * sum(t.noshow_cnt) / nullif(sum(t.plannedemployee_cnt), 0)
+SELECT 100.0 * sum(t.noshow_cnt) / nullif(sum(t.plannedemployee_cnt), 0),
+       count(*) AS n
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{SLICE}}
@@ -56,7 +63,8 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 # hops. The window predicate is on t.scheduled_at (the trip, not the bill line)
 # so a slice and a window mean the same thing on every metric in this file.
 _COST_PER_KM_SQL = """
-SELECT sum(b.trip_cost) / nullif(sum(b.total_trip_km), 0)
+SELECT sum(b.trip_cost) / nullif(sum(b.total_trip_km), 0),
+       count(*) AS n
 FROM bill b JOIN trips t ON t.trip_id = b.trip_id
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{SLICE}}
@@ -132,12 +140,26 @@ def evaluate(con, metric: Metric, slc: Slice, window: Window) -> float | None:
 
     A missing slice scoring 0% and breaching on a vendor that simply did not
     operate that week is the most damaging bug available in this layer.
+
+    None also when the slice's population is below MIN_ROWS_PER_SLICE -- a
+    rate over three trips is not a finding.
+
+    Every metric in this registry's own SQL returns a second column, `n`,
+    the population the value was computed over -- the guard reads it from
+    row[1]. A synthetic single-column metric (used only in a few pure-Python
+    test fixtures elsewhere) has no population to guard on, so the guard is
+    skipped rather than raising: the row-length check is deliberate.
     """
     key = (id(con), metric.id, slc, window)
     if key in _CACHE:
         return _CACHE[key]
     row = con.execute(_with_slice(metric.sql, slc), _params(slc, window)).fetchone()
-    value = None if row is None or row[0] is None else float(row[0])
+    if row is None or row[0] is None:
+        value = None
+    elif len(row) > 1 and row[1] is not None and row[1] < C.MIN_ROWS_PER_SLICE:
+        value = None
+    else:
+        value = float(row[0])
     _CACHE[key] = value
     return value
 
