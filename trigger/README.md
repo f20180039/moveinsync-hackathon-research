@@ -350,3 +350,41 @@ listing three equal problems.
 (`--now "2026-07-22 23:15"`) yields 7: 4 HIGH, 2 MEDIUM, 1 LOW, spanning ETA
 deviation, driver delay, pickup slip and a `WOMAN_TRAVELLING_ALONE` alert.
 Seven independent model calls, one Slack message in two parts, worst first.
+
+---
+
+## Sweep-driven dispatch (Task 19)
+
+By default the agents only run when you run them. Set `TRIGGER_ON_SWEEP=1` and
+a finished sweep will also build and post the selected agents' messages.
+
+```
+TRIGGER_ON_SWEEP=1                      # opt-in; DEFAULT OFF
+TRIGGER_ON_SWEEP_AGENTS=fleet_planning_FacilitiesHead   # optional, comma separated
+TRIGGER_DRY_RUN=1                       # build the message, never post
+TRIGGER_SERVICE_URL=http://127.0.0.1:8797   # where to read the run from
+```
+
+It is off by default on purpose: nothing should start posting to a company
+Slack channel because somebody ran a sweep. Dispatch runs on a daemon thread,
+so sweep completion never waits on Slack; a failed post is retried on the next
+sweep rather than being recorded as sent; and an unchanged plan is suppressed
+(NEW / UPDATED / REPEAT, `trigger/common/state.py`), because firing on every
+run makes spam control load-bearing rather than optional.
+
+    python -m trigger.common.selftest             # run reconciliation, 22 checks
+    python -m trigger.common.selftest_dispatch    # dispatch guardrails, 25 checks
+
+## Predictive fleet management — `fleet_planning_FacilitiesHead`
+
+Next week's demand per day and shift band, projected from `riders_per_day`
+through `forecast.py`'s seasonal baseline, converted to a vehicle
+recommendation with the daily planner's own vehicle arithmetic and buffer.
+
+    python -m trigger.fleet_planning_FacilitiesHead.run_weekly --dry-run
+    python -m trigger.fleet_planning_FacilitiesHead.selftest   # 33 checks
+
+Two-sided by design: it says where to ADD vehicles (do not strand employees)
+and where to RELEASE them (do not pay for empty seats). Every row carries the
+projection's interval, its basis-day count and any basis day screened out as
+anomalous, so a thin number can be discounted rather than trusted.

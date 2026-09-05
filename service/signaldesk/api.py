@@ -216,6 +216,36 @@ def finding_to_json(f: Finding) -> dict:
     }
 
 
+# Task 19 (3): fire the trigger agents when a sweep FINISHES, rather than only
+# when someone runs them by hand.
+#
+# The import is INSIDE the function on purpose. `trigger/` imports `signaldesk`
+# (that is how it reuses ingest, registry and forecast), so a module-level
+# import here would be a cycle -- and, worse, it would make the service depend
+# on the agent package to start at all. A deferred import keeps the direction
+# of the dependency one-way: trigger knows about signaldesk, signaldesk does
+# not need trigger to exist.
+#
+# Everything else is delegated to trigger.common.dispatch, which owns the
+# guardrails: opt-in via TRIGGER_ON_SWEEP (DEFAULT OFF, so no test, judge or
+# local demo can post to a real channel), a daemon thread so sweep completion
+# never waits on a Slack round trip, and the existing SeenStore dedup so a
+# sweep on every restart does not re-post an unchanged plan.
+#
+# A failure here must never break the sweep -- the sweep is the product; the
+# Slack message is a courtesy -- so this swallows everything, including
+# ImportError for a checkout with no trigger package.
+def _fire_triggers(run) -> None:
+    try:
+        from trigger.common import dispatch
+    except Exception:
+        return
+    try:
+        dispatch.fire_async(run)
+    except Exception:
+        logger.warning("sweep: trigger dispatch could not be started", exc_info=True)
+
+
 def _run_to_json(run) -> dict:
     return {
         "runId": run.run_id,
@@ -319,6 +349,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
         run = sweep(con or state.con, state.clock, state.health,
                    window_days=WINDOW_DAYS_BY_KIND[kind], window_kind=kind)
         STORE.put(run)
+        _fire_triggers(run)
         return run
 
     @app.post("/api/sweep")
