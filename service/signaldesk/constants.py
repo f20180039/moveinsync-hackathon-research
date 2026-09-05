@@ -151,6 +151,22 @@ BANDS: dict[str, tuple[float, float, float]] = {
 # (d) WHEN A LARGER SAMPLE IS COMMITTED: re-measure against it and raise this
 # toward 30 (or whatever the real-data measurement in (b) continues to
 # support) -- 9 is a fixture-era floor, not a permanent ceiling.
+#
+# (e) FIX-WAVE I4 ADDENDUM: what "population" means per metric changed, not
+# this threshold's value. On-time metrics (ota/otd/vendor_ota) still guard on
+# count(*) of measurable rows; cost_per_km's n now additionally excludes rows
+# where total_trip_km IS NULL OR <= 0 (a missing-odometer artifact, not a
+# real zero-distance trip -- see _COST_PER_KM_SQL's own comment in
+# registry.py); no_show_rate's n is now sum(plannedemployee_cnt), the rate's
+# own denominator (a headcount), superseding this file's (a)/(b)/(c) history
+# above, which measured and calibrated against a TRIP-COUNT population for
+# every metric. The threshold itself (9) is unchanged and was re-verified
+# against the new no_show_rate semantics: the real-data golden BREACH set at
+# the overall+vendor level (constants.py's BANDS comment, and
+# test_sweep.py's own ceiling) measured identically after the change --
+# same 7 findings, same 2 HIGHER (ota/vendor_ota, both Pooja Sokolov Travel)
+# + 5 LOWER (no_show_rate, same five vendors). See the task-8 report for the
+# full before/after.
 MIN_ROWS_PER_SLICE = 9
 
 # Below this, no tier above WATCH may be emitted.

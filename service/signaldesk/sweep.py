@@ -7,12 +7,50 @@ it fire, not because the loop needs asking.
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from . import registry, verdict
-from .schemas import Dimension, FeedHealth, Finding, Slice, Window
+from . import decompose, registry, verdict
+from .schemas import FeedHealth, Finding, Slice, Tier, Window
+
+logger = logging.getLogger("signaldesk")
+
+# Fix wave 2: the console's Overview cards each used to fetch /decompose on
+# mount (5 requests per load) -- computing the top-2 contributors here,
+# once per sweep, for every finding worth showing them on, moves that cost
+# to the sweep and off every card render. Capped at the top 25 (by rank) of
+# the findings that clear the tier floor, not every one of them -- a
+# real-dataset audience can carry 150+ CONCERN-or-worse findings, and this
+# runs once per sweep, not on demand.
+OWNS_MIN_TIER = Tier.CONCERN
+MAX_OWNS_COMPUTATIONS = 25
+
+
+def _owns_for(con, f: Finding) -> tuple[tuple[str, float, int], ...]:
+    dim = decompose.dimension_for(f)
+    try:
+        rows = decompose.decompose(con, f, dim)
+    except Exception:
+        logger.warning("sweep: decompose(%s) failed for finding %s while attaching owns",
+                       dim.name, f.id, exc_info=True)
+        return ()
+    named = [r for r in rows if r["value"] != decompose.OTHER][:2]
+    return tuple((r["value"], r["points_of_gap"], r["n"]) for r in named)
+
+
+def _attach_owns(con, ranked: list[Finding]) -> list[Finding]:
+    out = []
+    computed = 0
+    for f in ranked:
+        if f.tier >= OWNS_MIN_TIER and computed < MAX_OWNS_COMPUTATIONS:
+            owns = _owns_for(con, f)
+            computed += 1
+            if owns:
+                f = replace(f, owns=owns)
+        out.append(f)
+    return out
 
 
 @dataclass
@@ -86,15 +124,19 @@ def sweep(con, clock: Clock, health: dict[str, FeedHealth],
         f = verdict.evaluate_finding(con, metric, Slice.all(), window, feed_conf)
         if f:
             found.append(f)
-        for dim in Dimension:
-            if dim is Dimension.NONE:
-                continue
+        # Fix-wave I3: metric.dims, not every Dimension -- ota/otd exclude
+        # DIRECTION (each already hardcodes its own direction filter) and
+        # vendor_ota is VENDOR-only. Iterating a metric's own dims, rather
+        # than every dimension unconditionally, is what stops a metric from
+        # producing a duplicate or mislabelled finding.
+        for dim in metric.dims:
             for value in registry.distinct_values(con, dim, window):
                 f = verdict.evaluate_finding(con, metric, Slice(dim, value), window, feed_conf)
                 if f:
                     found.append(f)
 
     ranked = verdict.rank(found)
+    ranked = _attach_owns(con, ranked)
     # Derived from the simulated clock and the finding count, not a uuid, so a
     # rerun of the demo produces the same id and a bookmarked URL still resolves.
     run_id = f"run-{now}-{len(ranked):x}"

@@ -195,6 +195,43 @@ def test_bill_slab_name_literal_null_string_becomes_a_real_null(con):
 
 
 # ---------------------------------------------------------------------------
+# Fix-wave I4 addendum: bill's slab-billing quirk, named but not penalised.
+# ---------------------------------------------------------------------------
+
+def test_bill_carries_a_named_slab_billing_quirk_without_losing_confidence(con):
+    # A quirk is a billing MODE, not missing or bad data -- it must be
+    # surfaced (so a human can see why cost_per_km divides by traveled_km),
+    # never used to mark the feed itself less trustworthy.
+    health = ingest.load_all(con, ingest.source_for(SAMPLE))
+    bill = health["bill"]
+    assert len(bill.quirks) == 1
+    name, rows, detail = bill.quirks[0]
+    assert name == "slab_billed_no_distance"
+    assert rows > 0
+    assert f"{rows:,}" in detail and "% of spend" in detail
+
+    (independent_rows,) = con.execute(
+        "SELECT count(*) FROM bill WHERE total_trip_km IS NULL OR total_trip_km <= 0"
+    ).fetchone()
+    assert rows == independent_rows
+
+    other_feeds = {"trips", "emp_legs", "feedback", "alerts"}
+    for feed in other_feeds:
+        assert health[feed].quirks == (), f"{feed} should carry no quirks"
+
+
+def test_the_slab_quirk_does_not_lower_bills_confidence(con, monkeypatch):
+    # Break-it-to-prove-it companion, inline: confirms confidence is computed
+    # from rows_rejected/unmatched_keys/null_critical_fields alone -- the
+    # quirk row count plays no part in FeedHealth.of's formula.
+    ingest.load_all(con, ingest.source_for(SAMPLE))
+    from signaldesk.schemas import FeedHealth
+    with_quirk = FeedHealth.of("bill", 1000, 0, 0, 0, quirks=(("x", 500, "half the rows"),))
+    without_quirk = FeedHealth.of("bill", 1000, 0, 0, 0)
+    assert with_quirk.confidence == without_quirk.confidence == 1.0
+
+
+# ---------------------------------------------------------------------------
 # Step 5: point it at whatever dataset is configured and print what it found.
 # ---------------------------------------------------------------------------
 

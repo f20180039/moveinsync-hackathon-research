@@ -74,6 +74,14 @@ def test_each_finding_matches_the_fixtures_key_set_and_shape(client):
         assert isinstance(f["action"], str)
         if f["tier"] == "PASS":
             assert f["action"] == "", "a PASS finding must carry no action"
+        assert isinstance(f["owns"], list) and len(f["owns"]) <= 2
+        if f["tier"] == "PASS":
+            assert f["owns"] == [], "a PASS finding must carry no owns"
+        for c in f["owns"]:
+            assert set(c.keys()) == {"value", "pointsOfGap", "n"}
+            assert isinstance(c["value"], str)
+            assert isinstance(c["pointsOfGap"], (int, float))
+            assert isinstance(c["n"], int)
         assert isinstance(f["observed"], (int, float))
         assert isinstance(f["gap"], (int, float))
         assert isinstance(f["confidence"], (int, float))
@@ -175,18 +183,22 @@ def test_get_one_finding_by_id(client):
 # ---------------------------------------------------------------------------
 
 def test_decompose_defaults_to_vendor_and_the_rows_sum_to_the_gap(client):
+    # The unsliced ota finding specifically, not just findings[0] -- a route
+    # that always returns [] would pass a test that only checks rows
+    # conditionally, which is exactly the gap this fix-wave closes.
     findings = client.get("/api/runs/latest/findings").json()["findings"]
-    fid = findings[0]["id"]
-    r = client.get(f"/api/findings/{fid}/decompose")
+    ota = next(f for f in findings
+              if f["metricId"] == "ota" and f["sliceLabel"] == "overall")
+    r = client.get(f"/api/findings/{ota['id']}/decompose")
     assert r.status_code == 200
     body = r.json()
     assert set(body.keys()) == {"findingId", "dim", "overallObserved", "gap", "rows"}
-    assert body["findingId"] == fid
+    assert body["findingId"] == ota["id"]
     assert body["dim"] == "VENDOR"
-    if body["rows"]:
-        assert set(body["rows"][0].keys()) == {
-            "value", "label", "observed", "shareOfVolume", "pointsOfGap", "n"}
-        assert sum(r["pointsOfGap"] for r in body["rows"]) == pytest.approx(body["gap"], abs=0.5)
+    assert body["rows"], "the unsliced ota finding must decompose into at least one row"
+    assert set(body["rows"][0].keys()) == {
+        "value", "label", "observed", "shareOfVolume", "pointsOfGap", "n"}
+    assert sum(r["pointsOfGap"] for r in body["rows"]) == pytest.approx(body["gap"], abs=0.5)
 
 
 def test_decompose_accepts_delay_reason(client):
@@ -238,9 +250,20 @@ def test_health_feeds_reports_one_row_per_feed(client):
     rows = r.json()
     assert len(rows) == 5
     expected_keys = {"feed", "rowsLoaded", "rowsRejected", "unmatchedKeys",
-                     "nullCriticalFields", "confidence"}
+                     "nullCriticalFields", "confidence", "mustBeDisclosed", "quirks"}
     for row in rows:
         assert set(row.keys()) == expected_keys
+        assert isinstance(row["mustBeDisclosed"], bool)
+        assert row["mustBeDisclosed"] is (row["confidence"] < 0.9)
+        assert isinstance(row["quirks"], list)
+        for q in row["quirks"]:
+            assert set(q.keys()) == {"name", "rows", "detail"}
+
+    # bill's slab-billing quirk is real on data/sample (this file's own fix
+    # wave found it on data/real; data/sample is a real slice of the same
+    # feed) and must NOT lower bill's confidence -- it is a billing mode.
+    bill = next(row for row in rows if row["feed"] == "bill")
+    assert any(q["name"] == "slab_billed_no_distance" for q in bill["quirks"])
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +273,7 @@ def test_health_feeds_reports_one_row_per_feed(client):
 def test_replay_start_advances_the_clock_and_stop_freezes_it(client):
     before = client.get("/api/health").json()["clock"]
 
-    r = client.post("/api/replay/start", json={"speed": 1_000_000_000.0})
+    r = client.post("/api/replay/start", json={"speed": 1_000_000.0})
     assert r.status_code == 200
     assert r.json()["running"] is True
 
@@ -265,6 +288,26 @@ def test_replay_start_advances_the_clock_and_stop_freezes_it(client):
     stopped = client.get("/api/health").json()["clock"]
     time.sleep(0.01)
     assert client.get("/api/health").json()["clock"] == stopped
+
+
+def test_replay_start_rejects_a_zero_or_negative_speed(client):
+    for bad_speed in (0, -5.0):
+        r = client.post("/api/replay/start", json={"speed": bad_speed})
+        assert r.status_code == 422
+        assert r.json()["detail"]["error"]
+    client.post("/api/replay/stop")   # leave the clock stopped for later tests
+
+
+def test_replay_start_rejects_a_speed_above_the_ceiling(client):
+    r = client.post("/api/replay/start", json={"speed": 10_000_000.1})
+    assert r.status_code == 422
+    assert r.json()["detail"]["error"]
+
+
+def test_replay_start_accepts_the_speed_ceiling_itself(client):
+    r = client.post("/api/replay/start", json={"speed": 10_000_000.0})
+    assert r.status_code == 200
+    client.post("/api/replay/stop")
 
 
 # ---------------------------------------------------------------------------

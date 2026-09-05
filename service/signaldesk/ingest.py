@@ -295,8 +295,35 @@ def load_all(con: duckdb.DuckDBPyConnection, source) -> dict[str, FeedHealth]:
                                 con.sql(f"SELECT count(*) FROM {feed}").fetchone()[0],
                                 len(rejects(con, feed)),
                                 _unmatched(con, feed),
-                                _null_critical(con, feed))
+                                _null_critical(con, feed),
+                                quirks=_quirks_for(con, feed))
             for feed in FEEDS}
+
+
+def _quirks_for(con: duckdb.DuckDBPyConnection, feed: str) -> tuple[tuple[str, int, str], ...]:
+    """Fix wave I4 addendum: a named, non-confidence-affecting quirk per feed
+    -- currently just bill's slab billing mode (Rs 380M+ of real spend
+    carries no odometer read at all; excluding it, rather than naming it,
+    would silently drop that spend from the cost story, which is what
+    registry.py's cost_per_km fix now avoids). This is a BILLING MODE, not
+    missing or bad data, so it must never lower the feed's own confidence --
+    that is why it lives here, in ingest.py's health register, rather than
+    in FeedHealth.of()'s own confidence formula."""
+    if feed != "bill":
+        return ()
+    row = con.execute("""
+        SELECT count(*), coalesce(sum(trip_cost), 0)
+        FROM bill
+        WHERE total_trip_km IS NULL OR total_trip_km <= 0
+    """).fetchone()
+    zero_km_rows, zero_km_cost = (row[0] or 0), (row[1] or 0)
+    if zero_km_rows == 0:
+        return ()
+    (total_cost,) = con.execute("SELECT coalesce(sum(trip_cost), 0) FROM bill").fetchone()
+    pct = 100.0 * zero_km_cost / total_cost if total_cost else 0.0
+    detail = (f"slab-billed lines with no distance: {zero_km_rows:,} rows, "
+             f"Rs {zero_km_cost:,.0f}, {pct:.0f}% of spend")
+    return (("slab_billed_no_distance", int(zero_km_rows), detail),)
 
 
 def rejects(con: duckdb.DuckDBPyConnection, feed: str) -> list[dict]:

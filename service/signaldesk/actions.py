@@ -7,10 +7,13 @@ originate one.
 
 Controller ruling (task-8a): our live metric ids are ota, otd, vendor_ota,
 no_show_rate, cost_per_km; the causes in play are TREND_REGRESSION,
-PEER_LAGGARD, LOW_CONFIDENCE, DATA_GAP, ON_REFERENCE, BELOW_TARGET. There is
-no Cause.ANOMALY yet (it returns with Task 8c), so the two ANOMALY entries the
-plan text sketched are dropped here rather than raising an AttributeError on
-an enum member that does not exist.
+PEER_LAGGARD, LOW_CONFIDENCE, DATA_GAP and ON_REFERENCE -- BELOW_TARGET is
+handled here too, for when a target metric is active, but no live Tier 1
+metric currently declares one (registry.py's own test:
+test_no_tier_1_metric_carries_a_hard_target). There is no Cause.ANOMALY yet
+(it returns with Task 8c), so the two ANOMALY entries the plan text sketched
+are dropped here rather than raising an AttributeError on an enum member
+that does not exist.
 """
 from __future__ import annotations
 

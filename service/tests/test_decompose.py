@@ -239,6 +239,29 @@ def test_delay_reason_sums_to_the_gap_and_is_worst_first(con):
     assert other["n"] == 2
 
 
+def test_delay_reason_folds_unclassified_null_reasons_into_other(con):
+    # Fix-wave (Task 8 review): a late trip with no delay_reason at all used
+    # to vanish from total_late entirely, contradicting the fold promise --
+    # 20 TRAFFIC + 15 DRIVER + 30 NULL must total 65, with the 30 NULL rows
+    # folded into "(other)", not silently dropped.
+    _insert_delay(con, "NODELAY", 50)
+    _insert_delay(con, "TRAFFIC", 20)
+    _insert_delay(con, "DRIVER", 15)
+    _insert_delay(con, None, 30)
+
+    finding = _finding(metric_id="ota", gap=6.5)
+    rows = decompose.decompose(con, finding, "DELAY_REASON")
+
+    assert sum(r["n"] for r in rows) == 65
+    # 30 NULL rows outweigh either named reason by volume, so "(other)"
+    # legitimately sorts by its own share here -- the fixed set matters,
+    # not a specific position.
+    assert {r["value"] for r in rows} == {"TRAFFIC", "DRIVER", "(other)"}
+    other = next(r for r in rows if r["value"] == "(other)")
+    assert other["n"] == 30
+    assert sum(r["points_of_gap"] for r in rows) == pytest.approx(6.5, abs=1e-6)
+
+
 def test_delay_reason_is_case_insensitive_and_dim_none_is_rejected(con):
     _insert_delay(con, "TRAFFIC", 20)
     finding = _finding(metric_id="ota", gap=7.0)

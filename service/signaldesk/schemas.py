@@ -147,6 +147,12 @@ class Reference:
     label: str
 
 
+# Fix-wave I3: the sweep's default slice set for a metric that declares no
+# narrower `dims` of its own -- every real dimension, NONE excluded (NONE is
+# "no slice", handled separately in sweep()'s own unsliced pass).
+ALL_SLICE_DIMS: tuple["Dimension", ...] = tuple(d for d in Dimension if d is not Dimension.NONE)
+
+
 @dataclass(frozen=True)
 class Metric:
     """The SQL here is the ONLY SQL outside ingest.py: nothing else queries raw
@@ -162,6 +168,15 @@ class Metric:
     required_columns: tuple[str, ...]
     target: Optional[float] = None
     hard_target: bool = False         # deviation 2: breaches on ANY shortfall
+    # Fix-wave I3: which dimensions sweep() slices this metric by. Defaults to
+    # every real dimension -- ota/otd narrow this to exclude DIRECTION (each
+    # already hardcodes its own direction filter, so a DIRECTION slice just
+    # repeats the unsliced finding under a different label) and vendor_ota
+    # narrows it to VENDOR only (that is the one slice the metric exists to
+    # answer; sliced any other way it duplicates the "vendor on-time share"
+    # question with a mislabelled subject -- "Vendor on-time share - Shift:
+    # Evening" reads as a vendor claim about a shift).
+    dims: tuple["Dimension", ...] = ALL_SLICE_DIMS
 
     def __post_init__(self):
         declares = ReferenceKind.TARGET in self.refs
@@ -173,6 +188,9 @@ class Metric:
             raise ValueError(f"metric {self.id} has a hard target but no target value")
         if "{{SLICE}}" not in self.sql:
             raise ValueError(f"metric {self.id} SQL has no {{{{SLICE}}}} token")
+        if Dimension.NONE in self.dims:
+            raise ValueError(f"metric {self.id}.dims must not include Dimension.NONE "
+                             f"(the unsliced pass is not a dims entry)")
 
 
 @dataclass(frozen=True)
@@ -183,14 +201,22 @@ class FeedHealth:
     unmatched_keys: int
     null_critical_fields: int
     confidence: float
+    # Fix wave: a named BILLING MODE or similar quirk that is not missing/bad
+    # data (so it must NOT lower confidence) but is still worth surfacing --
+    # e.g. bill's slab-billed, zero-distance lines. Each entry is
+    # (name, rows, detail); a plain tuple, not a dict, so FeedHealth stays
+    # hashable. Optional and additive: () for every feed with nothing to
+    # report.
+    quirks: tuple[tuple[str, int, str], ...] = ()
 
     @staticmethod
-    def of(feed, rows_loaded, rows_rejected, unmatched_keys, null_critical_fields) -> "FeedHealth":
+    def of(feed, rows_loaded, rows_rejected, unmatched_keys, null_critical_fields,
+           quirks=()) -> "FeedHealth":
         considered = rows_loaded + rows_rejected
         raw = 1.0 if considered == 0 else 1.0 - (
             rows_rejected + unmatched_keys + null_critical_fields) / considered
         return FeedHealth(feed, rows_loaded, rows_rejected, unmatched_keys,
-                          null_critical_fields, max(0.0, min(1.0, raw)))
+                          null_critical_fields, max(0.0, min(1.0, raw)), tuple(quirks))
 
     @property
     def must_be_disclosed(self) -> bool:
@@ -221,6 +247,14 @@ class Finding:
     confidence: float
     audiences: frozenset[Audience]
     evidence_sql: str
+    # Fix wave 2: sweep() attaches this for tier >= CONCERN (capped at the
+    # top 25 findings by rank) so the console's Overview cards do not each
+    # fetch /decompose on mount. Each entry is (value, points_of_gap, n) --
+    # a plain tuple, not a dict, so Finding stays hashable -- the same two
+    # top named (non-"(other)") contributors compose._top_contributors
+    # already selects, computed once here instead of on every card render.
+    # Empty for a PASS, or when decompose() itself has nothing to attribute.
+    owns: tuple[tuple[str, float, int], ...] = ()
 
     def __post_init__(self):
         if self.tier is Tier.PASS and self.gap > 0:

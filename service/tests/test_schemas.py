@@ -67,6 +67,25 @@ def test_a_metric_without_a_slice_token_is_refused():
                (ReferenceKind.TREND,), "trips", ())
 
 
+def test_a_metric_defaults_to_every_dimension_except_none():
+    m = Metric("m", "M", "%", Direction.HIGHER, "SELECT 1 {{SLICE}}",
+              (ReferenceKind.TREND,), "trips", ())
+    assert Dimension.NONE not in m.dims
+    assert set(m.dims) == {d for d in Dimension if d is not Dimension.NONE}
+
+
+def test_a_metric_may_narrow_its_own_dims():
+    m = Metric("m", "M", "%", Direction.HIGHER, "SELECT 1 {{SLICE}}",
+              (ReferenceKind.TREND,), "trips", (), dims=(Dimension.VENDOR,))
+    assert m.dims == (Dimension.VENDOR,)
+
+
+def test_a_metric_cannot_declare_none_among_its_dims():
+    with pytest.raises(ValueError, match="NONE"):
+        Metric("bad", "Bad", "%", Direction.HIGHER, "SELECT 1 {{SLICE}}",
+               (ReferenceKind.TREND,), "trips", (), dims=(Dimension.VENDOR, Dimension.NONE))
+
+
 def _finding(tier, gap):
     w = Window.week_ending(10 * 7 * 86_400_000)
     return Finding("f1", "ota", Slice.all(), w, 78.0,

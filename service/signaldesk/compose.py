@@ -2,8 +2,9 @@
 
 Two ways to get there: `template_brief` is deterministic prose over the
 findings themselves -- no model, no network, always available. `sarvam_brief`
-asks the model once for a better-written version of the same facts, then
-VALIDATES every figure it wrote against the findings before trusting it. A
+asks the model once for a better-written version of the same facts -- twice
+if the first attempt truncates (see `_call_with_retry`) -- then VALIDATES
+every figure it wrote against the findings before trusting it. A
 narrative that invents or mis-rounds even one number is worse than plain
 prose in a leadership brief, so validation failure (or any exception, or a
 truncated response) falls back to the template rather than shipping a maybe.
@@ -20,15 +21,21 @@ import re
 
 from . import registry
 from .actions import action_for
-from .decompose import OTHER as _OTHER_DECOMPOSITION_VALUE
-from .decompose import decompose
 from .model import SarvamClient, TruncatedResponse
 from .schemas import Audience, Cause, Dimension, Finding, Tier
 
 logger = logging.getLogger("signaldesk")
 
 _ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
-_DECIMAL = re.compile(r"-?\d+\.\d+")
+# Fix-wave C1: the old pattern (`-?\d+\.\d+`, decimals only) let a fabricated
+# INTEGER slip straight past validation -- "On-time arrival is 78%, against a
+# peer median of 91%" contains no decimal point at all, so the old regex
+# never even looked at "78" or "91". The first alternative below additionally
+# catches a bare integer (or decimal) immediately followed by a unit (%, INR,
+# Rs, ₹) -- exactly the shape a metric claim takes -- while a bare count like
+# "8 findings" or "4 weeks" still matches neither alternative and stays
+# exempt, since it carries no unit and no decimal point.
+_DECIMAL = re.compile(r"-?\d+(?:\.\d+)?(?=\s*%|\s*(?:INR|₹|Rs\.?))|-?\d+\.\d+")
 
 MAX_FINDINGS_PER_BRIEF = 8
 
@@ -54,48 +61,28 @@ def format_value(value: float, unit: str) -> str:
     return _rendered(value, 1 if unit == "%" else 2)
 
 
-def _decomposition_dim_for(finding: Finding) -> Dimension:
-    """VENDOR is the default breakdown; SITE when the finding is itself a
-    vendor slice, since decomposing a vendor by itself is degenerate (one
-    value that trivially owns everything)."""
-    return Dimension.SITE if finding.slice.dim is Dimension.VENDOR else Dimension.VENDOR
+def _top_contributors(finding: Finding) -> tuple[tuple[str, float, int], ...]:
+    """Fix wave 2: finding.owns is now attached server-side, in sweep.py, for
+    every tier >= CONCERN finding (capped at the top 25 by rank) -- this is a
+    read-through, not a live decompose() call, so the console's Overview
+    cards (and this module) no longer trigger a decompose per card/brief.
+    Empty for a PASS, or a finding sweep.py did not attach owns to."""
+    return finding.owns
 
 
-def _top_contributors(con, finding, dim: Dimension | None = None) -> list[dict]:
-    """Task 8: the two named contributors (vendor, or site when `finding` is
-    itself a vendor slice) that own the most of `finding`'s own gap -- used by
-    both the narrative's "owns:" line and template_brief's "Owns the
-    shortfall:" line, and by validate_narrative's allowed set, so a narrative
-    that repeats what it was actually shown can never be rejected as if it
-    were invented. `con` is None in every test that predates decomposition;
-    "(other)" is excluded since it names no vendor or site a narrative could
-    sensibly cite."""
-    if con is None:
-        return []
-    dim = dim if dim is not None else _decomposition_dim_for(finding)
-    try:
-        rows = decompose(con, finding, dim)
-    except Exception:
-        logger.warning("compose: decompose(%s) failed for finding %s, omitting "
-                       "the owns/Owns-the-shortfall line", dim.name, finding.id,
-                       exc_info=True)
-        return []
-    return [r for r in rows if r["value"] != _OTHER_DECOMPOSITION_VALUE][:2]
-
-
-def _owns_line(con, top: Finding) -> str | None:
+def _owns_line(top: Finding) -> str | None:
     """template_brief's "Owns the shortfall:" line, under the top finding
     only -- the Slack/template surface's own pointer to the same decomposition
-    the top finding's action line refers to. None (silently) when con is not
-    given or the decomposition has no named contributor to show."""
-    contributors = _top_contributors(con, top)
+    the top finding's action line refers to. None when there is nothing to
+    show."""
+    contributors = _top_contributors(top)
     if not contributors:
         return None
-    parts = ", ".join(f"{c['value']} {c['points_of_gap']:.1f} pts" for c in contributors)
+    parts = ", ".join(f"{value} {points:.1f} pts" for value, points, _n in contributors)
     return f"Owns the shortfall: {parts}"
 
 
-def validate_narrative(narrative: str, run, con=None, audience: Audience | None = None) -> str | None:
+def validate_narrative(narrative: str, run, audience: Audience | None = None) -> str | None:
     """Returns the offending figure, or None if every number checks out.
 
     Every number in the narrative must match a figure in the findings, at the
@@ -106,13 +93,12 @@ def validate_narrative(narrative: str, run, con=None, audience: Audience | None 
     If validation fails the brief is sent from the deterministic template
     instead. A wrong number in a leadership brief is worse than plain prose.
 
-    `con`/`audience`: Task 8's decomposition adds one more source of allowed
-    figures -- the top finding's own top-2 vendor contributors' observed and
-    points_of_gap values (the same two the prompt is given via
-    `_findings_as_text`'s "owns:" line), so a narrative that repeats "two
-    vendors own 5.2 of the 7 points" is not rejected as inventing 5.2. Both
-    default to None/None, which adds nothing -- every pre-Task-8 caller keeps
-    its exact prior behaviour.
+    `audience`: fix wave 2's decomposition adds one more source of allowed
+    figures -- the top finding's own owns (the same two contributors the
+    prompt is given via `_findings_as_text`'s "owns:" line), so a narrative
+    that repeats "two vendors own 5.2 of the 7 points" is not rejected as
+    inventing 5.2. Defaults to None, which adds nothing -- every pre-Task-8
+    caller keeps its exact prior behaviour.
     """
     values: set[float] = set()
     for f in run.findings:
@@ -131,26 +117,30 @@ def validate_narrative(narrative: str, run, con=None, audience: Audience | None 
     elif run.findings:
         top = run.findings[0]
     if top is not None:
-        for c in _top_contributors(con, top):
-            if c["observed"] is not None:
-                values.add(c["observed"])
-            values.add(c["points_of_gap"])
-            values.add(abs(c["points_of_gap"]))
+        for _value, points, _n in _top_contributors(top):
+            values.add(points)
+            values.add(abs(points))
 
     # The template renders some claims at 1dp (percentages) and some at 2dp
     # (rupees, confidence); a narrative figure is only wrong if it disagrees
     # with the finding at the precision IT was written with, not at some
     # other precision -- otherwise the template's own 1dp renderings would
-    # fail their own validator. Both sets are built through `_rendered`, the
-    # same function `format_value` uses, rather than a second, independent
-    # formatting path.
+    # fail their own validator. All three sets are built through `_rendered`,
+    # the same function `format_value` uses, rather than a second,
+    # independent formatting path. 0dp (fix-wave C1) is what an
+    # integer-with-a-unit claim ("78%", no decimal point at all) is checked
+    # against -- the old validator never looked at a number like that.
+    allowed_0dp = {_rendered(v, 0) for v in values}
     allowed_1dp = {_rendered(v, 1) for v in values}
     allowed_2dp = {_rendered(v, 2) for v in values}
 
     for raw in _DECIMAL.findall(_ISO_DATE.sub("", narrative)):
-        decimals = len(raw.split(".", 1)[1])
         v = float(raw)
-        ok = _rendered(v, 1) in allowed_1dp if decimals <= 1 else _rendered(v, 2) in allowed_2dp
+        if "." not in raw:
+            ok = _rendered(v, 0) in allowed_0dp
+        else:
+            decimals = len(raw.split(".", 1)[1])
+            ok = _rendered(v, 1) in allowed_1dp if decimals <= 1 else _rendered(v, 2) in allowed_2dp
         if not ok:
             return raw
     return None
@@ -235,14 +225,14 @@ def _finding_line(f: Finding) -> str:
     return line
 
 
-def template_brief(run, audience: Audience, con=None) -> str:
+def template_brief(run, audience: Audience) -> str:
     """Deterministic prose over the ranked findings for `audience`. Findings
     arrive already ranked worst-first (verdict.rank); this only filters,
     caps and formats.
 
-    `con`: Task 8's decomposition -- when given, the top finding gets one
-    extra "Owns the shortfall:" line (its top-2 contributors). None (the
-    default, and every pre-Task-8 caller's value) omits it entirely.
+    The top finding gets one extra "Owns the shortfall:" line, read straight
+    from its own `owns` (sweep.py attaches this server-side for tier >=
+    CONCERN); silently omitted when there is nothing to show.
     """
     label = _audience_label(audience)
     header = f"Signal Desk — {label} brief — {run.window.label}"
@@ -266,8 +256,8 @@ def template_brief(run, audience: Audience, con=None) -> str:
         action = action_for(f)
         if action:
             lines.append(f"  → {action}")
-        if i == 0 and con is not None:
-            owns = _owns_line(con, f)
+        if i == 0:
+            owns = _owns_line(f)
             if owns:
                 lines.append(f"  {owns}")
     lines.append("")
@@ -303,14 +293,14 @@ _SYSTEM_PROMPT = (
 MAX_RETRY_TOKENS = 32_000
 
 
-def _findings_as_text(run, audience: Audience, con=None) -> str:
+def _findings_as_text(run, audience: Audience) -> str:
     """The same top-8, non-PASS, worst-first subset `template_brief` shows --
     never every finding for the audience (a real-dataset audience can carry
     150+; the model would rather see the same short list a human does).
 
-    `con`: Task 8's decomposition needs a live DuckDB connection, which the
-    API route has and a unit test's fake findings do not -- None (the
-    default) simply omits the "owns:" line, exactly the prior behaviour.
+    The top finding's "owns:" line is read straight from its own `owns`
+    (sweep.py attaches this server-side); omitted when there is nothing to
+    show, including for a finding sweep.py did not attach owns to.
     """
     lines = []
     top_findings = _top_findings_for(run, audience)
@@ -331,10 +321,10 @@ def _findings_as_text(run, audience: Audience, con=None) -> str:
         if action:
             lines.append(f"  action: {action}")
         if i == 0:
-            contributors = _top_contributors(con, f)
+            contributors = _top_contributors(f)
             if contributors:
                 owned = ", ".join(
-                    f"{c['value']} {c['points_of_gap']:.1f}pts" for c in contributors)
+                    f"{value} {points:.1f}pts" for value, points, _n in contributors)
                 lines.append(f"  owns: {owned} of {abs(f.gap):.1f} points")
     return "\n".join(lines)
 
@@ -364,25 +354,20 @@ def _call_with_retry(model, messages: list[dict], purpose: str = "brief") -> str
         return model.complete(messages, purpose=purpose, max_tokens=retry_ceiling)
 
 
-def _compose_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
+def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
     """The tuple-returning core both `sarvam_brief` and the API route share, so
-    the route can report which path fired without duplicating the logic.
-
-    `con`: threaded through to `_findings_as_text`/`validate_narrative` for
-    Task 8's decomposition (the "owns:" line and its matching allowed
-    figures); None -- the default, and every pre-Task-8 caller's value --
-    simply omits it."""
+    the route can report which path fired without duplicating the logic."""
     if model is None:
         api_key = os.environ.get("SARVAM_API_KEY", "")
         if not api_key:
             logger.info("compose: no SARVAM_API_KEY configured, using template (audience=%s)",
                        audience.value)
-            return template_brief(run, audience, con), "template"
+            return template_brief(run, audience), "template"
         model = SarvamClient(api_key=api_key)
 
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT.format(audience=_audience_label(audience))},
-        {"role": "user", "content": f"Findings:\n{_findings_as_text(run, audience, con)}"},
+        {"role": "user", "content": f"Findings:\n{_findings_as_text(run, audience)}"},
     ]
 
     try:
@@ -392,30 +377,30 @@ def _compose_with_source(run, audience: Audience, model=None, con=None) -> tuple
                        "(prompt_tokens=%s completion_tokens=%s ceiling=%s), falling "
                        "back to template (audience=%s)", e.prompt_tokens,
                        e.completion_tokens, e.max_tokens, audience.value)
-        return template_brief(run, audience, con), "template"
+        return template_brief(run, audience), "template"
     except Exception as exc:
         logger.warning("compose: model call failed (%s), falling back to template "
                        "(audience=%s)", type(exc).__name__, audience.value)
-        return template_brief(run, audience, con), "template"
+        return template_brief(run, audience), "template"
 
-    bad = validate_narrative(narrative, run, con=con, audience=audience)
+    bad = validate_narrative(narrative, run, audience=audience)
     if bad is not None:
         logger.warning("compose: model narrative rejected (invented figure %r), "
                        "falling back to template (audience=%s)", bad, audience.value)
-        return template_brief(run, audience, con), "template"
+        return template_brief(run, audience), "template"
 
     return narrative, "sarvam"
 
 
-def sarvam_brief(run, audience: Audience, model=None, con=None) -> str:
+def sarvam_brief(run, audience: Audience, model=None) -> str:
     """One model call on success; at most two if the first truncates (see
     `_call_with_retry`). Validated either way, falling back to
     `template_brief` on a validation failure, a second TruncatedResponse, or
     any other exception."""
-    return _compose_with_source(run, audience, model, con)[0]
+    return _compose_with_source(run, audience, model)[0]
 
 
-def brief_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
+def brief_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
     """As `sarvam_brief`, but also reports which path produced the text --
     `"sarvam"` or `"template"` -- for the API route to expose."""
-    return _compose_with_source(run, audience, model, con)
+    return _compose_with_source(run, audience, model)

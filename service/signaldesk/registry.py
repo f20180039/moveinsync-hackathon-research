@@ -46,13 +46,20 @@ _VENDOR_OTA_SQL = _ON_TIME_BASE.replace("__DIRECTION__", "")
 # view -- real MoveInSync vocabulary (docs/real-dataset-mapping.md §8), and a
 # direct capacity-waste signal.
 #
-# Task 3b: the metric's own denominator is sum(plannedemployee_cnt) (a
-# headcount), but the population guard means "trips", not "employees" --
-# one trip with 40 planned employees is still one data point, not 40. So the
-# second column is count(*) of trips, not the formula's own denominator.
+# Fix-wave I4 supersedes Task 3b's own ruling here: the second column is now
+# sum(plannedemployee_cnt) -- the rate's own denominator (a headcount), not
+# count(*) of trips. Task 3b's reasoning ("one trip with 40 planned employees
+# is still one data point, not 40") was about what should silence a THIN
+# SLICE, and remains defensible on its own terms -- but it also made
+# decompose.py's share-of-volume (n / overall_n, drawn from this exact column)
+# a headcount-vs-trip-count mismatch for the one metric whose ratio is not
+# count-weighted, understating how much slack a decomposition's sum needed to
+# tolerate. Matching n to the rate's own denominator removes that mismatch
+# and is the more honest reading of "population the value was computed over"
+# for a rate that is not itself a share of trips.
 _NO_SHOW_SQL = """
 SELECT 100.0 * sum(t.noshow_cnt) / nullif(sum(t.plannedemployee_cnt), 0),
-       count(*) AS n
+       sum(t.plannedemployee_cnt) AS n
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{SLICE}}
@@ -62,34 +69,73 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 # longer routes does not look artificially expensive next to one running short
 # hops. The window predicate is on t.scheduled_at (the trip, not the bill line)
 # so a slice and a window mean the same thing on every metric in this file.
+#
+# Fix-wave I4, REVISED (a data investigation superseded the first version of
+# this ruling): b.total_trip_km = 0 is not a missing-odometer artifact -- it
+# is a BILLING MODE. Measured on data/real: 248,191 of 620,942 bill rows
+# (40.0%), Rs 378.8M of Rs 834.0M billed (45.4% of spend), carry
+# total_trip_km <= 0 -- overwhelmingly on SLAB contracts (100% zero-km on
+# 4S-HYD/6S-HYD/12S-150ORRNEW, ~99.7% on 4S-150ORRNEW/6S-150ORRNEW/4S-EV-Z/
+# BUS-ORRNEW-TT), which bill a flat per-shift/slab rate regardless of
+# distance. Filtering those rows out (this file's first fix-wave attempt)
+# would silently drop 45% of real spend from the cost story -- worse than
+# the artifact it was trying to fix.
+#
+# Every one of those trips still has a real, non-zero t.traveled_km (the
+# ACTUAL distance driven, on the trips feed -- avg 15.5km across 251,207
+# such rows) -- b.total_trip_km is a BILLING-side field that is simply blank
+# for a slab contract, not evidence the trip covered no distance. Dividing
+# by the trip's own traveled_km instead keeps every slab-billed rupee in the
+# numerator with an honest, non-zero denominator, and generalises to every
+# contract type rather than special-casing slab contracts by name.
 _COST_PER_KM_SQL = """
-SELECT sum(b.trip_cost) / nullif(sum(b.total_trip_km), 0),
+SELECT sum(b.trip_cost) / nullif(sum(t.traveled_km), 0),
        count(*) AS n
 FROM bill b JOIN trips t ON t.trip_id = b.trip_id
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND t.traveled_km IS NOT NULL AND t.traveled_km > 0
   {{SLICE}}
 """
+
+# Fix-wave I3: ota/otd each hardcode their own direction filter (LOGIN/LOGOUT
+# respectively -- see _ON_TIME_BASE above), so a DIRECTION slice of either one
+# is a redundant repeat of the unsliced finding under a misleading label
+# ("On-time arrival - direction LOGIN" reporting the exact same number as
+# "On-time arrival - overall"). vendor_ota carries neither direction filter,
+# so DIRECTION stays meaningful there and is left at the default.
+_ON_TIME_DIMS = tuple(d for d in Dimension if d not in (Dimension.NONE, Dimension.DIRECTION))
 
 METRICS: tuple[Metric, ...] = (
     # ota is first deliberately: it is the metric a judge reads first.
     Metric("ota", "On-time arrival", "%", Direction.HIGHER, _OTA_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at")),
+           ("actual_at", "planned_end_at"), dims=_ON_TIME_DIMS),
     # OTA is On-Time ARRIVAL (LOGIN trips); OTD is On-Time DEPARTURE (LOGOUT
     # trips). Two named metrics in MoveInSync's own vocabulary, not one metric
     # sliced by direction.
     Metric("otd", "On-time departure", "%", Direction.HIGHER, _OTD_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at")),
+           ("actual_at", "planned_end_at"), dims=_ON_TIME_DIMS),
+    # Fix-wave I3: restricted to VENDOR only -- that is the one slice this
+    # metric exists to answer ("vendor on-time share"); sliced any other way
+    # it duplicates the same question under a mislabelled subject
+    # ("Vendor on-time share - Shift: Evening" reads as a claim about a
+    # vendor, but names a shift).
     Metric("vendor_ota", "Vendor on-time share", "%", Direction.HIGHER,
            _VENDOR_OTA_SQL, (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at", "vendor_id")),
+           ("actual_at", "planned_end_at", "vendor_id"), dims=(Dimension.VENDOR,)),
     Metric("no_show_rate", "No-show rate", "%", Direction.LOWER, _NO_SHOW_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
            ("noshow_cnt", "plannedemployee_cnt")),
-    Metric("cost_per_km", "Cost per km", "INR", Direction.LOWER, _COST_PER_KM_SQL,
+    # required_columns is checked against `source` ("bill") alone --
+    # coverage() has no join. total_trip_km dropped from this list (fix-wave
+    # I4, revised): the formula no longer reads it at all, so listing it here
+    # would only make coverage() (correctly) find it absent on a slab
+    # contract and undercount confidence for a column the metric does not
+    # use.
+    Metric("cost_per_km", "Cost per km", "INR/km", Direction.LOWER, _COST_PER_KM_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "bill",
-           ("trip_cost", "total_trip_km")),
+           ("trip_cost",)),
 )
 
 # marshal compliance and EV share are later tasks (marshal needs the derived
@@ -255,11 +301,19 @@ def distinct_values(con, dim: Dimension, window: Window) -> list[str]:
 # of this file. NODELAY is excluded here: it means the trip was not late at
 # all, so it owns none of a shortfall by definition -- decompose.py's shares
 # are shares of LATE trips, not of all trips.
+#
+# Fix-wave (Task 8 review, Important): NULL is kept IN, not filtered out. A
+# late trip whose delay_reason was never classified is still a late trip --
+# excluding `delay_reason IS NOT NULL` silently shrank total_late, which
+# contradicted this module's own fold-into-"(other)" promise (a NULL
+# reason is exactly the kind of thing that promise exists for). GROUP BY
+# gives a NULL its own row here; decompose.py folds it into "(other)"
+# unconditionally, the same place a below-floor reason already goes.
 _DELAY_REASON_SQL = """
 SELECT delay_reason, count(*) AS trips, avg(CAST(delay_minutes AS DOUBLE)) AS avg_delay_min
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND delay_reason IS NOT NULL AND delay_reason <> 'NODELAY'
+  AND (delay_reason IS NULL OR delay_reason <> 'NODELAY')
   {{SLICE}}
 GROUP BY delay_reason
 ORDER BY trips DESC
@@ -267,13 +321,15 @@ ORDER BY trips DESC
 
 
 def delay_reason_breakdown(con, slc: "Slice | tuple[Slice, ...]",
-                           window: Window) -> list[tuple[str, int, float]]:
+                           window: Window) -> list[tuple[str | None, int, float]]:
     """(reason, trip count, average delay minutes) for every late trip in the
     window (and slice, if any) -- one row per TRAFFIC/DRIVER/EMPLOYEE value
-    actually present. decompose.py is the only caller; this is the one query
-    its DELAY_REASON path needs, kept here per the SELECT-only-in-registry
-    invariant (spec 1.1: registry.py and ingest.py are the only modules that
-    query raw tables)."""
+    actually present, PLUS one row with reason=None for late trips whose
+    delay_reason was never classified (decompose.py folds that row into
+    "(other)" unconditionally). decompose.py is the only caller; this is the
+    one query its DELAY_REASON path needs, kept here per the
+    SELECT-only-in-registry invariant (spec 1.1: registry.py and ingest.py
+    are the only modules that query raw tables)."""
     rows = con.execute(_with_slice(_DELAY_REASON_SQL, slc), _params(slc, window)).fetchall()
     return [(r[0], int(r[1]), float(r[2]) if r[2] is not None else 0.0) for r in rows]
 

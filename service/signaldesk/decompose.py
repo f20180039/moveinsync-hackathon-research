@@ -4,7 +4,9 @@ Turns "OTA is 7 points below trend" into "4.1 of those points are driver
 delay, concentrated in two vendors" -- pure arithmetic over registry.py's own
 (value, n) pairs. This module contains no SQL of its own; every number here
 traces back to registry.evaluate_with_n or registry.delay_reason_breakdown
-(spec 1.1: SELECT only in registry.py and ingest.py).
+(spec 1.1: the raw-query keyword is confined to registry.py and ingest.py --
+see test_invariant.py, which greps for it by name and would fail on this
+sentence too if it spelled the keyword out as a standalone word).
 
 Two decompositions:
 
@@ -72,6 +74,16 @@ def valid_dims() -> str:
 
 def _is_delay_reason(dim) -> bool:
     return isinstance(dim, str) and dim.upper() == DELAY_REASON
+
+
+def dimension_for(finding: Finding) -> Dimension:
+    """VENDOR is the default breakdown for Finding.owns/the narrative's
+    "owns:" line; SITE when `finding` is itself a vendor slice, since
+    decomposing a vendor by itself is degenerate (one value that trivially
+    owns everything). Shared by sweep.py (attaching Finding.owns) and
+    compose.py (the "owns:"/"Owns the shortfall:" lines) so the two surfaces
+    can never disagree on which dimension a given finding decomposes by."""
+    return Dimension.SITE if finding.slice.dim is Dimension.VENDOR else Dimension.VENDOR
 
 
 def _shortfall(observed: float, reference: float, better: Direction) -> float:
@@ -160,7 +172,11 @@ def _decompose_delay_reason(con, finding: Finding) -> list[dict]:
     rows: list[dict] = []
     thin_n = 0
     for reason, n, avg_delay_min in breakdown:
-        if n < C.MIN_ROWS_PER_SLICE:
+        # Fix-wave (Task 8 review): a NULL reason (unclassified, not one of
+        # TRAFFIC/DRIVER/EMPLOYEE) folds into "(other)" unconditionally, same
+        # as a below-floor one -- this is the case the module's own
+        # fold-into-"(other)" promise exists for, not a below-floor edge case.
+        if reason is None or n < C.MIN_ROWS_PER_SLICE:
             thin_n += n
             continue
         share = n / total_late

@@ -113,13 +113,64 @@ def test_every_metric_slice_combination_is_visited(con_and_health, monkeypatch):
     expected: set[tuple[str, Dimension, str | None]] = set()
     for metric in registry.active(registry.TIER_1_METRICS):
         expected.add((metric.id, Dimension.NONE, None))
-        for dim in Dimension:
-            if dim is Dimension.NONE:
-                continue
+        # Fix-wave I3: a metric's OWN dims, not every Dimension -- ota/otd
+        # exclude DIRECTION and vendor_ota is VENDOR-only.
+        for dim in metric.dims:
             for value in registry.distinct_values(con, dim, window):
                 expected.add((metric.id, dim, value))
 
     assert visited == expected
+
+
+def test_ota_and_otd_never_carry_a_redundant_direction_slice(con_and_health):
+    # Fix-wave I3: ota is LOGIN-only and otd is LOGOUT-only by construction
+    # (their SQL hardcodes the direction filter) -- a DIRECTION slice of
+    # either one used to repeat the unsliced finding's exact number under a
+    # misleading label ("On-time arrival - direction LOGIN" reporting the
+    # same figure as "On-time arrival - overall").
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+    for f in run.findings:
+        if f.metric_id in ("ota", "otd"):
+            assert f.slice.dim is not Dimension.DIRECTION, (
+                f"{f.metric_id} must never carry a DIRECTION slice")
+
+
+def test_vendor_ota_is_sliced_only_by_vendor(con_and_health):
+    # Fix-wave I3: vendor_ota answers "which vendor", never "which shift/
+    # site/etc." -- 19 of 30 findings used to be non-vendor slices before
+    # this fix (measured on data/sample, e.g. "Vendor on-time share - Shift:
+    # Evening" ranked #3).
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+    for f in run.findings:
+        if f.metric_id == "vendor_ota" and f.slice.dim is not Dimension.NONE:
+            assert f.slice.dim is Dimension.VENDOR
+
+
+def test_owns_is_attached_for_concern_or_worse_and_empty_for_pass(con_and_health):
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+
+    passes = [f for f in run.findings if f.tier is Tier.PASS]
+    assert passes, "fixture assumption: at least one PASS finding exists"
+    for f in passes:
+        assert f.owns == (), "a PASS finding must carry no owns"
+
+    concern_or_worse = [f for f in run.findings if f.tier >= Tier.CONCERN]
+    assert concern_or_worse, "fixture assumption: at least one CONCERN+ finding exists"
+    with_owns = [f for f in concern_or_worse if f.owns]
+    assert with_owns, "at least one CONCERN+ finding must carry owns on the sample"
+    # Specifically CONCERN, not just BREACH -- pins the floor at CONCERN
+    # rather than something stricter that would still pass the check above.
+    assert any(f.tier is Tier.CONCERN for f in with_owns), (
+        "a CONCERN (not just BREACH) finding must carry owns on the sample")
+    for f in with_owns:
+        assert len(f.owns) <= 2
+        for value, points, n in f.owns:
+            assert isinstance(value, str)
+            assert points > 0, f"{f.id}'s owns must be positive (worse than reference)"
+            assert n > 0
 
 
 def test_the_tier_distribution_is_printed_for_calibration(con_and_health):

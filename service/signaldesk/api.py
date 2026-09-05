@@ -36,6 +36,11 @@ DAY_MS = 86_400_000
 # the window itself rather than drifting across months of different sizes.
 WINDOW_DAYS_BY_KIND = {"week": 7, "month": 28}
 
+# Fix-wave minor: an unvalidated replay speed can freeze the console (0 or
+# negative never advances the clock) or blow past anything a demo needs
+# (a speed this high replays a 90-day dataset in under a second).
+MAX_REPLAY_SPEED = 10_000_000.0
+
 
 class State:
     """Everything startup() constructs and every route reads. A plain object
@@ -108,6 +113,12 @@ def finding_to_json(f: Finding) -> dict:
         "tier": f.tier.name,
         "cause": f.cause.value,
         "action": action_for(f),
+        # Fix wave 2: attached server-side by sweep.py for tier >= CONCERN
+        # (capped at the top 25 by rank) -- the console reads this instead of
+        # each Overview card fetching /decompose on mount. [] for a PASS/
+        # WATCH finding, or one sweep.py did not attach owns to.
+        "owns": [{"value": value, "pointsOfGap": round(points, 2), "n": n}
+                 for value, points, n in f.owns],
         "observed": round(f.observed, 2),
         "gap": round(f.gap, 2),
         "confidence": round(f.confidence, 2),
@@ -191,6 +202,9 @@ def create_app(data_dir: str | None = None) -> FastAPI:
                 "unmatchedKeys": h.unmatched_keys,
                 "nullCriticalFields": h.null_critical_fields,
                 "confidence": round(h.confidence, 2),
+                "mustBeDisclosed": h.must_be_disclosed,
+                "quirks": [{"name": name, "rows": rows, "detail": detail}
+                          for name, rows, detail in h.quirks],
             }
             for h in state.health.values()
         ]
@@ -205,13 +219,25 @@ def create_app(data_dir: str | None = None) -> FastAPI:
 
     @app.post("/api/replay/start")
     def post_replay_start(body: dict | None = None):
+        if state.clock is None:
+            raise HTTPException(status_code=503, detail={"error": "not started yet"})
         if body and "speed" in body:
-            state.clock.speed = float(body["speed"])
+            try:
+                speed = float(body["speed"])
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=422, detail={
+                    "error": f"speed must be a number, got {body['speed']!r}"})
+            if not (0 < speed <= MAX_REPLAY_SPEED):
+                raise HTTPException(status_code=422, detail={
+                    "error": f"speed must be > 0 and <= {MAX_REPLAY_SPEED:g}, got {speed!r}"})
+            state.clock.speed = speed
         state.clock.start()
         return {"running": True, "speed": state.clock.speed, "clockMs": state.clock.millis()}
 
     @app.post("/api/replay/stop")
     def post_replay_stop():
+        if state.clock is None:
+            raise HTTPException(status_code=503, detail={"error": "not started yet"})
         state.clock.stop()
         return {"running": False, "clockMs": state.clock.millis()}
 
@@ -227,7 +253,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             raise HTTPException(status_code=400,
                                 detail={"error": f"unknown audience {audience!r}; "
                                                  f"valid values are {valid}"})
-        text, source = brief_with_source(run, aud, con=state.con)
+        text, source = brief_with_source(run, aud)
         return {"runId": run.run_id, "audience": aud.value, "brief": text, "source": source}
 
     @app.get("/api/findings/{finding_id}/decompose")

@@ -88,6 +88,34 @@ def test_the_validator_rejects_an_invented_figure():
     assert validate_narrative(narrative, run) == "99.99"
 
 
+# ---------------------------------------------------------------------------
+# Fix-wave C1: a fabricated INTEGER (no decimal point) carrying a unit used
+# to slip straight past the old decimals-only regex.
+# ---------------------------------------------------------------------------
+
+def test_the_validator_rejects_a_fabricated_integer_percentage():
+    run = _run([_finding(observed=10.5,
+                        refs=(Reference(ReferenceKind.PEER, 75.8, "peer median"),))])
+    narrative = "On-time arrival is 78%, against a peer median of 91%."
+    bad = validate_narrative(narrative, run)
+    assert bad is not None, ("an integer percentage with no decimal point must still be "
+                             "checked against the findings, not silently exempted")
+
+
+def test_the_validator_accepts_an_integer_percentage_that_rounds_correctly():
+    run = _run([_finding(observed=10.5,
+                        refs=(Reference(ReferenceKind.PEER, 75.8, "peer median"),))])
+    narrative = "On-time arrival is 10%, against a peer median of 76%."
+    assert validate_narrative(narrative, run) is None
+
+
+def test_the_validator_still_exempts_a_bare_count_with_no_unit():
+    run = _run([_finding(observed=10.5,
+                        refs=(Reference(ReferenceKind.PEER, 75.8, "peer median"),))])
+    narrative = "8 findings this week; on-time arrival is 10%, against a peer median of 76%."
+    assert validate_narrative(narrative, run) is None
+
+
 def test_the_validator_rejects_a_figure_that_is_close_but_not_equal_to_two_places():
     run = _run([_finding(observed=61.4)])
     narrative = "Vendor on-time share is 61.42%."

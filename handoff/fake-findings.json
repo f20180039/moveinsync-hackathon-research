@@ -2,6 +2,8 @@
   "_comment": "The frozen contract, as data. EXACTLY the shape GET /api/runs/latest/findings returns. Build the console against this file and you never need the backend running. Do not change field names -- the service is written against this same file. Every value below is MEASURED from data/sample (a real 2.89MB slice of the provided dataset): real vendor names, real offices, real business units, real OTA figures. Nothing here is invented.",
   "runId": "run-1785542400000-8",
   "windowLabel": "2026-07-25..2026-07-31",
+  "windowDays": 7,
+  "windowKind": "week",
   "findings": [
     {
       "id": "563931f15cdd",

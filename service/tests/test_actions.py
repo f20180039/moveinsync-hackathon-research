@@ -40,15 +40,19 @@ def _run(findings, feed_health=None):
 # action_for
 # ---------------------------------------------------------------------------
 
-def test_every_registry_metric_and_cause_in_play_has_an_action_or_an_explicit_blank():
+def test_every_registry_metric_and_cause_in_play_has_a_real_action():
+    # Fix-wave review: `isinstance(action, str)` alone is vacuous -- a stub
+    # that always returned "" would still pass it. Every cause in this list
+    # is non-PASS, so the real assertion is that action_for never falls
+    # through to '' for any of them; the PASS -> "" case is its own test
+    # below, on purpose, so this one cannot be satisfied by a stub.
     causes_in_play = (Cause.TREND_REGRESSION, Cause.PEER_LAGGARD, Cause.LOW_CONFIDENCE,
                       Cause.DATA_GAP, Cause.BELOW_TARGET)
     for metric in registry.METRICS:
         for cause in causes_in_play:
             f = _finding(metric_id=metric.id, cause=cause, tier=Tier.CONCERN)
             action = action_for(f)
-            # Either a real sentence, or the deliberate '' -- never missing entirely.
-            assert isinstance(action, str)
+            assert action != "", f"{metric.id} x {cause.value} must carry a real action"
 
 
 def test_a_pass_returns_an_empty_string_not_a_filler_sentence():
@@ -115,11 +119,18 @@ def test_action_sentence_uses_action_for_when_non_empty():
 
 
 def test_findings_as_text_includes_the_action_line_per_finding():
-    f = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH)
-    run = _run([f])
+    # Fix-wave review: two findings, not one -- pins that the "action:" line
+    # is emitted PER finding rather than only for whichever one happens to be
+    # first (or only) in the list.
+    f1 = _finding(metric_id="vendor_ota", cause=Cause.PEER_LAGGARD, tier=Tier.BREACH,
+                 slc=Slice(Dimension.VENDOR, "Aarav Petrov Travel"))
+    f2 = _finding(metric_id="no_show_rate", cause=Cause.PEER_LAGGARD, tier=Tier.CONCERN,
+                 slc=Slice(Dimension.TENANT, "catalyst-Sac"))
+    run = _run([f1, f2])
     text = _findings_as_text(run, Audience.TRANSPORT_MANAGER)
-    assert "action:" in text
-    assert action_for(f) in text
+    assert text.count("action:") == 2
+    assert action_for(f1) in text
+    assert action_for(f2) in text
 
 
 def test_system_prompt_tells_the_model_to_reproduce_the_action_not_invent_one():

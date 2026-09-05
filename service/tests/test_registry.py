@@ -218,6 +218,129 @@ def test_the_population_guard_is_a_constant_not_a_literal(con, monkeypatch):
         "proving the guard reads the constant rather than a hardcoded 30")
 
 
+# ---------------------------------------------------------------------------
+# Task 8: evaluate_with_n and the compound (tuple-of-Slice) binding.
+# ---------------------------------------------------------------------------
+
+def test_evaluate_with_n_is_not_guarded_by_the_population_floor(con):
+    metric = registry.by_id("vendor_ota")
+    (thin_vendor, thin_n) = con.execute(
+        """SELECT t.vendor_id, count(*) AS n
+           FROM trips t
+           WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+             AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
+           GROUP BY t.vendor_id
+           HAVING count(*) < ?
+           ORDER BY n
+           LIMIT 1""",
+        [LATE_JULY.start_ms, LATE_JULY.end_ms, C.MIN_ROWS_PER_SLICE]).fetchone()
+    assert thin_n < C.MIN_ROWS_PER_SLICE, "fixture assumption: a thin vendor exists"
+
+    guarded = registry.evaluate(con, metric, Slice(Dimension.VENDOR, thin_vendor), LATE_JULY)
+    assert guarded is None, "evaluate() must still guard this thin slice"
+
+    raw_value, raw_n = registry.evaluate_with_n(
+        con, metric, Slice(Dimension.VENDOR, thin_vendor), LATE_JULY)
+    assert raw_n == thin_n
+    assert isinstance(raw_value, float), (
+        "evaluate_with_n must return the slice's own value even below the "
+        "population floor -- decompose.py needs it to fold the slice honestly")
+
+
+def test_compound_slice_binds_every_predicate_as_a_parameter(con):
+    metric = registry.by_id("ota")
+    # A vendor and a site picked independently need not co-occur in any real
+    # trip -- pull an actual co-occurring pair so the compound slice has a
+    # genuine population to check, not an accidental 0.
+    (site, vendor) = con.execute(
+        """SELECT t.site_id, t.vendor_id FROM trips t
+           WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+             AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
+             AND t.trip_direction = 'LOGIN'
+           LIMIT 1""",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    compound = (Slice(Dimension.SITE, site), Slice(Dimension.VENDOR, vendor))
+
+    value, n = registry.evaluate_with_n(con, metric, compound, WINDOW)
+
+    (independent_n,) = con.execute(
+        "SELECT count(*) FROM trips t WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL "
+        "AND t.trip_direction = 'LOGIN' "     # ota's own hardcoded direction filter
+        "AND t.site_id = ? AND t.vendor_id = ?",
+        [WINDOW.start_ms, WINDOW.end_ms, site, vendor]).fetchone()
+    assert n == independent_n
+    assert n > 0, "the compound slice must match at least the one row it was drawn from"
+    assert isinstance(value, float)
+
+
+# ---------------------------------------------------------------------------
+# Fix-wave I4: what "population" (the guard's n) means, per metric.
+# ---------------------------------------------------------------------------
+
+def test_no_show_rate_n_is_the_planned_employee_headcount_not_the_trip_count(con):
+    metric = registry.by_id("no_show_rate")
+    value, n = registry.evaluate_with_n(con, metric, Slice.all(), WINDOW)
+    assert isinstance(value, float)
+
+    (independent_n,) = con.execute(
+        "SELECT sum(plannedemployee_cnt) FROM trips t "
+        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ?",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert n == independent_n
+
+    (trip_count,) = con.execute(
+        "SELECT count(*) FROM trips t WHERE t.scheduled_at >= ? AND t.scheduled_at < ?",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert n != trip_count, "n must be the rate's own headcount denominator, not the trip count"
+
+
+def test_cost_per_km_divides_by_traveled_km_and_keeps_slab_billed_rows(con):
+    # Fix-wave I4, REVISED: b.total_trip_km = 0 is a SLAB BILLING MODE (a flat
+    # per-shift/slab rate, no odometer read), not a missing-odometer artifact
+    # -- a data investigation found 40% of data/real's bill rows (45% of
+    # spend) are slab-billed, so excluding them (this file's first fix-wave
+    # attempt) would silently drop 45% of real spend from the cost story.
+    # Dividing by t.traveled_km instead (the trip's own real distance, on the
+    # trips feed, present even for a slab-billed trip) keeps that spend in
+    # the numerator with an honest, non-zero denominator.
+    metric = registry.by_id("cost_per_km")
+    value, n = registry.evaluate_with_n(con, metric, Slice.all(), WINDOW)
+    assert isinstance(value, float)
+
+    (included_rows,) = con.execute(
+        "SELECT count(*) FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
+        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert n == included_rows
+
+    (independent_value,) = con.execute(
+        "SELECT sum(b.trip_cost) / nullif(sum(t.traveled_km), 0) "
+        "FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
+        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert value == pytest.approx(independent_value)
+
+    # The property that actually matters: a slab-billed row (total_trip_km
+    # <= 0) with a real traveled_km must still be COUNTED, not dropped.
+    (slab_rows_included,) = con.execute(
+        "SELECT count(*) FROM bill b JOIN trips t ON t.trip_id = b.trip_id "
+        "WHERE t.scheduled_at >= ? AND t.scheduled_at < ? "
+        "AND t.traveled_km IS NOT NULL AND t.traveled_km > 0 "
+        "AND (b.total_trip_km IS NULL OR b.total_trip_km <= 0)",
+        [WINDOW.start_ms, WINDOW.end_ms]).fetchone()
+    assert slab_rows_included > 0, (
+        "fixture assumption: at least one slab-billed (total_trip_km<=0) row "
+        "with a real traveled_km exists")
+    assert slab_rows_included < n, "slab-billed rows must be a subset, not all of n"
+
+
+def test_cost_per_km_unit_is_inr_per_km(con):
+    assert registry.by_id("cost_per_km").unit == "INR/km"
+
+
 def test_coverage_ignores_a_slice_column_the_source_table_does_not_have(con):
     # BUG F3: bill has no mode/trip_direction/shift_band. cost_per_km's source
     # is "bill", so slicing coverage by MODE must measure UNSLICED coverage
