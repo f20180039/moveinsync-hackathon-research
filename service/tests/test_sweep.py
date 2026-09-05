@@ -1,12 +1,17 @@
 """sweep.py: the unprompted SENSE loop and the replay clock.
 
-Tests run against data/sample -- the only place a real metric x slice x
-window triple can be evaluated within test-suite time. See the task-5 report
-for the calibration run against data/real that pinned constants.py.
+Most tests run against data/sample -- the only place a real metric x slice x
+window triple can be evaluated within test-suite time. One golden test (the
+BREACH-count ceiling at the overall+vendor level) instead runs against
+data/real and skips when that directory is absent, since a band that only
+ever gets checked against the small sample is a band nobody actually
+measured (see constants.py's BANDS comment and the task-5 report for the
+full calibration record).
 """
 from __future__ import annotations
 
 import datetime as dt
+import os
 import pathlib
 import time
 from collections import Counter
@@ -14,10 +19,11 @@ from collections import Counter
 import duckdb
 import pytest
 
-from signaldesk import constants as C, ingest, registry, sweep, verdict
+from signaldesk import ingest, registry, sweep, verdict
 from signaldesk.schemas import Dimension, Slice, Tier
 
 SAMPLE = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "sample")
+REAL_DEFAULT = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "real")
 
 
 def _ms(y, m, d):
@@ -112,9 +118,20 @@ def test_the_tier_distribution_is_printed_for_calibration(con_and_health):
     print(f"MEASURED tier distribution (data/sample, late-July week): {dict(counts)} "
           f"of {len(run.findings)} findings")
     assert sum(counts.values()) == len(run.findings)
+    # Fix round 1 (Task 5 review), criterion (a): a mix across all four tiers,
+    # not a wall in one of them -- MEASURED on data/sample with the
+    # per-direction BANDS: PASS 97 / WATCH 22 / CONCERN 63 / BREACH 15 of 197.
+    assert set(counts) == {"PASS", "WATCH", "CONCERN", "BREACH"}
 
 
 def test_the_degrading_vendor_appears_as_a_concern_or_worse(con_and_health):
+    # On data/sample: the worst vendor by raw vendor_ota reaches CONCERN or
+    # worse. This is NOT tuned to guarantee a BREACH on the sample -- if the
+    # sample's worst vendor only ever reached CONCERN, that would be what the
+    # sample is (a small, less extreme slice of the real fleet). MEASURED:
+    # it reaches BREACH here (Amit Volkov Travel / Pooja Sokolov Travel, both
+    # 0.00% observed in this slice), and separately 10 of the sample's
+    # vendor_ota findings are CONCERN-or-worse.
     con, health = con_and_health
     window = sweep.Window(CLOCK_MS - 7 * 86_400_000, CLOCK_MS)
     metric = registry.by_id("vendor_ota")
@@ -136,30 +153,62 @@ def test_the_degrading_vendor_appears_as_a_concern_or_worse(con_and_health):
         f"worst vendor {worst_vendor} ({worst_value:.2f}%) is only {finding.tier.name}")
 
 
-# Controller ruling 6: pinned at ~80% of what was MEASURED on data/sample
-# after calibration -- PASS 97 / WATCH 37 / CONCERN 63 / BREACH 1 of 197 (see
-# the task-5 report for the before/after numbers on data/real). Re-measure
-# with test_the_tier_distribution_is_printed_for_calibration's printed line
-# if constants.py moves again.
-SAMPLE_BREACH_COUNT_AFTER_CALIBRATION = 1
-
-
-def test_breach_count_stays_within_the_calibrated_golden_range(con_and_health):
+def test_at_least_one_vendor_ota_finding_is_concern_or_worse_on_the_sample(con_and_health):
+    # Fix round 1 (Task 5 review): the golden BREACH-count assertion moved to
+    # data/real below, since data/sample is too small to measure a band
+    # against honestly. This weaker, sample-side check stays: >=1 vendor_ota
+    # finding at CONCERN-or-worse, which the brief's criterion (b) actually
+    # needs for the demo to have something to show even when only the sample
+    # is available. MEASURED: 10 of the sample's vendor_ota findings qualify.
     con, health = con_and_health
     run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
 
-    breaches = [f for f in run.findings if f.tier is Tier.BREACH]
-    upper = max(1, round(0.8 * SAMPLE_BREACH_COUNT_AFTER_CALIBRATION))
-    assert 1 <= len(breaches) <= upper, (
-        f"got {len(breaches)} BREACH findings; expected 1..{upper} "
-        f"(80% of the {SAMPLE_BREACH_COUNT_AFTER_CALIBRATION} measured after calibration)")
-
-    vendor_breach_or_worse = [
+    vendor_concern_or_worse = [
         f for f in run.findings
         if f.metric_id == "vendor_ota" and f.slice.dim is Dimension.VENDOR
         and f.tier >= Tier.CONCERN]
-    assert len(vendor_breach_or_worse) >= 1, \
-        "at least one vendor_ota finding must be CONCERN-or-worse"
+    assert len(vendor_concern_or_worse) >= 1, \
+        "at least one vendor_ota finding must be CONCERN-or-worse on the sample"
+
+
+# Fix round 1 (Task 5 review): this is now the ONLY BREACH-count assertion,
+# and it runs against data/real, not data/sample -- a range reverse-engineered
+# from what the small sample happened to produce is not a measurement.
+# MEASURED on data/real (615k trips), late-July week 2026-07-25..2026-07-31,
+# with the calibrated per-direction BANDS: 7 BREACH findings at the
+# overall+vendor level (2 HIGHER -- ota and vendor_ota, both `vendor Pooja
+# Sokolov Travel` -- plus 5 LOWER -- no_show_rate, across sites and vendors).
+# See constants.py's BANDS comment for the full per-direction distributions.
+REAL_DATA = os.environ.get("SIGNALDESK_REAL_DATA", REAL_DEFAULT)
+BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL = 7
+
+
+def test_breach_count_at_overall_and_vendor_level_stays_within_the_measured_ceiling_on_real_data():
+    if not pathlib.Path(REAL_DATA).is_dir():
+        pytest.skip(f"no dataset at {REAL_DATA} (set SIGNALDESK_REAL_DATA to point at data/real)")
+
+    con = duckdb.connect()
+    try:
+        health = ingest.load_all(con, ingest.source_for(REAL_DATA))
+        clock_ms = _midnight_plus_one_day(ingest.latest_scheduled_ms(con))
+        run = sweep.sweep(con, sweep.Clock(clock_ms), health)
+    finally:
+        con.close()
+        registry.clear_cache()
+
+    overall_vendor_breaches = [
+        f for f in run.findings
+        if f.tier is Tier.BREACH and f.slice.dim in (Dimension.NONE, Dimension.VENDOR)]
+
+    assert 1 <= len(overall_vendor_breaches) <= BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL, (
+        f"got {len(overall_vendor_breaches)} overall+vendor BREACH findings on {REAL_DATA}; "
+        f"expected 1..{BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL} "
+        f"(the ceiling measured against data/real -- see constants.py's BANDS comment)")
+
+
+def _midnight_plus_one_day(ms: int) -> int:
+    day = 86_400_000
+    return (ms // day) * day + day
 
 
 # ---------------------------------------------------------------------------

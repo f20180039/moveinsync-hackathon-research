@@ -22,7 +22,7 @@ from .compose import brief_with_source
 from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
 from .schemas import Audience, Finding
-from .sweep import STORE, Clock, ReplayClock, sweep
+from .sweep import STORE, ReplayClock, sweep
 
 logger = logging.getLogger("signaldesk")
 

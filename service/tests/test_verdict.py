@@ -81,7 +81,7 @@ def test_gap_sign_agrees_with_tier_for_both_directions():
     for better, observed, expect_worse in cases:
         d = verdict.delta(observed, reference, better)
         gap = d * reference
-        tier = verdict.tier_for(d, hard_target=False)
+        tier = verdict.tier_for(d, hard_target=False, better=better)
         if expect_worse:
             assert gap > 0
             assert tier is not Tier.PASS
@@ -94,26 +94,32 @@ def test_gap_sign_agrees_with_tier_for_both_directions():
 # tier_for()
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("d, expected", [
-    (C.PASS_MAX, Tier.PASS),                    # inclusive upward boundary
-    (C.PASS_MAX + 1e-9, Tier.WATCH),
-    (C.WATCH_MAX, Tier.WATCH),                  # inclusive upward boundary
-    (C.WATCH_MAX + 1e-9, Tier.CONCERN),
-    (C.CONCERN_MAX, Tier.CONCERN),               # inclusive upward boundary
-    (C.CONCERN_MAX + 1e-9, Tier.BREACH),
-    (-1.0, Tier.PASS),                          # far better than reference
-])
-def test_all_four_tiers_are_reachable_and_boundaries_are_inclusive_upward(d, expected):
-    assert verdict.tier_for(d, hard_target=False) is expected
+@pytest.mark.parametrize("better", [Direction.HIGHER, Direction.LOWER])
+def test_all_four_tiers_are_reachable_and_boundaries_are_inclusive_upward(better):
+    # Fix round 1 (Task 5 review): parametrised over BOTH directions -- the
+    # bug this pins is exactly "the boundaries hold for ONE direction but not
+    # the other", which a single-direction test cannot catch (BANDS["HIGHER"]
+    # and BANDS["LOWER"] are deliberately different; see constants.py).
+    pass_max, watch_max, concern_max = C.BANDS[better.value]
+
+    assert verdict.tier_for(pass_max, hard_target=False, better=better) is Tier.PASS
+    assert verdict.tier_for(pass_max + 1e-9, hard_target=False, better=better) is Tier.WATCH
+    assert verdict.tier_for(watch_max, hard_target=False, better=better) is Tier.WATCH
+    assert verdict.tier_for(watch_max + 1e-9, hard_target=False, better=better) is Tier.CONCERN
+    assert verdict.tier_for(concern_max, hard_target=False, better=better) is Tier.CONCERN
+    assert verdict.tier_for(concern_max + 1e-9, hard_target=False, better=better) is Tier.BREACH
+    assert verdict.tier_for(-1.0, hard_target=False, better=better) is Tier.PASS  # far better than reference
 
 
 def test_a_hard_target_breaches_on_any_shortfall_at_all():
     # Controller ruling 1: no registry metric declares a hard target yet
     # (Task 11 adds one) -- tier_for's hard_target branch is pure and needs no
-    # Metric at all, so it is exercised directly.
-    assert verdict.tier_for(0.0001, hard_target=True) is Tier.BREACH
-    assert verdict.tier_for(0.0, hard_target=True) is Tier.PASS
-    assert verdict.tier_for(-0.3, hard_target=True) is Tier.PASS
+    # Metric at all, so it is exercised directly. `better` is irrelevant here
+    # (the hard_target branch returns before ever touching BANDS) -- HIGHER
+    # is passed only because the parameter is now required.
+    assert verdict.tier_for(0.0001, hard_target=True, better=Direction.HIGHER) is Tier.BREACH
+    assert verdict.tier_for(0.0, hard_target=True, better=Direction.HIGHER) is Tier.PASS
+    assert verdict.tier_for(-0.3, hard_target=True, better=Direction.HIGHER) is Tier.PASS
 
 
 # ---------------------------------------------------------------------------
@@ -144,14 +150,13 @@ def test_a_breach_sliced_by_shift_reaches_all_three_audiences():
 # ---------------------------------------------------------------------------
 
 def test_takes_the_worst_tier_across_every_reference_and_keeps_them_all(con):
-    # MEASURED on data/sample, vendor_ota sliced by SHIFT=EVENING, LATE_JULY:
-    # observed 36.07, TREND 29.18 (PASS), PEER 57.58. Tier CONCERN, not BREACH,
-    # since Task 5's calibration against data/real widened CONCERN_MAX from
-    # 0.15 to 1.90 (see constants.py's before/after record) -- this case's
-    # delta (~0.374) sits inside the wider band now. The worst tier (via the
-    # peer reference) still wins over TREND's PASS, and both references still
-    # survive on the finding -- neither is discarded once the worst is chosen,
-    # which is what this test is actually pinning down.
+    # MEASURED on data/sample, vendor_ota (a HIGHER-is-better metric) sliced
+    # by SHIFT=EVENING, LATE_JULY: observed 36.07, TREND 29.18 (PASS), PEER
+    # 57.58 -- delta ~0.374 against the HIGHER-direction band's WATCH_MAX=0.20
+    # / CONCERN_MAX=0.75 (see constants.py's BANDS), landing CONCERN via the
+    # peer reference. That still beats TREND's PASS, and both references
+    # survive on the finding -- neither is discarded once the worst is
+    # chosen, which is what this test is actually pinning down.
     metric = registry.by_id("vendor_ota")
     slc = Slice(Dimension.SHIFT, "EVENING")
 
@@ -180,15 +185,16 @@ def test_a_passing_metric_carries_no_accusatory_cause(con):
 
 def test_a_within_tolerance_pass_never_carries_a_positive_gap(con):
     # Bug found running the full Tier-1 metric x slice sweep (see task-4
-    # report): C.PASS_MAX is a TOLERANCE, so tier_for(d) can still say PASS
-    # for a small POSITIVE d (marginally worse than the reference but inside
-    # tolerance). Two data points, per ruling 5, both landing in the
-    # (0, PASS_MAX] band by a different route.
+    # report): each direction's PASS band is a TOLERANCE, so tier_for(d) can
+    # still say PASS for a small POSITIVE d (marginally worse than the
+    # reference but inside tolerance). Two data points, per ruling 5, both
+    # landing in the (0, PASS_MAX] band by a different route.
 
-    # 1) MEASURED on data/sample, otd unsliced, LATE_JULY: observed 34.375
-    # vs TREND 35.02, d=0.0184 <= PASS_MAX=0.02 -> PASS, yet the raw gap
-    # (d x reference) is +0.65 -- which Finding.__post_init__ correctly
-    # refuses on a PASS. This is the case that used to raise ValueError.
+    # 1) MEASURED on data/sample, otd (HIGHER-is-better) unsliced, LATE_JULY:
+    # observed 34.375 vs TREND 35.02, d=0.0184 <= HIGHER's PASS_MAX=0.05 ->
+    # PASS, yet the raw gap (d x reference) is +0.65 -- which
+    # Finding.__post_init__ correctly refuses on a PASS. This is the case
+    # that used to raise ValueError.
     metric = registry.by_id("otd")
     finding = verdict.evaluate_finding(con, metric, Slice.all(), LATE_JULY, feed_confidence=1.0)
     assert finding is not None

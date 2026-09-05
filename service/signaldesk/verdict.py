@@ -19,10 +19,11 @@ def delta(observed: float, reference: float, better: Direction) -> float:
     delta x reference, so its sign agrees with the tier by CONSTRUCTION rather
     than by care.
 
-    One exception: C.PASS_MAX is a TOLERANCE, so a small POSITIVE delta can
-    still tier PASS, which would leave a positive (accusatory) gap on a
-    passing finding. That boundary case is not handled here -- it is floored
-    to zero in evaluate_finding's PASS branch below, where the tier is known.
+    One exception: each direction's PASS band (C.BANDS[better.value][0]) is a
+    TOLERANCE, so a small POSITIVE delta can still tier PASS, which would
+    leave a positive (accusatory) gap on a passing finding. That boundary
+    case is not handled here -- it is floored to zero in evaluate_finding's
+    PASS branch below, where the tier is known.
     """
     if reference == 0.0:
         if observed == 0.0:
@@ -32,17 +33,24 @@ def delta(observed: float, reference: float, better: Direction) -> float:
     return shortfall / abs(reference)
 
 
-def tier_for(d: float, hard_target: bool) -> Tier:
+def tier_for(d: float, hard_target: bool, better: Direction) -> Tier:
     # Deviation 2: a hard target admits no tolerance. Read literally, the spec's
     # "a TARGET missed outright -> BREACH" would make WATCH and CONCERN
     # unreachable for EVERY target metric.
     if hard_target:
         return Tier.BREACH if d > 0.0 else Tier.PASS
-    if d <= C.PASS_MAX:
+    # Fix round 1 (Task 5 review): one band per direction, not one global
+    # scalar -- delta() saturates at 1.0 for a HIGHER-is-better metric, so a
+    # CONCERN_MAX measured for LOWER-is-better no_show_rate (whose deltas are
+    # genuinely unbounded) made BREACH unreachable for ota/otd/vendor_ota.
+    # Keyed by better.value (a plain str) rather than the Direction enum
+    # itself -- see constants.BANDS's comment for the circular-import reason.
+    pass_max, watch_max, concern_max = C.BANDS[better.value]
+    if d <= pass_max:
         return Tier.PASS
-    if d <= C.WATCH_MAX:
+    if d <= watch_max:
         return Tier.WATCH
-    if d <= C.CONCERN_MAX:
+    if d <= concern_max:
         return Tier.CONCERN
     return Tier.BREACH
 
@@ -104,7 +112,7 @@ def evaluate_finding(con, metric: Metric, slc: Slice, window: Window,
     for ref in refs:
         d = delta(observed, ref.value, metric.better)
         hard = metric.hard_target and ref.kind is ReferenceKind.TARGET
-        t = tier_for(d, hard)
+        t = tier_for(d, hard, metric.better)
         if t > worst or (t is worst and d > worst_delta):
             worst, firing, worst_delta = t, ref, d
 
@@ -118,9 +126,10 @@ def evaluate_finding(con, metric: Metric, slc: Slice, window: Window,
 
     gap = worst_delta * firing.value
     if capped is Tier.PASS:
-        # Bug found running the full metric x slice sweep: PASS_MAX is a
-        # TOLERANCE, so tier_for(d) can still say PASS for a small POSITIVE d
-        # (marginally worse than the reference but within tolerance). Left
+        # Bug found running the full metric x slice sweep: each direction's
+        # PASS band is a TOLERANCE, so tier_for(d) can still say PASS for a
+        # small POSITIVE d (marginally worse than the reference but within
+        # tolerance). Left
         # alone, gap = d x reference would be positive on a PASS finding,
         # which Finding.__post_init__ correctly refuses. Floor it at zero:
         # a PASS is reported as at-or-better, never as an accusation.
