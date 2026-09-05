@@ -1032,6 +1032,18 @@ body {
   gap: var(--space-4);
 }
 
+/* Facilities head's KPI row gets a short heading ("Cost · Safety ·
+   Experience") that Transport manager's plain four-card row doesn't --
+   the KpiRow component itself is unchanged either way. */
+.kpi-row__strip-label {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 calc(-1 * var(--space-2));
+}
+
 .kpi-card {
   display: flex;
   flex-direction: column;

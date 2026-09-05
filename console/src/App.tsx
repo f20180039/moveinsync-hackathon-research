@@ -7,6 +7,8 @@ import { isAlertTier } from './api/types.ts'
 import { FloatingAssistant } from './components/FloatingAssistant.tsx'
 import { Sidebar } from './components/Sidebar.tsx'
 import { TopBar } from './components/TopBar.tsx'
+import { ROLES } from './roles.ts'
+import { useAppStore } from './store.ts'
 import { AlertsPage } from './pages/AlertsPage.tsx'
 import { BriefPage } from './pages/BriefPage.tsx'
 import { CostPage } from './pages/CostPage.tsx'
@@ -36,6 +38,9 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sweeping, setSweeping] = useState(false)
+  const role = useAppStore((state) => state.role)
+  const setRole = useAppStore((state) => state.setRole)
+  const roleConfig = ROLES[role]
 
   // `ignore` guards against setting state from a load that started before an
   // unmount (or before "Sweep now" kicked off a fresher one) resolves after.
@@ -90,7 +95,10 @@ function App() {
     }
   }
 
-  const findings = run?.findings ?? []
+  // Role-scoped once, here, before any page sees it -- Line manager's
+  // findingsFilter (shift-sliced only) is the only non-trivial one; the
+  // other two roles' filter is a no-op, so this changes nothing for them.
+  const findings = (run?.findings ?? []).filter(roleConfig.findingsFilter)
   const alertCount = findings.filter((f) => isAlertTier(f.tier)).length
   const alertSeverity = findings.some((f) => f.tier === 'BREACH')
     ? 'breach'
@@ -100,7 +108,7 @@ function App() {
 
   return (
     <div className="shell">
-      <Sidebar alertCount={alertCount} alertSeverity={alertSeverity} />
+      <Sidebar alertCount={alertCount} alertSeverity={alertSeverity} visibleNavPaths={roleConfig.visibleNavPaths} />
 
       <div className="shell__main">
         <TopBar
@@ -108,6 +116,8 @@ function App() {
           windowLabel={run?.windowLabel ?? null}
           onSweep={sweepNowAndReload}
           sweeping={sweeping}
+          role={role}
+          onRoleChange={setRole}
         />
 
         {loading && <p className="console__status">Loading…</p>}
@@ -123,6 +133,9 @@ function App() {
                     windowLabel={run?.windowLabel ?? null}
                     runId={run?.runId ?? null}
                     findings={findings}
+                    kpiMetricIds={roleConfig.kpiMetricIds}
+                    kpiStripLabel={roleConfig.kpiStripLabel}
+                    isPriorityFinding={roleConfig.isPriorityFinding}
                   />
                 }
               />
@@ -143,7 +156,7 @@ function App() {
       {/* Mounted once here, not per-page, so the conversation survives
           navigating between routes -- it only unmounts (and its
           localStorage-persisted history reloads) on a full page reload. */}
-      {run && <FloatingAssistant runId={run.runId} />}
+      {run && <FloatingAssistant runId={run.runId} suggestedQuestions={roleConfig.suggestedQuestions} />}
     </div>
   )
 }

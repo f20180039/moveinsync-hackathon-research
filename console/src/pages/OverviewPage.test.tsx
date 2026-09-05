@@ -57,4 +57,30 @@ describe('OverviewPage', () => {
 
     expect(decomposeCallsFrom(fetchMock)).toHaveLength(1)
   })
+
+  it('accepts role-driven overrides: a KPI strip label, a role-specific KPI set, and a narrower priority-finding rule', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+
+    const { container } = render(
+      <MemoryRouter>
+        <OverviewPage
+          windowLabel={fixture.windowLabel}
+          runId={fixture.runId}
+          findings={findings}
+          kpiMetricIds={['ota', 'cost_per_rider']}
+          kpiStripLabel="Cost · Safety · Experience"
+          isPriorityFinding={(finding) => finding.tier === 'BREACH'}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Cost · Safety · Experience')).toBeInTheDocument()
+    const kpiRow = container.querySelector('.kpi-row') as HTMLElement
+    expect(kpiRow).toHaveTextContent('Cost per rider')
+    expect(kpiRow).not.toHaveTextContent('On-time departure')
+
+    const breachCount = findings.filter((f) => f.tier === 'BREACH').length
+    const investigateButtons = await screen.findAllByRole('button', { name: /investigate/i })
+    expect(investigateButtons).toHaveLength(Math.min(breachCount, 5))
+  })
 })

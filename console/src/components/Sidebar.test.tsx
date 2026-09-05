@@ -75,4 +75,22 @@ describe('Sidebar', () => {
     )
     expect(container.querySelector('.sidebar__badge')?.classList.contains('sidebar__badge--concern')).toBe(true)
   })
+
+  it('only links a path when it is in visibleNavPaths -- a route not listed is simply not linked, not a 403', () => {
+    render(
+      <MemoryRouter>
+        <Sidebar alertCount={0} alertSeverity={null} visibleNavPaths={new Set(['/', '/alerts', '/brief'])} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Brief & dispatch' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Vendors' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Data health' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Cost' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Weekly review' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Monthly review' })).not.toBeInTheDocument()
+  })
 })

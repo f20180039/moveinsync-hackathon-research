@@ -158,6 +158,13 @@ export function buildFindingSentence(finding: Finding): string {
   return `${subject} is ${observedText}, ${magnitude} ${unitWord} ${direction} the ${primaryRef.label} of ${refText}.`
 }
 
+// Transport manager's set, and the default for every caller that doesn't
+// pass its own (the weekly/monthly review pages, which stay
+// role-agnostic) -- unchanged from before role-scoped KPI sets existed.
+// Lives here, not in KpiRow.tsx, so roles.ts (a plain data module) can
+// reference it without importing a component.
+export const DEFAULT_KPI_METRIC_IDS = ['ota', 'otd', 'no_show_rate', 'cost_per_km']
+
 // The floating assistant's default suggested chips. Stage 7's persona
 // switch swaps the second chip for the Facilities head role -- kept here
 // (a plain data module, not a component) rather than in

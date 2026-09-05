@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import fixture from '../../handoff/fake-findings.json'
 import App from './App.tsx'
+import { useAppStore } from './store.ts'
 
 function jsonResponse(body: unknown) {
   return Promise.resolve({ ok: true, json: async () => body } as Response)
@@ -123,6 +124,11 @@ function renderApp(initialEntries: string[] = ['/']) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // useAppStore is a module-level singleton (zustand + persist) --
+  // without this, a role change in one test would leak into every test
+  // that runs after it in this file.
+  useAppStore.setState({ role: 'TRANSPORT_MANAGER' })
+  window.localStorage.clear()
 })
 
 describe('App', () => {
@@ -345,5 +351,80 @@ describe('App', () => {
     await screen.findByText('Sample brief text.')
 
     expectNoRawEnumText(container)
+  })
+})
+
+describe('App: role switch', () => {
+  it('switching to Facilities head narrows the sidebar nav and changes the KPI set', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+    const user = userEvent.setup()
+    const { container } = renderApp()
+    const kpiRow = () => container.querySelector('.kpi-row') as HTMLElement
+
+    await screen.findByText(new RegExp(fixture.runId))
+    expect(screen.getByRole('link', { name: 'Insights' })).toBeInTheDocument()
+    expect(within(kpiRow()).getByText('On-time arrival')).toBeInTheDocument() // Transport manager's KPI row
+
+    await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
+
+    // Insights and Data health are Transport manager's tools, not
+    // Facilities head's.
+    expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Data health' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Vendors' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Weekly review' })).toBeInTheDocument()
+
+    // Facilities head's own KPI set, with its strip label.
+    expect(screen.getByText('Cost · Safety · Experience')).toBeInTheDocument()
+    expect(within(kpiRow()).getByText('Cost per rider')).toBeInTheDocument()
+    expect(within(kpiRow()).queryByText('On-time departure')).not.toBeInTheDocument()
+  })
+
+  it('a route hidden from the current role\'s nav still renders when navigated to directly (no 403)', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+    const user = userEvent.setup()
+    renderApp()
+
+    await screen.findByText(new RegExp(fixture.runId))
+    await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
+    expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
+
+    // /findings is not linked for this role, but App.tsx's route table
+    // never changes -- a direct visit still renders the page in full.
+    renderApp(['/findings'])
+    await screen.findByRole('heading', { level: 1, name: /insights/i })
+    expect(await screen.findAllByText(fixture.findings[0].metricLabel)).not.toHaveLength(0)
+  })
+
+  it('the role choice persists (zustand + localStorage) across a remount', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+    const user = userEvent.setup()
+    const { unmount } = renderApp()
+
+    await screen.findByText(new RegExp(fixture.runId))
+    await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
+    expect(screen.getByLabelText(/viewing as/i)).toHaveValue('FACILITIES_HEAD')
+
+    unmount()
+
+    renderApp()
+    await screen.findByText(new RegExp(fixture.runId))
+    expect(screen.getByLabelText(/viewing as/i)).toHaveValue('FACILITIES_HEAD')
+  })
+
+  it('the assistant conversation survives a role switch (it is mounted once, independent of role)', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+    const user = userEvent.setup()
+    renderApp()
+
+    await screen.findByText(new RegExp(fixture.runId))
+    await user.click(screen.getByRole('button', { name: /open mobility intelligence assistant/i }))
+    await screen.findByRole('dialog', { name: /mobility intelligence assistant/i })
+
+    await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
+
+    // Still open, still the same dialog -- switching role didn't remount
+    // (and so didn't close) the assistant.
+    expect(screen.getByRole('dialog', { name: /mobility intelligence assistant/i })).toBeInTheDocument()
   })
 })
