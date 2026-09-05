@@ -50,6 +50,53 @@ def test_health_is_ok_after_startup(client):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/health -- capabilities, so the console feature-detects without
+# probing /api/ask with an empty question (which is correctly a 422, and
+# which the console read as "endpoint absent" -- disabling the assistant
+# against a fully working backend).
+# ---------------------------------------------------------------------------
+
+def test_health_advertises_ask_capability(client):
+    r = client.get("/api/health")
+    assert r.status_code == 200
+    assert "ask" in r.json()["capabilities"]
+
+
+def test_health_capabilities_name_every_optional_endpoint_served(client):
+    # Exact set, not a subset: deleting one of these routes drops its name
+    # from the derived list and fails here, rather than leaving the console
+    # feature-detecting an endpoint that no longer exists.
+    assert set(client.get("/api/health").json()["capabilities"]) == {
+        "ask", "decompose", "safety", "employees", "cost", "dispatch-log"}
+
+
+def test_health_capabilities_are_all_really_routed(client):
+    # Every advertised name must correspond to a route that answers something
+    # other than 404-not-routed. The console trusts this list.
+    caps = client.get("/api/health").json()["capabilities"]
+    probes = {
+        "ask": client.post("/api/ask", json={"question": "how is on-time?"}),
+        "decompose": client.get("/api/findings/nope/decompose"),
+        "safety": client.get("/api/runs/latest/safety"),
+        "employees": client.get("/api/employees/impact"),
+        "cost": client.get("/api/cost"),
+        "dispatch-log": client.get("/api/dispatch/log"),
+    }
+    for name in caps:
+        assert probes[name].status_code != 405
+        assert probes[name].json() != {"detail": "Not Found"}
+
+
+def test_health_keeps_its_pre_existing_fields(client):
+    # The console's Data health panel reads these; capabilities is additive.
+    body = client.get("/api/health").json()
+    assert {"status", "activeMetrics", "clock", "capabilities"} <= set(body)
+    assert body["status"] == "ok"
+    assert isinstance(body["activeMetrics"], list) and body["activeMetrics"]
+    assert isinstance(body["clock"], int)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/runs/latest/findings -- the frozen contract.
 # ---------------------------------------------------------------------------
 

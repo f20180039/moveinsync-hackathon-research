@@ -43,6 +43,38 @@ WINDOW_DAYS_BY_KIND = {"week": 7, "month": 28}
 MAX_REPLAY_SPEED = 10_000_000.0
 
 
+# Part A seam fix: the console must be able to feature-detect the optional
+# endpoints of THIS build without probing them with a malformed request. It
+# used to POST an empty question to /api/ask; the service correctly answers
+# 422, the console read any non-2xx as "endpoint absent", and the floating
+# assistant stayed permanently disabled against a working backend.
+#
+# The names are a fixed contract shared with the console. The list served is
+# DERIVED from the routes create_app() actually registered, so deleting a
+# route drops its capability with no second place to update.
+OPTIONAL_ENDPOINTS: tuple[tuple[str, str, str], ...] = (
+    ("ask", "POST", "/api/ask"),
+    ("decompose", "GET", "/api/findings/{finding_id}/decompose"),
+    ("safety", "GET", "/api/runs/{run_id}/safety"),
+    ("employees", "GET", "/api/employees/impact"),
+    ("cost", "GET", "/api/cost"),
+    ("dispatch-log", "GET", "/api/dispatch/log"),
+)
+
+
+def capabilities(app: FastAPI) -> list[str]:
+    """Which of OPTIONAL_ENDPOINTS this app actually serves, in declared
+    order. Read off app.routes rather than asserted, so the answer cannot
+    drift from what is registered."""
+    registered = {
+        (method, route.path)
+        for route in app.routes
+        for method in (getattr(route, "methods", None) or ())
+    }
+    return [name for name, method, path in OPTIONAL_ENDPOINTS
+            if (method, path) in registered]
+
+
 class State:
     """Everything startup() constructs and every route reads. A plain object
     (not module globals) so create_app() can hand each TestClient its own
@@ -240,6 +272,8 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "status": "ok" if STORE.get("latest") is not None else "degraded",
             "activeMetrics": list(registry.ACTIVE_METRICS),
             "clock": state.clock.millis() if state.clock else None,
+            # See OPTIONAL_ENDPOINTS: feature detection without a probe.
+            "capabilities": capabilities(app),
         }
 
     @app.post("/api/replay/start")
