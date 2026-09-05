@@ -32,26 +32,42 @@ from .schemas import Finding, Tier
 
 logger = logging.getLogger("signaldesk")
 
-MAX_TOOL_CALLS = 4
-ASK_MAX_TOKENS = 8000
+# Perf fix (42s measured on stage -- too slow to click live): three changes,
+# together, not any one alone. (1) MAX_TOOL_CALLS 4 -> 3: the loop was making
+# four round trips where two would do. (2) the system prompt is now PRIMED
+# with a digest of the run's own top findings (the same shape
+# compose._findings_as_text builds) so the common question is answerable
+# with zero or one tool call instead of discovering the same ground via
+# list_metrics + list_findings every time. (3) ASK_MAX_TOKENS 8000 -> 4000 --
+# most of the 42s was reasoning tokens, not tool round trips.
+MAX_TOOL_CALLS = 3
+ASK_MAX_TOKENS = 4000
 # The one retry tools.py allows on a truncated turn, at double the ceiling
 # that was hit -- same reasoning as compose._call_with_retry, capped lower
 # here since ask latency is what a judge waits on live, on stage.
 ASK_MAX_RETRY_TOKENS = 16_000
 
-_SYSTEM_PROMPT = (
+_SYSTEM_PROMPT_TEMPLATE = (
     "You are Signal Desk's interrogator, answering one question about a "
-    "completed sweep. Answer ONLY using the tools you are given -- "
+    "completed sweep. Below is a digest of the run's own top findings, "
+    "already tiered, ranked and referenced -- answer from this digest FIRST, "
+    "with NO tool call, whenever it already contains what the question "
+    "needs:\n{digest}\n\n"
+    "If the digest is not enough, use the tools you are given -- "
     "list_metrics, get_metric, list_findings, explain_finding, "
-    "decompose_finding. Never compute, estimate, or recall a figure "
-    "yourself; every number in your answer must come from a tool result. "
-    "If the question asks for a forecast or prediction (e.g. \"what will "
-    "OTA be next month\"), or anything none of the tools can answer, "
+    "decompose_finding -- but keep it to the FEWEST calls that answer the "
+    "question: call list_findings AT MOST ONCE, with the tier/metric_id "
+    "filters you need already applied, and explain_finding AT MOST ONCE; do "
+    "not call list_metrics unless the question names a metric you do not "
+    "recognise. Never compute, estimate, or recall a figure yourself; every "
+    "number in your answer must come from the digest above or a tool "
+    "result. If the question asks for a forecast or prediction (e.g. \"what "
+    "will OTA be next month\"), or anything none of the tools can answer, "
     "decline and say plainly what you checked instead of guessing. Do not "
-    "claim that one finding causes another unless the tool results "
-    "themselves establish it -- describe co-occurring conditions, never "
-    "causation across different slices. Do not use citation markers such "
-    "as [1]; write plain prose."
+    "claim that one finding causes another unless the digest or tool "
+    "results themselves establish it -- describe co-occurring conditions, "
+    "never causation across different slices. Do not use citation markers "
+    "such as [1]; write plain prose."
 )
 
 
@@ -146,6 +162,44 @@ def _decompose_finding(con, run, finding_id: str, dim: str) -> dict:
             for r in rows
         ],
     }
+
+
+_DIGEST_MAX_FINDINGS = 8
+_DIGEST_MAX_PER_METRIC = 3
+
+
+def _context_digest(run) -> str:
+    """The same top-8 (at most 3 per metric), worst-first shape
+    compose._findings_as_text builds for the brief -- primed into the ask
+    system prompt so the common question needs no tool call at all. Not
+    audience-scoped (ask has no audience): every non-PASS finding in the
+    run is eligible, not just one audience's subset."""
+    above_pass = [f for f in run.findings if f.tier is not None and f.tier.name != "PASS"]
+    counts: dict[str, int] = {}
+    capped = []
+    for f in above_pass:
+        if len(capped) == _DIGEST_MAX_FINDINGS:
+            break
+        if counts.get(f.metric_id, 0) < _DIGEST_MAX_PER_METRIC:
+            capped.append(f)
+            counts[f.metric_id] = counts.get(f.metric_id, 0) + 1
+
+    lines = []
+    for f in capped:
+        metric = registry.by_id(f.metric_id)
+        parts = [
+            f"metric={metric.label}", f"slice={f.slice.label}", f"tier={f.tier.name}",
+            f"observed={f.observed:.2f}{metric.unit}",
+        ]
+        if f.refs:
+            top_ref = f.refs[0]
+            parts.append(f"{top_ref.label}={top_ref.value:.2f}{metric.unit}")
+        parts.append(f"cause={f.cause.value}")
+        if f.owns:
+            owned = ", ".join(f"{value} {points:.1f}pts" for value, points, _n in f.owns[:2])
+            parts.append(f"owns={owned}")
+        lines.append(", ".join(parts))
+    return "\n".join(lines) if lines else "(no findings above PASS this run)"
 
 
 def _build_tools(con, run) -> dict:
@@ -257,8 +311,9 @@ def ask(con, run, question: str, model=None) -> dict:
         model = SarvamClient(api_key=api_key)
 
     tools_impl = _build_tools(con, run)
+    system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(digest=_context_digest(run))
     messages = [
-        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": question},
     ]
 

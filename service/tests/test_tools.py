@@ -148,7 +148,7 @@ class StubModel:
         return item
 
 
-def test_the_loop_stops_at_four_tool_calls():
+def test_the_loop_stops_at_max_tool_calls():
     run = _run([_finding()])
     # Always asks for another tool call -- never answers -- to prove the
     # bound is enforced rather than trusted to the model's own good behaviour.
@@ -188,6 +188,26 @@ def test_an_answer_matching_a_tool_returned_figure_is_accepted():
     result = tools.ask(duckdb.connect(), run, "how are we doing?", model=model)
     assert result["withheld"] is False
     assert result["answer"] == "Vendor on-time share is 61.40% this week."
+
+
+def test_max_tool_calls_is_three_not_four():
+    # Perf fix: the loop made four round trips where two would do (measured
+    # 42s on stage). The bound itself is a load-bearing constant, not just
+    # the generic "loop stops at the bound" test above.
+    assert tools.MAX_TOOL_CALLS == 3
+
+
+def test_the_system_prompt_is_primed_with_the_runs_own_top_findings():
+    # Perf fix: the common question should be answerable with zero tool
+    # calls once the digest is in the system prompt.
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    model = StubModel([_FakeMessage(content="Vendor on-time share is 61.40% this week.")])
+    result = tools.ask(duckdb.connect(), run, "how are we doing?", model=model)
+    assert result["withheld"] is False
+    assert len(result["trace"]) == 0, "the digest should answer this without a tool call"
+    system_content = model.last_messages[0]["content"]
+    assert "Vendor on-time share" in system_content
+    assert "61.40" in system_content
 
 
 def test_a_tool_that_raises_is_reported_in_the_trace_not_a_failed_request():
