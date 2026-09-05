@@ -30,6 +30,12 @@ logger = logging.getLogger("signaldesk")
 
 DAY_MS = 86_400_000
 
+# Window parameter: month is 28 days, not calendar-month-variable, so a
+# month's 4 trend-reference windows (references._trend shifts back by the
+# window's OWN length -- Window.shifted_back) stay the same fixed length as
+# the window itself rather than drifting across months of different sizes.
+WINDOW_DAYS_BY_KIND = {"week": 7, "month": 28}
+
 
 class State:
     """Everything startup() constructs and every route reads. A plain object
@@ -121,6 +127,8 @@ def _run_to_json(run) -> dict:
     return {
         "runId": run.run_id,
         "windowLabel": run.window.label,
+        "windowDays": (run.window.end_ms - run.window.start_ms) // DAY_MS,
+        "windowKind": run.window_kind,
         "findings": [finding_to_json(f) for f in run.findings],
     }
 
@@ -148,8 +156,14 @@ def create_app(data_dir: str | None = None) -> FastAPI:
                        allow_methods=["*"], allow_headers=["*"])
 
     @app.post("/api/sweep")
-    def post_sweep():
-        run = sweep(state.con, state.clock, state.health)
+    def post_sweep(window: str = "week"):
+        kind = (window or "week").lower()
+        if kind not in WINDOW_DAYS_BY_KIND:
+            valid = ", ".join(WINDOW_DAYS_BY_KIND)
+            raise HTTPException(status_code=422, detail={
+                "error": f"unknown window {window!r}; valid values are {valid}"})
+        run = sweep(state.con, state.clock, state.health,
+                   window_days=WINDOW_DAYS_BY_KIND[kind], window_kind=kind)
         STORE.put(run)
         return {"runId": run.run_id, "findingCount": len(run.findings)}
 

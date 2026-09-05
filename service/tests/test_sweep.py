@@ -58,6 +58,18 @@ def test_produces_findings_without_any_prompt_or_question(con_and_health):
     assert run.window.end_ms == CLOCK_MS
 
 
+def test_window_kind_defaults_to_week_and_a_month_window_is_28_days(con_and_health):
+    con, health = con_and_health
+    week = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+    assert week.window_kind == "week"
+    assert week.window.end_ms - week.window.start_ms == 7 * 86_400_000
+
+    month = sweep.sweep(con, sweep.Clock(CLOCK_MS), health, window_days=28, window_kind="month")
+    assert month.window_kind == "month"
+    assert month.window.end_ms - month.window.start_ms == 28 * 86_400_000
+    assert month.window.end_ms == week.window.end_ms == CLOCK_MS
+
+
 def test_the_same_dataset_and_clock_produce_identical_findings(con_and_health):
     con, health = con_and_health
     run_a = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)

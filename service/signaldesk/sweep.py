@@ -59,10 +59,17 @@ class SweepRun:
     findings: tuple[Finding, ...]
     feed_health: dict[str, FeedHealth]
     swept_at_ms: int
+    # Window parameter: "week" (7 days, the default -- startup() never
+    # overrides this) or "month" (28 days -- api.post_sweep's only other
+    # value). Purely descriptive: window.label/window's own length already
+    # carry the real span; this is what the console shows as the toggle
+    # state and what a re-opened run reports about itself.
+    window_kind: str = "week"
 
 
 def sweep(con, clock: Clock, health: dict[str, FeedHealth],
-          metric_ids=registry.TIER_1_METRICS, window_days: int = 7) -> SweepRun:
+          metric_ids=registry.TIER_1_METRICS, window_days: int = 7,
+          window_kind: str = "week") -> SweepRun:
     # Controller ruling (task-5): clear the memoisation cache FIRST. The
     # registry keys evaluate()/coverage() by (id(con), metric, slice, window) --
     # safe across sweeps for a fixed connection ONLY because every sweep starts
@@ -91,7 +98,7 @@ def sweep(con, clock: Clock, health: dict[str, FeedHealth],
     # Derived from the simulated clock and the finding count, not a uuid, so a
     # rerun of the demo produces the same id and a bookmarked URL still resolves.
     run_id = f"run-{now}-{len(ranked):x}"
-    return SweepRun(run_id, window, tuple(ranked), health, now)
+    return SweepRun(run_id, window, tuple(ranked), health, now, window_kind)
 
 
 class Store:

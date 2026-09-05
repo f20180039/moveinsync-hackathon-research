@@ -9,6 +9,7 @@ that on its own.
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import pathlib
 import time
@@ -116,6 +117,45 @@ def test_post_sweep_returns_a_run_id_that_the_findings_route_resolves(client):
     assert r2.status_code == 200
     assert r2.json()["runId"] == body["runId"]
     assert len(r2.json()["findings"]) == body["findingCount"]
+    assert r2.json()["windowKind"] == "week"
+    assert r2.json()["windowDays"] == 7
+
+
+def test_post_sweep_defaults_to_a_week_window_when_no_param_is_given(client):
+    r = client.post("/api/sweep")
+    body = r.json()
+    findings = client.get(f"/api/runs/{body['runId']}/findings").json()
+    assert findings["windowKind"] == "week"
+    assert findings["windowDays"] == 7
+
+
+def test_post_sweep_with_a_month_window_returns_a_28_day_span(client):
+    r = client.post("/api/sweep", params={"window": "month"})
+    assert r.status_code == 200
+    run_id = r.json()["runId"]
+
+    findings = client.get(f"/api/runs/{run_id}/findings").json()
+    assert findings["windowKind"] == "month"
+    assert findings["windowDays"] == 28
+
+    start_str, end_str = findings["windowLabel"].split("..")
+    start = dt.date.fromisoformat(start_str)
+    end = dt.date.fromisoformat(end_str)
+    # windowLabel's end is the last INCLUDED day (end_ms - 1), so a 28-day
+    # half-open window spans 27 days between its two printed dates.
+    assert (end - start).days == 27
+
+    # Restore "latest" to a normal week sweep so later tests in this
+    # module-scoped client are not left depending on a month-length window.
+    r2 = client.post("/api/sweep")
+    assert r2.json()["runId"] != run_id
+
+
+def test_post_sweep_with_an_unknown_window_is_422(client):
+    r = client.post("/api/sweep", params={"window": "fortnight"})
+    assert r.status_code == 422
+    error = r.json()["detail"]["error"]
+    assert "week" in error and "month" in error
 
 
 # ---------------------------------------------------------------------------
