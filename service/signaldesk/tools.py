@@ -24,11 +24,11 @@ import os
 
 from . import registry
 from .actions import action_for
-from .compose import validate_narrative
+from .compose import template_brief, validate_narrative
 from .decompose import decompose as decompose_finding_rows
 from .decompose import valid_dims
 from .model import SarvamClient, TruncatedResponse
-from .schemas import Finding, Tier
+from .schemas import Audience, Finding, Tier
 
 logger = logging.getLogger("signaldesk")
 
@@ -40,7 +40,29 @@ logger = logging.getLogger("signaldesk")
 # with zero or one tool call instead of discovering the same ground via
 # list_metrics + list_findings every time. (3) ASK_MAX_TOKENS 8000 -> 4000 --
 # most of the 42s was reasoning tokens, not tool round trips.
-MAX_TOOL_CALLS = 3
+#
+# SUPERSEDED for the budget alone (live testing, 2026-09-05, controller +
+# explicit user direction). (2) and (3) above stand and are untouched; only
+# the 4 -> 3 in (1) is reversed, and further, to 8.
+#
+# What the 3 actually cost: tested live against data/sample, the headline
+# demo question ("Which vendor is worst on on-time arrival, and what should
+# I do about it?") came back WITHHELD roughly two times in three, reason
+# "tool call budget (3) exhausted". Observed traces:
+# [list_findings, explain_finding, explain_finding] (withheld),
+# [list_metrics, list_findings] (answered),
+# [list_metrics, list_findings, list_findings] (withheld). The bound was not
+# cutting wasted round trips -- it was cutting the answer off mid-work, and
+# a refusal on the headline question is worth far less than the seconds it
+# saved. The user's direction is explicit: "Don't worry about the token
+# budget, keep it generous."
+#
+# 8, not unbounded. The loop is still hard-bounded and the
+# budget-exhausted refusal below is still the honest exit when it genuinely
+# runs out -- a model that will not converge must stop, not spin. The prompt
+# still asks for the fewest calls that answer the question; the difference
+# is that asking is now a preference rather than a cliff.
+MAX_TOOL_CALLS = 8
 ASK_MAX_TOKENS = 4000
 # The one retry tools.py allows on a truncated turn, at double the ceiling
 # that was hit -- same reasoning as compose._call_with_retry, capped lower
@@ -54,12 +76,17 @@ _SYSTEM_PROMPT_TEMPLATE = (
     "with NO tool call, whenever it already contains what the question "
     "needs:\n{digest}\n\n"
     "If the digest is not enough, use the tools you are given -- "
-    "list_metrics, get_metric, list_findings, explain_finding, "
-    "decompose_finding -- but keep it to the FEWEST calls that answer the "
-    "question: call list_findings AT MOST ONCE, with the tier/metric_id "
-    "filters you need already applied, and explain_finding AT MOST ONCE; do "
-    "not call list_metrics unless the question names a metric you do not "
-    "recognise. Never compute, estimate, or recall a figure yourself; every "
+    "summarize_run, list_findings, explain_finding, decompose_finding, "
+    "get_metric, list_metrics -- and prefer the FEWEST calls that answer the "
+    "question. Apply the tier/metric_id filters you need on the first "
+    "list_findings call rather than calling it repeatedly. Do NOT call "
+    "list_metrics: the digest above already names every metric in play, and "
+    "each finding id carries its own metric id. For a whole-week question "
+    "-- \"review this week\", \"how did we do\", \"summarise the run\" -- "
+    "call summarize_run ONCE and answer from its brief and tier counts; do "
+    "not assemble a week review out of individual findings and do not work "
+    "out a total yourself. Never compute, estimate, or recall a figure "
+    "yourself; every "
     "number in your answer must come from the digest above or a tool "
     "result. If the question asks for a forecast or prediction (e.g. \"what "
     "will OTA be next month\"), or anything none of the tools can answer, "
@@ -164,6 +191,62 @@ def _decompose_finding(con, run, finding_id: str, dim: str) -> dict:
     }
 
 
+def _summarize_run(run, audience: str | None = None) -> dict:
+    """The SETTLED week summary -- Task 18b.
+
+    A user asked "provide a review of this week" and the answer was withheld
+    with "answer contained a figure no tool returned: 14.8". The validator
+    did exactly its job; the failure was on the other side, because the model
+    had no grounded way to answer a whole-week question and reconstructed one.
+
+    This tool closes that hole by handing over content the system has ALREADY
+    composed and ALREADY validated: `compose.template_brief`, the same
+    deterministic prose `/api/runs/{id}/brief` serves and the same text
+    `compose.validate_narrative` is tested against. There is no second
+    summarisation path here and the model computes nothing -- it quotes.
+
+    Two deliberate choices:
+
+    - `template_brief` is called WITHOUT a connection, so the Task 14
+      `outlook:` line is left out. The outlook's projected figures are not
+      finding values, so a model quoting one would be (correctly) rejected by
+      the validator -- handing it a number it cannot safely repeat is the
+      exact trap this tool exists to remove.
+    - the brief is audience-scoped, because that is what the existing
+      machinery produces. `audience` defaults to TRANSPORT_MANAGER, the
+      broadest of the three, and the returned dict names which one was used
+      so the answer can say so.
+
+    The tier counts alongside it are counts of the run's OWN findings, over
+    every audience, so "how did we do this week" gets the whole-run shape and
+    not just one desk's slice. They reach the validator the same way every
+    other tool result does, through `_collect_numbers`.
+    """
+    if audience is None:
+        aud = Audience.TRANSPORT_MANAGER
+    else:
+        try:
+            aud = Audience(str(audience).upper())
+        except ValueError:
+            valid = ", ".join(a.value for a in Audience)
+            raise ValueError(f"unknown audience {audience!r}; valid values are {valid}")
+
+    counts = {t.name: 0 for t in Tier}
+    for f in run.findings:
+        counts[f.tier.name] += 1
+
+    return {
+        "runId": run.run_id,
+        "windowLabel": run.window.label,
+        "windowKind": run.window_kind,
+        "audience": aud.value,
+        "findingCount": len(run.findings),
+        "tierCounts": counts,
+        # The already-composed, already-validated brief. Quote from it.
+        "brief": template_brief(run, aud),
+    }
+
+
 _DIGEST_MAX_FINDINGS = 8
 _DIGEST_MAX_PER_METRIC = 3
 
@@ -188,7 +271,12 @@ def _context_digest(run) -> str:
     for f in capped:
         metric = registry.by_id(f.metric_id)
         parts = [
-            f"metric={metric.label}", f"slice={f.slice.label}", f"tier={f.tier.name}",
+            # The metric ID is carried alongside the label so a follow-up
+            # list_findings can be filtered without first spending a call on
+            # list_metrics to discover the id -- the exact wasted round trip
+            # observed in live testing.
+            f"metric={metric.label}", f"metric_id={f.metric_id}",
+            f"finding_id={f.id}", f"slice={f.slice.label}", f"tier={f.tier.name}",
             f"observed={f.observed:.2f}{metric.unit}",
         ]
         if f.refs:
@@ -210,6 +298,7 @@ def _build_tools(con, run) -> dict:
             run, metric_id, tier, limit),
         "explain_finding": lambda finding_id: _explain_finding(run, finding_id),
         "decompose_finding": lambda finding_id, dim: _decompose_finding(con, run, finding_id, dim),
+        "summarize_run": lambda audience=None: _summarize_run(run, audience),
     }
 
 
@@ -256,6 +345,19 @@ TOOL_SCHEMAS = [
             "dim": {"type": "string",
                    "description": f"One of: {valid_dims()}."},
         }, "required": ["finding_id", "dim"]},
+    }},
+    {"type": "function", "function": {
+        "name": "summarize_run",
+        "description": "The settled summary of this run/week: the window label, how many "
+                       "findings landed in each tier, and the system's own already-composed "
+                       "brief prose. USE THIS for any whole-week question -- \"review this "
+                       "week\", \"how did we do\", \"summarise the run\" -- and quote its "
+                       "figures rather than working any out yourself.",
+        "parameters": {"type": "object", "properties": {
+            "audience": {"type": "string",
+                        "description": "Optional: TRANSPORT_MANAGER (default), "
+                                       "FACILITIES_HEAD, or LINE_MANAGER."},
+        }, "required": []},
     }},
 ]
 

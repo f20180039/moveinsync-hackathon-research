@@ -42,20 +42,25 @@ def _run(findings):
 # for arbitrary SQL.
 # ---------------------------------------------------------------------------
 
-def test_exactly_five_tools_and_none_named_for_raw_sql():
+# Task 18b adds summarize_run (the grounded whole-week answer), so this is
+# six now, not five. The invariant the name of this test is really about is
+# unchanged and is the second half: NO tool hands the model raw SQL.
+_TOOL_NAMES = {"list_metrics", "get_metric", "list_findings",
+               "explain_finding", "decompose_finding", "summarize_run"}
+
+
+def test_exactly_six_tools_and_none_named_for_raw_sql():
     names = {t["function"]["name"] for t in tools.TOOL_SCHEMAS}
-    assert len(tools.TOOL_SCHEMAS) == 5
-    assert names == {"list_metrics", "get_metric", "list_findings",
-                     "explain_finding", "decompose_finding"}
+    assert len(tools.TOOL_SCHEMAS) == 6
+    assert names == _TOOL_NAMES
     assert "run_sql" not in names
     assert not any("sql" in n.lower() for n in names)
 
 
-def test_build_tools_exposes_the_same_five_names():
+def test_build_tools_exposes_the_same_six_names():
     con = duckdb.connect()
     impl = tools._build_tools(con, _run([_finding()]))
-    assert set(impl) == {"list_metrics", "get_metric", "list_findings",
-                         "explain_finding", "decompose_finding"}
+    assert set(impl) == _TOOL_NAMES
     con.close()
 
 
@@ -190,11 +195,137 @@ def test_an_answer_matching_a_tool_returned_figure_is_accepted():
     assert result["answer"] == "Vendor on-time share is 61.40% this week."
 
 
-def test_max_tool_calls_is_three_not_four():
-    # Perf fix: the loop made four round trips where two would do (measured
-    # 42s on stage). The bound itself is a load-bearing constant, not just
-    # the generic "loop stops at the bound" test above.
-    assert tools.MAX_TOOL_CALLS == 3
+def test_max_tool_calls_is_generous_but_still_bounded():
+    # History, in order: 4 -> 3 as a perf fix (the loop made four round trips
+    # where two would do, 42s measured on stage) -> 8 on explicit user
+    # direction after live testing showed the headline demo question withheld
+    # roughly two times in three with "tool call budget (3) exhausted".
+    # Correctness over latency. The bound itself is load-bearing -- it must be
+    # generous AND it must exist, so this asserts both ends.
+    assert tools.MAX_TOOL_CALLS == 8
+    assert isinstance(tools.MAX_TOOL_CALLS, int) and tools.MAX_TOOL_CALLS > 0
+
+
+def test_the_budget_exhausted_refusal_path_is_still_intact():
+    # A model that will not converge must stop and say so, not spin. Raising
+    # the budget must not have turned the loop unbounded.
+    run = _run([_finding()])
+    model = StubModel([
+        _FakeMessage(tool_calls=[_FakeToolCall(f"c{i}", "list_findings", "{}")])
+        for i in range(tools.MAX_TOOL_CALLS + 5)
+    ])
+    result = tools.ask(duckdb.connect(), run, "keep going forever", model=model)
+    assert result["withheld"] is True
+    assert f"budget ({tools.MAX_TOOL_CALLS})" in result["reason"]
+    assert model.calls == tools.MAX_TOOL_CALLS
+
+
+def test_a_question_that_needs_four_calls_now_answers_instead_of_being_withheld():
+    """The regression the raise exists for: at MAX_TOOL_CALLS = 3 this exact
+    shape -- three tool calls, then an answer -- came back withheld with
+    "tool call budget (3) exhausted"."""
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4)])
+    sequence = [
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", "list_findings", "{}")]),
+        _FakeMessage(tool_calls=[_FakeToolCall("c2", "list_findings", "{}")]),
+        _FakeMessage(tool_calls=[_FakeToolCall("c3", "list_findings", "{}")]),
+        _FakeMessage(content="Vendor on-time share is 61.40% this week."),
+    ]
+    model = StubModel(sequence)
+    result = tools.ask(duckdb.connect(), run, "which vendor is worst?", model=model)
+    assert result["withheld"] is False, result["reason"]
+    assert len(result["trace"]) == 3
+
+
+# ---------------------------------------------------------------------------
+# summarize_run -- the grounded whole-week answer. A user asked "provide a
+# review of this week" and got withheld with "answer contained a figure no
+# tool returned: 14.8": the validator was right, the model had nothing
+# grounded to quote.
+# ---------------------------------------------------------------------------
+
+def test_summarize_run_returns_the_systems_own_composed_brief():
+    from signaldesk.compose import template_brief
+    from signaldesk.schemas import Audience
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    out = tools._summarize_run(run)
+    assert out["audience"] == "TRANSPORT_MANAGER"
+    assert out["windowLabel"] == run.window.label
+    assert out["findingCount"] == len(run.findings)
+    assert out["tierCounts"]["BREACH"] == 1
+    # It is the SAME text the brief endpoint serves -- not a second
+    # summarisation path written for the model's benefit.
+    assert out["brief"] == template_brief(run, Audience.TRANSPORT_MANAGER)
+
+
+def test_summarize_run_brief_passes_the_validator_it_will_be_quoted_through():
+    """Every figure the tool hands over must be one the model is allowed to
+    repeat -- otherwise this tool would set up the exact rejection it exists
+    to prevent."""
+    from signaldesk.compose import validate_narrative
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    out = tools._summarize_run(run)
+    assert validate_narrative(out["brief"], run) is None
+
+
+def test_summarize_run_omits_the_outlook_line_whose_figures_are_not_quotable():
+    # forecast.py's projected figures are not finding values, so a model
+    # quoting one would be correctly rejected. The tool must not hand over a
+    # number the answer cannot survive repeating.
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    assert "outlook:" not in tools._summarize_run(run)["brief"]
+
+
+def test_summarize_run_rejects_an_unknown_audience_naming_the_valid_ones():
+    run = _run([_finding()])
+    with pytest.raises(ValueError) as exc:
+        tools._summarize_run(run, audience="CEO")
+    assert "TRANSPORT_MANAGER" in str(exc.value)
+
+
+def test_summarize_run_is_registered_as_a_tool_the_model_can_actually_call():
+    names = [t["function"]["name"] for t in tools.TOOL_SCHEMAS]
+    assert "summarize_run" in names
+    run = _run([_finding()])
+    assert "summarize_run" in tools._build_tools(duckdb.connect(), run)
+
+
+def test_a_week_review_answer_quoting_the_summary_is_accepted():
+    """End to end through ask(): the tool result's figures reach the validator
+    as extra_values, so a week review built from them is NOT withheld."""
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    sequence = [
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", "summarize_run", "{}")]),
+        _FakeMessage(content="One finding breached this week: vendor on-time "
+                             "share at 61.40%."),
+    ]
+    model = StubModel(sequence)
+    result = tools.ask(duckdb.connect(), run, "provide a review of this week", model=model)
+    assert result["withheld"] is False, result["reason"]
+    assert result["trace"][0]["tool"] == "summarize_run"
+
+
+def test_the_invented_figure_guardrail_is_unweakened_by_the_new_tool():
+    """The user's bug was a made-up 14.8. summarize_run gives the model a
+    grounded alternative -- it must NOT make an invented figure acceptable."""
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    sequence = [
+        _FakeMessage(tool_calls=[_FakeToolCall("c1", "summarize_run", "{}")]),
+        _FakeMessage(content="On-time arrival averaged 14.8% across the week."),
+    ]
+    model = StubModel(sequence)
+    result = tools.ask(duckdb.connect(), run, "provide a review of this week", model=model)
+    assert result["withheld"] is True
+    assert "14.8" in result["reason"]
+
+
+def test_the_digest_carries_metric_and_finding_ids_so_no_call_is_spent_finding_them():
+    # Live testing showed calls burnt on list_metrics purely to learn an id
+    # the digest could have named.
+    run = _run([_finding(metric_id="vendor_ota", observed=61.4, tier=Tier.BREACH)])
+    digest = tools._context_digest(run)
+    assert "metric_id=vendor_ota" in digest
+    assert f"finding_id={run.findings[0].id}" in digest
 
 
 def test_the_system_prompt_is_primed_with_the_runs_own_top_findings():
