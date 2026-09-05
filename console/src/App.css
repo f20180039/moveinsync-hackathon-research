@@ -1905,6 +1905,15 @@ body {
      driven by this same token below, so the bar can never come to sit on
      top of the last row of a table -- the two cannot disagree. */
   --assistant-bar-height: 64px;
+  /* The expanded conversation gets a slight tint so the panel reads as its
+     own surface against the page it slides up over, rather than as more
+     page. Deliberately near-white (2% off --bg): the panel's own quietest
+     text is --ink-3, which sits at 4.70:1 on white and has almost no
+     headroom, so anything darker than about #fafafa would push the
+     "Assistant"/"Thinking..." captions below AA's 4.5:1. At this value they
+     hold 4.51:1, the body text (--ink-1) 18:1, and the code/trace blocks
+     (--code-bg, warm) still separate from the panel (cool) behind them. */
+  --assistant-panel-bg: #fafafb;
 }
 
 .assistant-footer {
@@ -1942,6 +1951,7 @@ body {
   overflow-y: auto;
   padding: var(--space-4) var(--space-5) 0;
   border-bottom: 1px solid var(--border);
+  background: var(--assistant-panel-bg);
 }
 
 .assistant-footer__bar {
