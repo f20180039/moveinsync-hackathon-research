@@ -509,24 +509,60 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "trace": result["trace"],
         }
 
+    # The default target used to be the day the run's window ENDS on, full
+    # stop. On this dataset that is a Saturday, the four preceding Saturdays
+    # carry no trips, and the outlook card therefore rendered four refusals
+    # -- a working feature that looked broken, one day before a genuinely
+    # useful line ("release about 1 of the ~13 planned seats for shift NIGHT
+    # on Monday"). The default now ADVANCES, by at most a week, to the first
+    # day the seasonal basis can actually speak for.
+    #
+    # Only the DEFAULT moves. An explicit ?date= is answered about that exact
+    # day, withheld rows and all, because "no basis for the Saturday you
+    # asked about" is the honest answer to that question and quietly
+    # substituting a different day would be the dishonest one.
+    OUTLOOK_DEFAULT_SEARCH_DAYS = 7
+    _DAY_MS = 86_400_000
+
+    def _first_day_with_a_basis(run) -> tuple[int, bool]:
+        """(target_start_ms, auto_selected). Walks forward from the window's
+        end, taking the first day whose shift outlook is not entirely
+        withheld; falls back to the window end itself if a whole week of
+        candidates has nothing, so the refusal is still shown rather than the
+        route erroring."""
+        start = run.window.end_ms
+        for offset in range(OUTLOOK_DEFAULT_SEARCH_DAYS + 1):
+            candidate = start + offset * _DAY_MS
+            try:
+                projections = forecast.shift_outlook(state.con, candidate)
+            except Exception:
+                logger.warning("api: shift outlook probe failed for %s",
+                               candidate, exc_info=True)
+                continue
+            if projections and not all(p.withheld for p in projections):
+                return candidate, offset > 0
+        return start, False
+
     def _outlook_target(run_id: str, date: str | None = None):
         """The target date every outlook route projects onto.
 
-        Defaults to the day the run's window ENDS on -- the first day the
-        dataset does not cover, i.e. "the next shift day". `date`
+        Defaults to the first day at or after the run window's end that the
+        four-week same-weekday basis can actually speak for. `date`
         (YYYY-MM-DD, UTC) overrides it so a planner can ask about any shift
-        day rather than only tomorrow. Returns (run, target_start_ms)."""
+        day rather than only the next one. Returns (run, target_start_ms,
+        auto_selected)."""
         run = STORE.get(run_id)
         if run is None:
             _not_found("run", run_id)
         if date is None:
-            return run, run.window.end_ms
+            target, auto = _first_day_with_a_basis(run)
+            return run, target, auto
         try:
             day = dt.datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=dt.UTC)
         except ValueError:
             raise HTTPException(status_code=422, detail={
                 "error": f"date must be YYYY-MM-DD, got {date!r}"})
-        return run, int(day.timestamp() * 1000)
+        return run, int(day.timestamp() * 1000), False
 
     @app.get("/api/outlook")
     def get_outlook(runId: str = "latest", metric: str | None = None,
@@ -539,7 +575,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
         values and the literal SQL that produced each one. All arithmetic lives
         in forecast.py over registry.evaluate(); this route only shapes JSON.
         """
-        run, target = _outlook_target(runId, date)
+        run, target, auto_selected = _outlook_target(runId, date)
         if metric is not None:
             try:
                 registry.by_id(metric)
@@ -556,6 +592,10 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "weights": list(forecast.WEIGHTS),
             "targetDate": projections[0].target_date if projections else None,
             "targetStartMs": target,
+            # True when no ?date= was given and the default ADVANCED past a
+            # day with no basis -- so the card can say which day it is really
+            # talking about rather than implying it was asked for.
+            "targetDateAutoSelected": auto_selected,
             "projections": [p.to_json() for p in projections],
         }
 
@@ -565,7 +605,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
         """One projection per shift band, worst readiness first. no_show_rate by
         default because its action names how many SEATS to release -- planned
         headcount is the number a facilities head can actually act on."""
-        run, target = _outlook_target(runId, date)
+        run, target, auto_selected = _outlook_target(runId, date)
         try:
             registry.by_id(metric)
         except ValueError as exc:
@@ -579,6 +619,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "weights": list(forecast.WEIGHTS),
             "targetDate": projections[0].target_date if projections else None,
             "targetStartMs": target,
+            "targetDateAutoSelected": auto_selected,
             "shifts": [p.to_json() for p in projections],
         }
 

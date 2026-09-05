@@ -733,3 +733,41 @@ def test_ask_truncates_an_oversized_history_rather_than_rejecting_it(client, mon
             for i in range(50)]
     r = client.post("/api/ask", json={"question": "still answerable?", "history": huge})
     assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# The outlook's DEFAULT day -- UAT task A. The default target was the day the
+# window ends on, which on this dataset is a Saturday; the four preceding
+# Saturdays carry no trips, so the card rendered four refusals and the
+# feature looked broken while working perfectly one day later.
+# ---------------------------------------------------------------------------
+
+def test_the_default_outlook_day_is_one_that_actually_has_a_basis(client):
+    body = client.get("/api/outlook/shifts").json()
+    assert body["shifts"], "sample data carries shift bands"
+    assert not all(p["withheld"] for p in body["shifts"]), (
+        "the default day must not be one where every band is withheld")
+
+
+def test_the_default_outlook_day_says_which_day_it_chose(client):
+    body = client.get("/api/outlook/shifts").json()
+    # The method line names the day it projected, so an auto-advanced target
+    # is visible rather than silently substituted.
+    assert body["targetDate"] == body["shifts"][0]["targetDate"]
+    assert body["targetDateAutoSelected"] is True
+
+
+def test_an_explicit_outlook_date_is_honoured_even_when_it_withholds(client):
+    # The withheld path stays live and reachable: asking about a day with no
+    # basis must still answer honestly about THAT day, not quietly move.
+    body = client.get("/api/outlook/shifts?date=2026-08-01").json()
+    assert body["targetDate"] == "2026-08-01"
+    assert all(p["withheld"] for p in body["shifts"])
+    assert body["targetDateAutoSelected"] is False
+
+
+def test_the_plain_outlook_route_defaults_to_the_same_chosen_day(client):
+    shifts = client.get("/api/outlook/shifts").json()
+    plain = client.get("/api/outlook").json()
+    assert plain["targetDate"] == shifts["targetDate"]
+    assert plain["targetDateAutoSelected"] is True
