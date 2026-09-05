@@ -16,7 +16,12 @@ const COLUMNS: { label: string; title: string; align?: 'right' }[] = [
     title: 'The reference values used to judge it -- trend, peer, or target',
   },
   {
-    label: 'Confidence',
+    // The rule is IN the header, not only in its tooltip: this cell is
+    // deliberately empty for every finding at or above 0.90 (most of
+    // them), and a column of blanks under a bare "Confidence" reads as
+    // broken data rather than as the disclosure rule working. A tooltip
+    // cannot carry that -- nobody hovers a header on a projector.
+    label: 'Confidence (if <0.90)',
     title: 'Shown only below 0.9 -- part of the underlying feed was quarantined or unmatched',
     align: 'right',
   },

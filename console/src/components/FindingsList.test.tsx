@@ -98,3 +98,14 @@ describe('FindingsList', () => {
     expect(firstToggle.nextElementSibling).toBe(evidenceRegion)
   })
 })
+
+// A column that is blank for most rows must say why in the header itself:
+// the blank IS the disclosure rule (>= 0.90 discloses nothing), and
+// without the rule on screen an empty column reads as missing data.
+describe('FindingsList confidence column', () => {
+  it('states the disclosure threshold in the header, not only in a tooltip', () => {
+    render(<FindingsList findings={findings} />)
+
+    expect(screen.getByText(/Confidence \(if <0\.90\)/)).toBeInTheDocument()
+  })
+})
