@@ -11,8 +11,6 @@ function renderTopBar(
   return render(
     <MemoryRouter initialEntries={[route]}>
       <TopBar
-        runId="run-1"
-        windowLabel="2026-07-25..2026-07-31"
         onSweep={() => {}}
         sweeping={false}
         role="TRANSPORT_MANAGER"
@@ -36,18 +34,11 @@ describe('TopBar', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Vendors')
   })
 
-  it('still shows the run and its window, as provenance rather than as the title', () => {
-    renderTopBar()
+  it('carries the page title and nothing else -- no run/window provenance line', () => {
+    const { container } = renderTopBar()
 
-    const provenance = screen.getByText(/2026-07-25\.\.2026-07-31/)
-    expect(provenance).toHaveTextContent('run-1')
-    expect(provenance.tagName).not.toBe('H1')
-  })
-
-  it('shows a loading placeholder before the run is known', () => {
-    renderTopBar({ runId: null, windowLabel: null })
-
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+    expect(container.querySelector('.top-bar__run')).toBeNull()
+    expect(container.querySelector('.top-bar__heading')).toHaveTextContent('Insights')
   })
 
   it('calls onSweep when Sweep now is pressed', async () => {

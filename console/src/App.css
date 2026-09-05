@@ -27,8 +27,11 @@
   /* The sticky top bar's rendered height (padding + control height +
      border) -- any other sticky element sharing its scroll container
      (the findings column header) offsets by this instead of also using
-     top: 0, so the two don't fight for the same spot. */
-  --top-bar-height: 82px;
+     top: 0, so the two don't fight for the same spot. The bar is now a
+     single-line title, so its tallest child is the "Viewing as" field:
+     13px label + 4px gap + 32px sm select = 52, plus 16px padding top and
+     bottom and the 1px bottom border. */
+  --top-bar-height: 85px;
   --focus-ring: 0 0 0 3px var(--accent-border);
   /* The floating assistant panel and launcher are the only elements that
      float free of the page's own flow -- a token (rather than an inline
@@ -374,11 +377,6 @@ body {
   color: var(--text-h);
 }
 
-.top-bar__run {
-  color: var(--ink-3);
-  font-size: var(--font-sm);
-  font-family: var(--mono);
-}
 
 /* flex-end, not center: the Select carries a visible label ABOVE its box,
    so centring it left the dropdown sitting higher than the buttons beside

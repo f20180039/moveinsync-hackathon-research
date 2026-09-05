@@ -118,8 +118,6 @@ function App() {
 
       <div className="shell__main">
         <TopBar
-          runId={run?.runId ?? null}
-          windowLabel={run?.windowLabel ?? null}
           onSweep={sweepNowAndReload}
           sweeping={sweeping}
           role={role}

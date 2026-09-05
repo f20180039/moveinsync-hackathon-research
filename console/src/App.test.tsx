@@ -149,6 +149,14 @@ const employeeImpact: EmployeeImpact = {
   costPerRiderTrend: 198.2,
 }
 
+// The top bar no longer prints the run id (it is a page title now, and
+// only that), so "the initial load has finished" is signalled by the
+// content region itself: <main> renders only once loading is done and no
+// error is set.
+function findLoaded() {
+  return screen.findByRole('main')
+}
+
 function renderApp(initialEntries: string[] = ['/']) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
@@ -172,7 +180,7 @@ describe('App', () => {
 
     renderApp()
 
-    expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
+    expect(await findLoaded()).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sweep now/i })).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
   })
@@ -181,7 +189,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     const { container } = renderApp()
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
 
     // These class names are exactly what App.css's sticky-shell rules key
     // off (`.shell__main { overflow-y: auto; ... }`, `.sidebar { position:
@@ -226,7 +234,7 @@ describe('App', () => {
 
     renderApp(['/findings'])
 
-    expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
+    expect(await findLoaded()).toBeInTheDocument()
     await screen.findAllByText(fixture.findings[0].metricLabel)
 
     // Give any stray timer/poll a chance to fire before asserting call counts.
@@ -244,7 +252,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp()
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
 
     const nav = screen.getByRole('navigation', { name: /primary/i })
     expect(nav).toHaveTextContent('Overview')
@@ -263,7 +271,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp()
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
 
     const expectedCount = fixture.findings.filter((f) => f.tier === 'CONCERN' || f.tier === 'BREACH').length
     const nav = screen.getByRole('navigation', { name: /primary/i })
@@ -285,7 +293,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp([path])
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(screen.getByRole('heading', { level: 1, name: expectedHeading })).toBeInTheDocument()
@@ -338,7 +346,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const { container } = renderApp([path])
 
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     // Expand every finding row (Insights/Alerts/Vendors may have some) so
@@ -363,11 +371,11 @@ describe('App', () => {
     const runReviewButton = screen.queryByRole('button', { name: /run (week|month) review/i })
     if (runReviewButton) {
       await user.click(runReviewButton)
-      // Not findByText(windowLabel) -- the TopBar's own (unrelated) run
-      // summary already contains that same text, which makes it
-      // ambiguous once the review's KPI row has rendered too. The
-      // Dispatch button only exists once `run` is set, so waiting for it
-      // is an unambiguous signal that the review's own content is up.
+      // Not findByText(windowLabel) -- Overview's own header carries the
+      // same window text, so it is ambiguous once a KPI row has
+      // rendered. The Dispatch button only exists once `run` is set, so
+      // waiting for it is an unambiguous signal that the review's own
+      // content is up.
       await screen.findByRole('button', { name: /dispatch/i })
       await user.click(screen.getByRole('button', { name: /dispatch/i }))
       // Substring match -- the rendered <li> is "Slack · delivered" in
@@ -399,7 +407,7 @@ describe('App: role switch', () => {
     const { container } = renderApp()
     const kpiRow = () => container.querySelector('.kpi-row') as HTMLElement
 
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     expect(screen.getByRole('link', { name: 'Insights' })).toBeInTheDocument()
     expect(within(kpiRow()).getByText('On-time arrival')).toBeInTheDocument() // Transport manager's KPI row
 
@@ -426,7 +434,7 @@ describe('App: role switch', () => {
     const user = userEvent.setup()
     renderApp()
 
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
     expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
 
@@ -442,14 +450,14 @@ describe('App: role switch', () => {
     const user = userEvent.setup()
     const { unmount } = renderApp()
 
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
     expect(screen.getByLabelText(/viewing as/i)).toHaveValue('FACILITIES_HEAD')
 
     unmount()
 
     renderApp()
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     expect(screen.getByLabelText(/viewing as/i)).toHaveValue('FACILITIES_HEAD')
   })
 
@@ -458,7 +466,7 @@ describe('App: role switch', () => {
     const user = userEvent.setup()
     renderApp()
 
-    await screen.findByText(new RegExp(fixture.runId))
+    await findLoaded()
     await user.click(screen.getByRole('button', { name: /open mobility intelligence assistant/i }))
     await screen.findByRole('dialog', { name: /mobility intelligence assistant/i })
 
