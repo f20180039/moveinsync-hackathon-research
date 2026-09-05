@@ -1,0 +1,5 @@
+# Additions for trigger/ only. Everything else this package needs -- duckdb,
+# httpx, openai, pydantic, python-dotenv -- is already in
+# service/requirements.txt and is NOT repeated here.
+langchain-core>=0.3
+langchain-openai>=0.2
