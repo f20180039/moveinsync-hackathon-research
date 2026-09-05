@@ -1,0 +1,65 @@
+# Render Blueprint (Task 12R). Two services, deployed together from `main`:
+# a Python API and a static React console.
+#
+# Data: the deployed api runs on `data/sample` (3.5 MB, committed) — starter
+# instances have 512 MB RAM and the full `data/real` dataset (git-ignored,
+# ~570 MB of CSV) needs several GB to load into DuckDB. Same code, same
+# sweep, same brief, smaller numbers. The scored demo runs on the laptop
+# against `data/real`; this URL proves deployability. If a Standard instance
+# (2 GB+) with a persistent disk is provisioned later, point SIGNALDESK_DATA
+# at the disk and nothing else changes.
+#
+# Fields verified against the live schema at
+# https://render.com/schema/render.yaml.json (2026-09-05) — see
+# docs/superpowers/plans/.../task-12r-report.md for what changed from the
+# plan's draft and why.
+#
+# Every credential-shaped var below is `sync: false` — set only in the
+# Render dashboard at blueprint creation, never in this file.
+
+services:
+  - type: web
+    name: signal-desk-api
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r service/requirements.txt
+    startCommand: cd service && uvicorn signaldesk.api:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.4"
+      - key: SIGNALDESK_DATA
+        value: ../data/sample
+      - key: SIGNALDESK_CORS_ORIGINS
+        sync: false            # set to the console's https URL after the first deploy
+      - key: SARVAM_API_KEY
+        sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false
+      - key: SES_FROM
+        sync: false
+      - key: SES_TO
+        sync: false
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+  - type: web
+    name: signal-desk-console
+    runtime: static
+    buildCommand: cd console && npm ci && npm run build
+    staticPublishPath: console/dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE
+        sync: false            # the api service's https URL
+      - key: NODE_VERSION
+        value: "22.12.0"

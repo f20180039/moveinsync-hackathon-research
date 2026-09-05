@@ -107,7 +107,7 @@ sequenceDiagram
 | **Tiers are ordinal, never summed.** `rank` is a lexicographic order. | Twenty WATCHes can never outrank one BREACH. |
 | **Messy data is counted, not hidden.** Rejects are quarantined per feed; confidence = 1 − (rejected + unmatched + null-critical) / considered. | The brief discloses a feed below 0.9 confidence, and low confidence caps severity at WATCH — it never raises it. |
 | **An injected clock.** No wall-clock reads in the sweep path. | Same data + same clock → identical findings (tested). The replay clock advances at 60× so 90 days play out on stage; production is the same loop with the clock set to now. |
-| **Data behind one seam.** `source_for(base)` returns local files today and `s3://…` via `httpfs` tomorrow. | Deployability is an argument to a function, not a rewrite. |
+| **Data behind one seam.** `source_for(base)` returns local files today and `s3://…` via `httpfs` tomorrow. | Deployability is an argument to a function, not a rewrite. Proven on Render (`render.yaml`, deploy docs in the README): the deployed instance runs on `data/sample`, same code and sweep, smaller numbers. |
 | **One model call per brief, over aggregates.** | ≈2,200 tokens ≈ ₹0.10 per brief; ~₹9.50/month for an entire client, flat whether it has 500 or 50,000 employees. |
 
 ## Cost and latency, measured

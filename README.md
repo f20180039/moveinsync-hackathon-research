@@ -125,6 +125,49 @@ data/sample/          committed 3.5 MB stratified sample; data/real/ is the full
 scripts/              environment and setup helpers
 ```
 
+## Deploy (Render)
+
+`render.yaml` at the repo root is a Render Blueprint for two services: the
+FastAPI service (`signal-desk-api`) and the static console (`signal-desk-console`).
+
+1. Render dashboard → **New → Blueprint** → point it at this repo →
+   branch `main`. Render reads `render.yaml` and proposes both services.
+2. At blueprint creation, fill in the `sync: false` env vars in the dashboard
+   (never in the repo): `SIGNALDESK_CORS_ORIGINS`, `SARVAM_API_KEY`,
+   `SLACK_WEBHOOK_URL`, `SES_FROM`, `SES_TO`, `AWS_ACCESS_KEY_ID`,
+   `AWS_SECRET_ACCESS_KEY` (api service), `VITE_API_BASE` (console service).
+   A placeholder is fine for the first deploy — the two URL-shaped ones are
+   wired in step 3.
+3. **Two-step URL wiring**, after the first deploy of both services:
+   - copy the api's `https://<api>.onrender.com` URL into the console
+     service's `VITE_API_BASE`, and
+   - copy the console's `https://<console>.onrender.com` URL into the api
+     service's `SIGNALDESK_CORS_ORIGINS`,
+   - then redeploy both (env var changes require a redeploy; `VITE_API_BASE`
+     is baked into the JS bundle at build time, not read at runtime).
+4. Verify from a shell, with the laptop service stopped so there is no
+   chance of reading a local API:
+   ```sh
+   curl -s https://<api>.onrender.com/api/health
+   curl -s https://<api>.onrender.com/api/runs/latest/findings | head -c 300
+   curl -s -X POST https://<api>.onrender.com/api/dispatch/latest
+   curl -si -X OPTIONS https://<api>.onrender.com/api/runs/latest/findings \
+     -H 'Origin: https://<console>.onrender.com' -H 'Access-Control-Request-Method: GET' \
+     | grep -i access-control-allow-origin
+   ```
+   Open the console URL; it should show a completed sweep, expand to
+   evidence SQL, fetch a brief, and dispatch.
+
+**Data.** The deployed api runs on `data/sample` (3.5 MB, committed) — a
+starter instance has 512 MB RAM and the full `data/real` dataset (git-ignored,
+~570 MB) needs several GB to load into DuckDB. Same code, same sweep, same
+brief, smaller numbers; the scored demo still runs on the laptop against
+`data/real`. Say exactly this if asked which data the URL is on.
+
+**Free-tier cold start.** The api spins down after 15 idle minutes and
+cold-starts in roughly 30–60 seconds on the next request — warm it with a
+health-check curl before presenting.
+
 ## What we deliberately did not build
 
 Forecasting or predictive risk scoring (cannot be done credibly in six hours and
