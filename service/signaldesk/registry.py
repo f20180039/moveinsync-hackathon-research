@@ -1,9 +1,10 @@
 """The governed vocabulary. NOTHING ELSE queries raw tables.
 
-Five metrics, all against the real views ingest.py builds (docs/real-dataset-
-mapping.md §6, §8). marshal compliance and EV share are later tasks -- this
-registry stops at what the real dataset can support today without inventing a
-column.
+Nine metrics -- eight SWEPT, plus riders_per_day, which is measurable but
+deliberately not swept (it is two-sided; see its own comment and the guard in
+active()). All against the real views ingest.py builds (docs/real-dataset-
+mapping.md §6, §8). EV share is a later task -- this registry stops at what
+the real dataset can support today without inventing a column.
 
 Deviation 5 still applies (and now matters MORE than in the fixture): a trip
 with no actual_at, or no planned_end_at, is excluded from numerator AND
@@ -213,6 +214,128 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
   {{SLICE}}
 """
 
+# Task 18 -- DEMAND. The registry's first VOLUME metric. Every other metric in
+# this file is a quality or cost RATIO, which leaves the sweep structurally
+# blind to demand: a site whose rider count doubles overnight produces no
+# finding at all, because nothing here counts PEOPLE. The user's own framing
+# is why that gap matters -- "so the transport and facilities manager can be
+# prepared in advance and not fall short of vendors and vice versa not
+# overbook vendors" -- i.e. BOTH directions are real, expensive and different.
+#
+# "The number of riders based on the time, for a given day" is read as: the
+# rider headcount an average day in the window carries, resolvable by time of
+# day. Time of day is the SHIFT dimension (trips.shift_band -- EARLY/DAY/
+# EVENING/NIGHT), which every metric in this file already slices by, so
+# `riders_per_day` sliced by SHIFT *is* the demand curve, at the grain the
+# rest of the product already speaks.
+#
+# WHICH READING OF "RIDERS" -- plannedemployee_cnt (the ROSTERED headcount).
+# All three candidate readings exist on the loaded views and they answer
+# different questions:
+#   * plannedemployee_cnt is DEMAND PLACED ON THE SYSTEM: the seats the
+#     business asked for, before the service either delivered them or did
+#     not. That is precisely what a demand metric is for, and it is the only
+#     one of the three a vendor booking can be sized against IN ADVANCE.
+#     CHOSEN.
+#   * actualemployee_cnt is FULFILLED demand. It falls when riders no-show or
+#     a cab never arrives, so a SERVICE FAILURE would read here as demand
+#     collapsing -- two different findings confounded into one number, and
+#     the wrong one to book vehicles from (it would under-book precisely the
+#     slices already failing). The failure side is measured separately:
+#     no_show_rate is exactly the noshow_cnt/plannedemployee_cnt gap between
+#     these two columns.
+#   * count(DISTINCT emp_legs.stwid) is REACH -- how many different people
+#     travelled. A real question, but not this one: an employee with a LOGIN
+#     and a LOGOUT leg is one person and two seats, so distinct riders
+#     systematically under-counts the capacity demand actually places on the
+#     fleet, and it does not add up across days (the same person on Monday
+#     and Tuesday is one distinct rider, not two rider-days).
+# plannedemployee_cnt is also the column no_show_rate and planned_seats
+# already read, so "riders" means the same headcount everywhere in this file.
+#
+# WHY A PER-DAY RATE AND NOT A WINDOW TOTAL. A raw sum is not comparable
+# across windows of different lengths, and forecast.py compares exactly that:
+# its basis days are ONE-DAY windows (four same-weekday `registry.evaluate()`
+# calls) while `_readiness` judges the resulting projection against references
+# resolved over a SEVEN-DAY window. A window total would make every
+# projection read as one-seventh of its reference -- a permanent, meaningless
+# collapse. Dividing by the window's own length in days makes this metric
+# length-invariant, which is the property every other metric in this file
+# gets for free by being a ratio.
+#
+# WHY THE WINDOW'S NOMINAL LENGTH AND NOT count(DISTINCT local day). The
+# tempting alternative -- "riders per OPERATING day", counting the distinct
+# IST business days the data actually carries, the way
+# trigger/shift_planning_TransportManager/stats.py buckets its hours -- is
+# wrong HERE for a specific, checkable reason: the windows are UTC-midnight
+# aligned (sweep.py clocks off max(scheduled_at) rounded down) and IST is
+# +5:30, so a ONE-DAY window straddles TWO local business days. That
+# denominator would halve every forecast basis day while leaving the
+# seven-day reference window nearly intact -- a ~2x artifact that is purely
+# an artifact of window alignment. The nominal length divides by exactly 1
+# for a one-day window and exactly 7 for a week, for every slice, always.
+#
+# WHERE LOCAL TIME DOES ENTER, it is already handled and NOT re-derived here:
+# shift_band comes from the source's own `shift_type` "HH:MM" LOCAL shift
+# label (ingest.py's NORMALISE), not from scheduled_at, so the time-of-day
+# resolution this metric exists for is local by construction and needs no
+# IST_OFFSET_MS shift. stats.py applies the offset only where it buckets
+# `scheduled_at` into hours -- the same reasoning, applied to the one place
+# it is needed, rather than a second convention invented in this file.
+#
+# `n` (what evaluate()'s MIN_ROWS_PER_SLICE guard reads) is
+# sum(plannedemployee_cnt): the same headcount the value is built from,
+# following fix-wave I4's ruling for no_show_rate that a metric's population
+# is "the population the value was computed over", not a trip count.
+#
+# ONE DEVIATION FROM THE HOUSE PREDICATE, stated: the two window parameters
+# are bound in a leading one-row CTE and the predicate reads
+# `t.scheduled_at >= w.start_ms AND t.scheduled_at < w.end_ms` rather than
+# `>= ? AND < ?` directly. They are still the FIRST TWO placeholders, in
+# (start, end) order, ahead of any slice value -- so _params(), _with_slice()
+# and evidence_sql() all work on this metric exactly as they do on every
+# other one. The CTE exists because the numerator's denominator needs the
+# window LENGTH, and the window is bound only once.
+#
+# No ROUND() here, unlike _COST_PER_KM_SQL: the numerator is an exact BIGINT
+# sum and the divisor is a constant derived from two integer parameters, so
+# there is no parallel-float-summation ordering to round away.
+#
+# ---------------------------------------------------------------------------
+# DESIGN DECISION 1 -- DIRECTION: riders_per_day declares NO `better`
+# direction (better=None -> Metric.is_two_sided), and verdict.py judges it
+# with a GENUINE TWO-SIDED BAND rather than being handed a fake direction.
+#
+# Every other metric here is one-directional: verdict.delta() signs a
+# shortfall so that positive always means worse, and Finding.gap inherits
+# that sign. Demand is not like that. Riders 40% ABOVE the reference means
+# the fleet is about to fall short and employees get stranded; 40% BELOW
+# means vehicles were booked that nobody rode and the money is already spent.
+# Both are findings, for opposite reasons, and neither is "better". Declaring
+# HIGHER or LOWER would make the sweep blind to half of this metric's own
+# signal and would print the surviving half as an accusation no reader could
+# act on.
+#
+# The two-sided judgement (verdict.delta / verdict.tier_for / evaluate_finding,
+# bands in constants.BANDS["TWO_SIDED"]) is: d = |observed - reference| /
+# |reference| -- distance from the reference in EITHER direction -- tiered
+# through the same four-tier ladder as everything else, with the DIRECTION
+# carried by the finding's Cause (DEMAND_SURGE above, DEMAND_DROP below), so
+# the action a manager reads is "book more vehicles" or "release vehicles"
+# and never a generic "shortfall". Finding.gap keeps its positive-means-worse
+# invariant untouched: for a two-sided metric it is the magnitude of the
+# deviation, and the Cause says which side.
+# ---------------------------------------------------------------------------
+_RIDERS_PER_DAY_SQL = """
+WITH w AS (SELECT ? AS start_ms, ? AS end_ms)
+SELECT sum(t.plannedemployee_cnt)
+         / (any_value(w.end_ms - w.start_ms) / 86400000.0),
+       sum(t.plannedemployee_cnt) AS n
+FROM w, trips t
+WHERE t.scheduled_at >= w.start_ms AND t.scheduled_at < w.end_ms
+  {{SLICE}}
+"""
+
 METRICS: tuple[Metric, ...] = (
     # ota is first deliberately: it is the metric a judge reads first.
     Metric("ota", "On-time arrival", "%", Direction.HIGHER, _OTA_SQL,
@@ -266,6 +389,29 @@ METRICS: tuple[Metric, ...] = (
     Metric("cost_per_rider", "Cost per rider", "INR", Direction.LOWER,
            _COST_PER_RIDER_SQL, (ReferenceKind.TREND, ReferenceKind.PEER), "bill",
            ("trip_cost",), dims=_DIMS_EXCEPT_DIRECTION),
+    # Task 18: the demand metric. `better=None` is the TWO-SIDED declaration
+    # argued at length above _RIDERS_PER_DAY_SQL -- not a missing argument.
+    # dims is left at the full default (ALL_SLICE_DIMS): unlike the on-time
+    # metrics, DIRECTION is genuinely meaningful for demand (morning LOGIN
+    # headcount and evening LOGOUT headcount are different demands on the
+    # fleet, not the same number relabelled), and SHIFT is the whole point.
+    # refs is TREND ONLY -- deliberately NOT PEER, and this was measured
+    # rather than assumed. Every other metric here is a RATIO, which is
+    # size-free, so "worse than your peers" is a fair question for it. An
+    # absolute VOLUME is not size-free: a big site permanently carries several
+    # times the riders of a small one, so a peer-median comparison scores
+    # "large" as a surge and "small" as a collapse every single week, forever,
+    # and never moves. MEASURED on data/sample, late-July week, with PEER
+    # included: 39 metric x slice pairs, |delta| median 0.58 and max 3.51, and
+    # the top of the table was simply the biggest site, the biggest tenant and
+    # the biggest shift band -- 14 BREACHes that say nothing but "DAY shift is
+    # busier than NIGHT". With TREND alone the same slices are judged against
+    # THEIR OWN four-week history, which is the question a planner actually
+    # asks: is this week's demand different from what this slice normally
+    # runs? See constants.BANDS's TWO_SIDED note for the after numbers.
+    Metric("riders_per_day", "Riders per day", "riders/day", None,
+           _RIDERS_PER_DAY_SQL, (ReferenceKind.TREND,), "trips",
+           ("plannedemployee_cnt",)),
 )
 
 # EV share is a later task (cheap, but out of scope here). experience was
@@ -273,8 +419,20 @@ METRICS: tuple[Metric, ...] = (
 # the only one of the six needing a judgement call about its own data.
 # Task 15 adds late_pickup_rate and cost_per_rider: employee-related delay
 # and cost were previously invisible to the sweep entirely.
+#
+# DESIGN DECISION 2 -- riders_per_day IS active. It is the only volume metric
+# in the registry and the whole point of adding it was that the sweep could
+# not see a demand spike; defining it and leaving it out would have closed
+# nothing. Activating it changes the sweep goldens on both data/sample and
+# data/real (test_sweep.py pins finding counts and a BREACH ceiling on each),
+# and those were RE-MEASURED rather than adjusted -- see test_sweep.py's own
+# comments for the before/after numbers. It could only be activated honestly
+# because verdict.py now carries a real two-sided judgement; a metric swept in
+# a direction it does not have would have been a wrong answer shipped
+# confidently.
 ACTIVE_METRICS = ("ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
-                  "marshal_compliance", "late_pickup_rate", "cost_per_rider")
+                  "marshal_compliance", "late_pickup_rate", "cost_per_rider",
+                  "riders_per_day")
 # Compatibility alias -- every pre-Task-11 caller (sweep.py's default,
 # api.py's /api/health, the test suite) keeps working unchanged; new code
 # should read ACTIVE_METRICS.
@@ -290,6 +448,14 @@ def by_id(metric_id: str) -> Metric:
 
 
 def active(ids=ACTIVE_METRICS) -> tuple[Metric, ...]:
+    """The metrics the sweep judges.
+
+    A TWO-SIDED metric (Metric.is_two_sided -- riders_per_day) is included:
+    verdict.py judges it through constants.BANDS["TWO_SIDED"], not by being
+    handed a direction it does not have. Metric.__post_init__ is what keeps
+    that honest -- a two-sided metric may not carry a TARGET, since a target
+    IS a direction.
+    """
     return tuple(m for m in METRICS if m.id in ids)
 
 
@@ -529,6 +695,37 @@ def planned_seats(con, slc: "Slice | tuple[Slice, ...]", window: Window) -> int:
     caller."""
     row = con.execute(_with_slice(_PLANNED_SEATS_SQL, slc), _params(slc, window)).fetchone()
     return int(row[0]) if row and row[0] is not None else 0
+
+
+# Task 18: the seam between the demand metric and the FLEET decision it exists
+# to inform. riders_per_day answers "how many people"; a roster is written in
+# VEHICLES, so forecast.py's demand action divides projected headcount by the
+# vehicle size actually observed on the very same basis days.
+# actual_cab_capacity is MoveInSync's own per-trip seat count on the trips view
+# -- the real fleet mix for that slice, not a nominal 4-seater assumption.
+# trigger/shift_planning_TransportManager/stats.py already reads this column
+# the same way (its avgOccupancy is actualemployee_cnt / actual_cab_capacity),
+# so the two agree on what a vehicle is.
+#
+# Rows with a null or non-positive capacity are excluded: a zero-seat cab is a
+# missing field, not a vehicle with no seats, and averaging it in would shrink
+# the fleet's apparent size and over-state the vehicles needed.
+_AVG_CAB_CAPACITY_SQL = """
+SELECT avg(CAST(t.actual_cab_capacity AS DOUBLE))
+FROM trips t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND t.actual_cab_capacity IS NOT NULL AND t.actual_cab_capacity > 0
+  {{SLICE}}
+"""
+
+
+def avg_cab_capacity(con, slc: "Slice | tuple[Slice, ...]", window: Window) -> float | None:
+    """Mean seats per vehicle actually run over a slice and window, or None
+    when the window carries no trip with a usable capacity. None is a real
+    answer (say so), never a silent 1 or 4."""
+    row = con.execute(_with_slice(_AVG_CAB_CAPACITY_SQL, slc),
+                      _params(slc, window)).fetchone()
+    return float(row[0]) if row and row[0] is not None else None
 
 
 def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:

@@ -168,7 +168,13 @@ def _find(run, finding_id: str) -> Finding:
 def _list_metrics() -> dict:
     return {
         "metrics": [
-            {"id": m.id, "label": m.label, "unit": m.unit, "better": m.better.value,
+            # better is None for a TWO-SIDED metric (riders_per_day) -- a
+            # volume reading where a spike and a collapse are both findings,
+            # for opposite reasons. Reported as null rather than coerced to a
+            # direction it does not have; the model must not be told demand
+            # is "higher is better".
+            {"id": m.id, "label": m.label, "unit": m.unit,
+             "better": m.better.value if m.better is not None else None,
              "dims": [d.name for d in m.dims]}
             for m in registry.METRICS
         ]
@@ -178,7 +184,8 @@ def _list_metrics() -> dict:
 def _get_metric(metric_id: str) -> dict:
     m = registry.by_id(metric_id)   # raises ValueError naming the valid ids
     return {
-        "id": m.id, "label": m.label, "unit": m.unit, "better": m.better.value,
+        "id": m.id, "label": m.label, "unit": m.unit,
+        "better": m.better.value if m.better is not None else None,
         "refs": [r.value for r in m.refs], "target": m.target, "hardTarget": m.hard_target,
         "dims": [d.name for d in m.dims],
     }
