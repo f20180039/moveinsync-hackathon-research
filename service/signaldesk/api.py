@@ -1,6 +1,6 @@
 """The HTTP surface the console, the delivery pipeline and the interrogator are
-all written against. Task 6 adds /brief and /dispatch to this file; later
-tasks add /cost and /ask -- neither exists here.
+all written against. Task 6 adds /brief, /dispatch and /cost to this file;
+a later task adds /ask -- that one does not exist here.
 
 Bug F6: startup order is one explicit function, registered as the FastAPI
 lifespan hook, and NOT an import side effect -- importing this module must
@@ -18,6 +18,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import ingest, registry
+from .compose import brief_with_source
+from .delivery import DISPATCH_LOG, dispatch
+from .model import COST
 from .schemas import Audience, Finding
 from .sweep import STORE, Clock, ReplayClock, sweep
 
@@ -194,6 +197,70 @@ def create_app(data_dir: str | None = None) -> FastAPI:
     def post_replay_stop():
         state.clock.stop()
         return {"running": False, "clockMs": state.clock.millis()}
+
+    @app.get("/api/runs/{run_id}/brief")
+    def get_run_brief(run_id: str, audience: str = "TRANSPORT_MANAGER"):
+        run = STORE.get(run_id)
+        if run is None:
+            _not_found("run", run_id)
+        try:
+            aud = Audience(audience)
+        except ValueError:
+            valid = ", ".join(a.value for a in Audience)
+            raise HTTPException(status_code=400,
+                                detail={"error": f"unknown audience {audience!r}; "
+                                                 f"valid values are {valid}"})
+        text, source = brief_with_source(run, aud)
+        return {"runId": run.run_id, "audience": aud.value, "brief": text, "source": source}
+
+    @app.post("/api/dispatch/{run_id}")
+    def post_dispatch(run_id: str, body: dict | None = None):
+        run = STORE.get(run_id)
+        if run is None:
+            _not_found("run", run_id)
+        audiences = None
+        if body and body.get("audiences"):
+            try:
+                audiences = [Audience(a) for a in body["audiences"]]
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail={"error": str(e)})
+        records = dispatch(run, audiences)
+        return {
+            "runId": run.run_id,
+            "dispatched": [
+                {
+                    "audience": r.audience,
+                    "tier": r.tier,
+                    "channels": [
+                        {"channel": c.channel, "delivered": c.delivered, "detail": c.detail}
+                        for c in r.channels
+                    ],
+                    "findingIds": r.finding_ids,
+                }
+                for r in records
+            ],
+        }
+
+    @app.get("/api/cost")
+    def get_cost():
+        return COST.snapshot()
+
+    @app.get("/api/dispatch/log")
+    def get_dispatch_log():
+        return [
+            {
+                "runId": r.run_id,
+                "audience": r.audience,
+                "tier": r.tier,
+                "channels": [
+                    {"channel": c.channel, "delivered": c.delivered, "detail": c.detail}
+                    for c in r.channels
+                ],
+                "findingIds": r.finding_ids,
+                "sentAtMs": r.sent_at_ms,
+            }
+            for r in DISPATCH_LOG
+        ]
 
     return app
 

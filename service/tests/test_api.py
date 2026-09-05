@@ -180,3 +180,98 @@ def test_replay_start_advances_the_clock_and_stop_freezes_it(client):
     stopped = client.get("/api/health").json()["clock"]
     time.sleep(0.01)
     assert client.get("/api/health").json()["clock"] == stopped
+
+
+# ---------------------------------------------------------------------------
+# GET /api/runs/{run_id}/brief
+# ---------------------------------------------------------------------------
+
+def test_brief_on_the_sample_run_is_non_empty_and_uses_the_template_without_a_key(
+        client, monkeypatch):
+    # No SARVAM_API_KEY in the test env (even if ../.env carries a real one for
+    # the demo) -- the route must degrade to the template, and say so.
+    monkeypatch.setenv("SARVAM_API_KEY", "")
+    r = client.get("/api/runs/latest/brief", params={"audience": "TRANSPORT_MANAGER"})
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {"runId", "audience", "brief", "source"}
+    assert body["audience"] == "TRANSPORT_MANAGER"
+    assert body["source"] == "template"
+    assert len(body["brief"]) > 0
+
+
+def test_brief_for_an_unknown_run_is_404(client):
+    r = client.get("/api/runs/no-such-run-ever/brief")
+    assert r.status_code == 404
+    assert r.json()
+
+
+def test_brief_for_an_unknown_audience_is_400(client):
+    r = client.get("/api/runs/latest/brief", params={"audience": "NOT_A_REAL_AUDIENCE"})
+    assert r.status_code == 400
+    assert r.json()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/dispatch/{run_id}
+# ---------------------------------------------------------------------------
+
+def test_dispatch_with_no_channels_configured_reports_not_configured_and_still_logs(
+        client, monkeypatch):
+    monkeypatch.setenv("SARVAM_API_KEY", "")
+    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+    monkeypatch.delenv("SES_FROM", raising=False)
+    monkeypatch.delenv("SES_TO", raising=False)
+
+    before = len(client.get("/api/dispatch/log").json())
+    r = client.post("/api/dispatch/latest")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {"runId", "dispatched"}
+    assert len(body["dispatched"]) > 0
+
+    all_channels = [ch for entry in body["dispatched"] for ch in entry["channels"]]
+    assert len(all_channels) > 0
+    for ch in all_channels:
+        assert ch["delivered"] is False
+        assert ch["detail"] == "not configured"
+    for entry in body["dispatched"]:
+        assert isinstance(entry["findingIds"], list)
+
+    after = client.get("/api/dispatch/log").json()
+    assert len(after) == before + len(body["dispatched"])
+
+
+def test_dispatch_for_an_unknown_run_is_404(client):
+    r = client.post("/api/dispatch/no-such-run-ever")
+    assert r.status_code == 404
+    assert r.json()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/cost
+# ---------------------------------------------------------------------------
+
+def test_cost_snapshot_has_the_expected_shape(client):
+    r = client.get("/api/cost")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {
+        "calls", "inputTokens", "outputTokens", "tokensPerCall", "inr",
+        "inrPerOrgPerMonth", "employeesAtScale", "inrPerEmployeePerMonth",
+        "byPurpose", "pricingConfigured", "rateIsApproximate",
+    }
+
+
+# ---------------------------------------------------------------------------
+# GET /api/dispatch/log
+# ---------------------------------------------------------------------------
+
+def test_dispatch_log_is_a_list_of_json_records(client):
+    r = client.get("/api/dispatch/log")
+    assert r.status_code == 200
+    rows = r.json()
+    assert isinstance(rows, list)
+    if rows:
+        expected_keys = {"runId", "audience", "tier", "channels", "findingIds", "sentAtMs"}
+        assert set(rows[0].keys()) == expected_keys
