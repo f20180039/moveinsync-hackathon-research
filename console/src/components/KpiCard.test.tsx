@@ -48,6 +48,20 @@ describe('KpiCard', () => {
     expect(screen.getByText('Breach')).toBeInTheDocument()
   })
 
+  it('shows a TARGET reference generically, same as PEER (e.g. marshal_compliance vs a hard target)', () => {
+    const finding = makeFinding({
+      metricId: 'marshal_compliance',
+      metricLabel: 'Marshal compliance (dark hours)',
+      tier: 'BREACH',
+      observed: 93.6,
+      references: [{ kind: 'TARGET', value: 100, label: 'SLA target' }],
+    })
+    render(<KpiCard title="Marshal compliance" finding={finding} />)
+
+    expect(screen.getByText(/SLA target 100%/)).toBeInTheDocument()
+    expect(screen.getByText('Breach')).toBeInTheDocument()
+  })
+
   it('colours a rise green for a higher-is-better metric (ota)', () => {
     const finding = makeFinding({
       metricId: 'ota',

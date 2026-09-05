@@ -91,10 +91,15 @@ function App() {
 
   const findings = run?.findings ?? []
   const alertCount = findings.filter((f) => isAlertTier(f.tier)).length
+  const alertSeverity = findings.some((f) => f.tier === 'BREACH')
+    ? 'breach'
+    : findings.some((f) => f.tier === 'CONCERN')
+      ? 'concern'
+      : null
 
   return (
     <div className="shell">
-      <Sidebar alertCount={alertCount} />
+      <Sidebar alertCount={alertCount} alertSeverity={alertSeverity} />
 
       <div className="shell__main">
         <TopBar

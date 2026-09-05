@@ -26,13 +26,23 @@ function linkClassName({ isActive }: { isActive: boolean }): string {
   return `sidebar__link${isActive ? ' sidebar__link--active' : ''}`
 }
 
+export type AlertSeverity = 'breach' | 'concern' | null
+
+export interface SidebarProps {
+  alertCount: number
+  // Red only when a Breach exists among the alerts, amber when the worst
+  // is a Concern, no badge at all when there are none -- one more place
+  // severity is legible before reading a single word.
+  alertSeverity: AlertSeverity
+}
+
 // The MoveInSync-style left sidebar. Collapses to icons only below 1024px
 // (pure CSS -- the labels stay in the DOM, visually hidden rather than
 // display:none, so a screen reader still gets the full accessible name via
 // the link, not an icon-only glyph). `aria-label` is belt-and-braces on top
 // of that CSS technique: it fixes the accessible name to exactly the nav
 // item's label regardless of viewport width or how the label is styled.
-export function Sidebar({ alertCount }: { alertCount: number }) {
+export function Sidebar({ alertCount, alertSeverity }: SidebarProps) {
   return (
     <nav aria-label="Primary" className="sidebar">
       <div className="sidebar__brand">
@@ -49,7 +59,7 @@ export function Sidebar({ alertCount }: { alertCount: number }) {
               </span>
               <span className="sidebar__label">{item.label}</span>
               {item.to === '/alerts' && alertCount > 0 && (
-                <span className="sidebar__badge">{alertCount}</span>
+                <span className={`sidebar__badge sidebar__badge--${alertSeverity}`}>{alertCount}</span>
               )}
             </NavLink>
           </li>

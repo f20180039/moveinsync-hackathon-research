@@ -1,6 +1,7 @@
 import { computeDelta, findReference } from '../api/insights.ts'
+import { label } from '../api/labels.ts'
 import { formatMetricValue } from '../api/types.ts'
-import type { Finding } from '../api/types.ts'
+import type { Finding, Reference } from '../api/types.ts'
 import { Card } from './Card.tsx'
 import { TierBadge } from './TierBadge.tsx'
 
@@ -10,9 +11,10 @@ export interface KpiCardProps {
 }
 
 // Answers "is this number good or bad?" at a glance: the observed value,
-// its own recent history (the trend reference), its peers (the peer
-// reference, when the finding carries one), and the tier word -- per the
-// jury insight this card exists to demonstrate.
+// its own recent history (the TREND reference, as a delta), and every
+// other reference it carries (PEER, TARGET, or a kind that doesn't exist
+// yet) rendered generically -- plus the tier word. Per the jury insight
+// this card exists to demonstrate: is 92% good or bad, compared to whom.
 export function KpiCard({ title, finding }: KpiCardProps) {
   if (!finding) {
     return (
@@ -24,19 +26,25 @@ export function KpiCard({ title, finding }: KpiCardProps) {
   }
 
   const trendRef = findReference(finding, 'TREND')
-  const peerRef = findReference(finding, 'PEER')
+  // Every reference besides TREND, shown generically -- PEER ("peer
+  // median 64.1%"), TARGET ("SLA target 90%"), or a kind introduced later.
+  // No switch on `kind` here, matching the rest of the console.
+  const otherRefs: Reference[] = finding.references.filter((ref) => ref.kind !== 'TREND')
   const delta = trendRef ? computeDelta(finding.observed, trendRef.value, finding.metricId, finding.unit) : null
 
-  // Comparison bar: observed vs trend vs peer, each a marker on one track,
-  // positioned by relative value (not a sparkline -- there's no honest
-  // 5-point history to draw one from).
-  const values = [finding.observed, trendRef?.value, peerRef?.value].filter(
-    (v): v is number => typeof v === 'number',
-  )
+  // Comparison bar: observed vs every reference, each a marker on one
+  // track, positioned by relative value (not a sparkline -- there's no
+  // honest 5-point history to draw one from).
+  const values = [finding.observed, ...finding.references.map((ref) => ref.value)]
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
   const percentFor = (v: number) => ((v - min) / span) * 100
+
+  const barLabelParts = [
+    `Observed ${formatMetricValue(finding.observed, finding.unit)}`,
+    ...finding.references.map((ref) => `${ref.label || label('referenceKind', ref.kind)} ${formatMetricValue(ref.value, finding.unit)}`),
+  ]
 
   return (
     <Card className="kpi-card">
@@ -49,21 +57,15 @@ export function KpiCard({ title, finding }: KpiCardProps) {
         </p>
       )}
 
-      {peerRef && (
-        <p className="kpi-card__peer">
-          {peerRef.label} {formatMetricValue(peerRef.value, finding.unit)}
+      {otherRefs.map((ref) => (
+        <p key={ref.kind} className="kpi-card__reference">
+          {ref.label || label('referenceKind', ref.kind)} {formatMetricValue(ref.value, finding.unit)}
         </p>
-      )}
+      ))}
 
       <TierBadge tier={finding.tier} />
 
-      <div
-        className="kpi-card__bar"
-        role="img"
-        aria-label={`Observed ${formatMetricValue(finding.observed, finding.unit)}${
-          trendRef ? `, trend ${formatMetricValue(trendRef.value, finding.unit)}` : ''
-        }${peerRef ? `, peer ${formatMetricValue(peerRef.value, finding.unit)}` : ''}`}
-      >
+      <div className="kpi-card__bar" role="img" aria-label={barLabelParts.join(', ')}>
         <div className="kpi-card__bar-track">
           <span
             className="kpi-card__bar-marker kpi-card__bar-marker--observed"
@@ -75,17 +77,20 @@ export function KpiCard({ title, finding }: KpiCardProps) {
               style={{ left: `${percentFor(trendRef.value)}%` }}
             />
           )}
-          {peerRef && (
+          {otherRefs.map((ref) => (
             <span
+              key={ref.kind}
               className="kpi-card__bar-marker kpi-card__bar-marker--peer"
-              style={{ left: `${percentFor(peerRef.value)}%` }}
+              style={{ left: `${percentFor(ref.value)}%` }}
             />
-          )}
+          ))}
         </div>
         <div className="kpi-card__bar-legend">
           <span>Observed</span>
           {trendRef && <span>Trend</span>}
-          {peerRef && <span>Peer</span>}
+          {otherRefs.map((ref) => (
+            <span key={ref.kind}>{ref.label || label('referenceKind', ref.kind)}</span>
+          ))}
         </div>
       </div>
     </Card>

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { Sidebar } from './Sidebar.tsx'
+import type { AlertSeverity } from './Sidebar.tsx'
 
 const ALL_LABELS = [
   'Overview',
@@ -15,10 +16,10 @@ const ALL_LABELS = [
   'Brief & dispatch',
 ]
 
-function renderSidebar(initialEntries: string[] = ['/'], alertCount = 0) {
+function renderSidebar(initialEntries: string[] = ['/'], alertCount = 0, alertSeverity: AlertSeverity = null) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>
-      <Sidebar alertCount={alertCount} />
+      <Sidebar alertCount={alertCount} alertSeverity={alertSeverity} />
     </MemoryRouter>,
   )
 }
@@ -48,14 +49,30 @@ describe('Sidebar', () => {
   })
 
   it('shows the alert count as a badge when there are unread alerts', () => {
-    renderSidebar(['/'], 3)
+    renderSidebar(['/'], 3, 'breach')
 
     expect(screen.getByRole('link', { name: 'Alerts' })).toHaveTextContent('3')
   })
 
   it('shows no badge when there are no alerts', () => {
-    renderSidebar(['/'], 0)
+    renderSidebar(['/'], 0, null)
 
     expect(screen.getByRole('link', { name: 'Alerts' })).not.toHaveTextContent(/\d/)
+  })
+
+  it('colours the badge red when a Breach exists, amber when only Concern does', () => {
+    const { container, rerender } = render(
+      <MemoryRouter>
+        <Sidebar alertCount={2} alertSeverity="breach" />
+      </MemoryRouter>,
+    )
+    expect(container.querySelector('.sidebar__badge')?.classList.contains('sidebar__badge--breach')).toBe(true)
+
+    rerender(
+      <MemoryRouter>
+        <Sidebar alertCount={1} alertSeverity="concern" />
+      </MemoryRouter>,
+    )
+    expect(container.querySelector('.sidebar__badge')?.classList.contains('sidebar__badge--concern')).toBe(true)
   })
 })

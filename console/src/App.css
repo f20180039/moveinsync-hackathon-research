@@ -24,17 +24,41 @@
   /* Controls (Button + Select share these) */
   --control-height-md: 40px;
   --control-height-sm: 32px;
+  /* The sticky top bar's rendered height (padding + control height +
+     border) -- any other sticky element sharing its scroll container
+     (the findings column header) offsets by this instead of also using
+     top: 0, so the two don't fight for the same spot. */
+  --top-bar-height: 73px;
   --focus-ring: 0 0 0 3px var(--accent-border);
   --btn-primary-text: #fff;
 
   /* Tier colours -- the one place BREACH/CONCERN/WATCH/PASS map to a
      colour. TierBadge, the feed-health flag and the confidence note all
-     reference these instead of repeating hex. */
+     reference these instead of repeating hex.
+     --tier-breach/--tier-concern are the two SATURATED colours anywhere
+     on screen (fills, with white/dark text -- see --tier-*-fill-ink and
+     the contrast pairs in the report). --tier-watch/--tier-pass stay as
+     the (separately-used) delta good/bad greens/purples; the tier BADGE
+     itself for Watch/Pass uses --tier-neutral instead, desaturated on
+     purpose so only Breach/Concern pop. */
   --tier-breach: #b3261e;
   --tier-concern: #a15c00;
   --tier-watch: #5b5bd6;
   --tier-pass: #1e7a45;
   --tier-breach-bg: rgba(179, 38, 30, 0.06);
+  --tier-breach-fill-ink: #fff;
+  --tier-concern-fill: #f0a202;
+  --tier-concern-fill-ink: var(--text-h);
+  --tier-concern-bg: rgba(240, 162, 2, 0.08);
+  --tier-neutral: #6b7280;
+
+  /* Three text levels, no more: ink-1 (titles, observed values, the
+     action line -- primary, heavier weight), ink-2 (body text and
+     labels -- secondary, ~60% contrast, aliases the existing --text),
+     ink-3 (captions/hints -- tertiary, most muted). */
+  --ink-1: var(--text-h);
+  --ink-2: var(--text);
+  --ink-3: #78717f;
 
   /* Findings grid: chevron | severity | metric | slice | observed |
      compared-against | confidence -- shared by the column header and every
@@ -64,30 +88,48 @@
   text-align: right;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 #root {
   width: 100%;
+  height: 100dvh;
   max-width: none;
   text-align: left;
   border-inline: none;
+  overflow: hidden;
 }
 
 body {
   background: var(--bg);
 }
 
-/* Shell: left sidebar + (top bar, then routed page content). */
+/* Shell: left sidebar (its own scroll) + main column (its own scroll,
+   sticky top bar). Only the main content scrolls -- the page/body never
+   does, and the sidebar's own Reports links stay reachable via its own
+   scroll on a short viewport. */
 
 .shell {
-  display: flex;
-  min-height: 100vh;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .shell {
+    grid-template-columns: var(--sidebar-width-collapsed) 1fr;
+  }
 }
 
 .shell__main {
-  flex: 1;
-  min-width: 0;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .shell__content {
@@ -107,11 +149,14 @@ body {
   color: var(--tier-breach);
 }
 
-/* Sidebar */
+/* Sidebar -- a grid column, its own sticky/scrolling column so a short
+   viewport can still reach the Reports links at the bottom. */
 
 .sidebar {
-  width: var(--sidebar-width);
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
   background: var(--sidebar-bg);
   color: var(--sidebar-text);
   display: flex;
@@ -122,9 +167,8 @@ body {
 }
 
 @media (max-width: 1024px) {
-  .sidebar {
-    width: var(--sidebar-width-collapsed);
-  }
+  /* Sidebar width itself now comes from .shell's grid-template-columns
+     (above); nothing to override here directly. */
 
   /* Visually hidden, not display:none -- display:none removes text from
      the accessibility tree, which would leave every collapsed NavLink with
@@ -223,13 +267,21 @@ body {
 }
 
 .sidebar__badge {
-  background: var(--tier-breach);
-  color: var(--sidebar-text-active);
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
   border-radius: 999px;
   padding: 3px 7px;
+}
+
+.sidebar__badge--breach {
+  background: var(--tier-breach);
+  color: var(--tier-breach-fill-ink);
+}
+
+.sidebar__badge--concern {
+  background: var(--tier-concern-fill);
+  color: var(--tier-concern-fill-ink);
 }
 
 .sidebar__tagline {
@@ -242,6 +294,10 @@ body {
 /* Top bar */
 
 .top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -477,24 +533,66 @@ body {
   gap: var(--space-2);
 }
 
-/* Tier badge */
+/* Tier badge -- Breach/Concern are the only saturated fills anywhere on
+   screen (rule: severity in form AND colour, but colour is loudest only
+   for the two tiers that need to be seen first). Watch/Pass are
+   deliberately desaturated outline badges with a thin stripe, so the eye
+   lands on red/amber before anything else. */
 
 .tier-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  padding: 2px var(--space-2) 2px 2px;
+  border-radius: 999px;
+  line-height: 1;
 }
 
 .tier-badge__stripe {
   display: inline-block;
-  width: 6px;
+  width: 4px;
   height: 18px;
   border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.tier-badge__icon {
+  flex-shrink: 0;
 }
 
 .tier-badge__word {
   font-size: var(--font-sm);
   letter-spacing: 0.6px;
+  font-weight: 700;
+}
+
+.tier-badge--strong.tier-badge--breach {
+  background: var(--tier-breach);
+  color: var(--tier-breach-fill-ink);
+}
+
+.tier-badge--strong.tier-badge--breach .tier-badge__stripe {
+  background: var(--tier-breach-fill-ink);
+}
+
+.tier-badge--strong.tier-badge--concern {
+  background: var(--tier-concern-fill);
+  color: var(--tier-concern-fill-ink);
+}
+
+.tier-badge--strong.tier-badge--concern .tier-badge__stripe {
+  background: var(--tier-concern-fill-ink);
+}
+
+.tier-badge--muted {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--tier-neutral);
+}
+
+.tier-badge--muted .tier-badge__stripe {
+  width: 2px;
+  background: var(--tier-neutral);
 }
 
 /* Findings list */
@@ -522,7 +620,7 @@ body {
   font-weight: 600;
   color: var(--text);
   position: sticky;
-  top: 0;
+  top: var(--top-bar-height);
   z-index: 1;
 }
 
@@ -568,7 +666,8 @@ body {
 }
 
 .finding-row__metric {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink-1);
 }
 
 .finding-row__slice {
@@ -576,7 +675,8 @@ body {
 }
 
 .finding-row__observed {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink-1);
   white-space: nowrap;
 }
 
@@ -850,7 +950,7 @@ body {
 .kpi-card__value {
   font-size: 32px;
   font-weight: 700;
-  color: var(--text-h);
+  color: var(--ink-1);
   margin: 0;
 }
 
@@ -874,7 +974,7 @@ body {
   color: var(--bad-color);
 }
 
-.kpi-card__peer {
+.kpi-card__reference {
   font-size: var(--font-sm);
   color: var(--text);
   margin: 0;
@@ -913,7 +1013,11 @@ body {
 }
 
 .kpi-card__bar-marker--peer {
-  background: var(--tier-watch);
+  /* Not a tier colour -- this is a third reference dot (peer or target),
+     kept neutral so KPI cards stay "tier chip + delta are the only
+     coloured elements" (the bar's dots are a comparison aid, not a
+     severity signal). */
+  background: var(--accent-border);
   z-index: 1;
 }
 
@@ -959,20 +1063,44 @@ body {
   flex-shrink: 0;
 }
 
+.priority-card--breach .priority-card__stripe,
+.priority-card--concern .priority-card__stripe {
+  width: 4px;
+}
+
 .priority-card--breach .priority-card__stripe {
   background: var(--tier-breach);
 }
 
 .priority-card--concern .priority-card__stripe {
+  /* --tier-concern (darker amber), not --tier-concern-fill (the bright
+     badge fill) -- the bright fill only clears 3:1 against a badge's own
+     dark-ink text, not as a stripe against the card's white background
+     (2.1:1, checked and rejected); the darker amber clears 5.2:1 here. */
   background: var(--tier-concern);
 }
 
-.priority-card--watch .priority-card__stripe {
-  background: var(--tier-watch);
+.priority-card--watch .priority-card__stripe,
+.priority-card--pass .priority-card__stripe {
+  width: 2px;
+  background: var(--tier-neutral);
 }
 
-.priority-card--pass .priority-card__stripe {
-  background: var(--tier-pass);
+/* A faint tinted band behind the title row for the two saturated tiers
+   only -- Watch/Pass get none, so the eye still lands on Breach/Concern
+   cards first even scanning a long list. */
+.priority-card--breach .priority-card__header {
+  background: var(--tier-breach-bg);
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+}
+
+.priority-card--concern .priority-card__header {
+  background: var(--tier-concern-bg);
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
 }
 
 .priority-card__body {
@@ -995,6 +1123,8 @@ body {
 .priority-card__title {
   margin: 0;
   font-size: var(--font-lg);
+  color: var(--ink-1);
+  font-weight: 700;
 }
 
 .priority-card__dimension-tag {
@@ -1061,7 +1191,8 @@ body {
 }
 
 .priority-card__action {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--ink-1);
   margin: 0;
 }
 
@@ -1231,7 +1362,7 @@ body {
 
 .pagination__summary {
   font-size: var(--font-sm);
-  color: var(--text);
+  color: var(--ink-3);
 }
 
 .pagination__controls {
@@ -1242,6 +1373,6 @@ body {
 
 .pagination__page {
   font-size: var(--font-sm);
-  color: var(--text);
+  color: var(--ink-3);
   white-space: nowrap;
 }

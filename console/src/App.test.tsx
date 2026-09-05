@@ -115,6 +115,32 @@ describe('App', () => {
     expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
   })
 
+  it('shell: only the main region scrolls -- structural check (jsdom does not apply our stylesheet, so this checks class names, not computed CSS)', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const { container } = renderApp()
+    await screen.findByText(new RegExp(fixture.runId))
+
+    // These class names are exactly what App.css's sticky-shell rules key
+    // off (`.shell__main { overflow-y: auto; ... }`, `.sidebar { position:
+    // sticky; ... }`) -- confirmed structurally here; confirmed visually
+    // by eye at 1440x900 and 390px (see the Stage 4 report).
+    const shell = container.querySelector('.shell')
+    const sidebar = container.querySelector('.sidebar')
+    const main = container.querySelector('.shell__main')
+    expect(shell).toBeInTheDocument()
+    expect(sidebar).toBeInTheDocument()
+    expect(main).toBeInTheDocument()
+
+    // The sidebar is one persistent element, not remounted per route --
+    // the same DOM node survives a route change (a weak but real proxy for
+    // "the sidebar has its own stable scroll region, independent of the
+    // page content changing underneath it").
+    await userEvent.setup().click(screen.getByRole('link', { name: 'Insights' }))
+    await screen.findByRole('heading', { level: 1, name: /insights/i })
+    expect(container.querySelector('.sidebar')).toBe(sidebar)
+  })
+
   it('shows the error message, not a stack, when a fetch fails', async () => {
     const fetchMock = vi.fn(() =>
       Promise.resolve({ ok: false, status: 500, statusText: 'Server Error', text: async () => '' } as Response),
