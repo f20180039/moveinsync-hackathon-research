@@ -393,3 +393,56 @@ def test_a_truncated_response_twice_is_withheld():
     result = tools.ask(duckdb.connect(), run, "anything", model=model)
     assert result["withheld"] is True
     assert "truncated" in result["reason"]
+
+
+# ---------------------------------------------------------------------------
+# Provenance -- UAT task 1. "When the console shows output after the LLM
+# call, is it really using Gen AI?" was tribal knowledge: the brief already
+# carried `source` ("sarvam" | "template") but /api/ask carried nothing, so
+# an answer on screen could not be told apart from a refusal-shaped
+# deterministic path by anyone reading the response. Every ask result now
+# names the path that produced it, honestly, in the same vocabulary.
+# ---------------------------------------------------------------------------
+
+def test_an_accepted_answer_is_labelled_as_coming_from_the_model():
+    run = _run([_finding()])
+    model = StubModel([_FakeMessage(content="Vendor is behind its peers.")])
+    result = tools.ask(duckdb.connect(), run, "anything", model=model)
+    assert result["withheld"] is False
+    assert result["source"] == tools.SOURCE_MODEL == "sarvam"
+
+
+def test_a_withheld_answer_is_labelled_as_not_coming_from_the_model():
+    # Every refusal path must be honest about the same thing: nothing the
+    # model wrote reached the screen. Four of them, one per exit.
+    run = _run([_finding()])
+    outage = tools.ask(duckdb.connect(), run, "anything",
+                       model=StubModel([RuntimeError("connection refused")]))
+    empty = tools.ask(duckdb.connect(), run, "anything",
+                      model=StubModel([_FakeMessage(content="")]))
+    invented = tools.ask(duckdb.connect(), run, "anything",
+                         model=StubModel([_FakeMessage(content="OTA was 12.7%.")]))
+    truncated = tools.ask(duckdb.connect(), run, "anything", model=StubModel([
+        TruncatedResponse("hit the ceiling", max_tokens=8000),
+        TruncatedResponse("hit it again", max_tokens=16000)]))
+    for result in (outage, empty, invented, truncated):
+        assert result["withheld"] is True
+        assert result["source"] == tools.SOURCE_WITHHELD == "withheld"
+
+
+def test_no_api_key_is_labelled_withheld_not_silently_answered(monkeypatch):
+    # The single most misleading case: no key configured at all. The answer
+    # must not merely be null -- it must SAY that no model produced it.
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    run = _run([_finding()])
+    result = tools.ask(duckdb.connect(), run, "anything", model=None)
+    assert result["source"] == tools.SOURCE_WITHHELD
+
+
+def test_the_budget_exhausted_refusal_is_also_labelled():
+    run = _run([_finding()])
+    model = StubModel([_FakeMessage(tool_calls=[
+        _FakeToolCall(f"c{i}", "list_metrics", "{}")]) for i in range(tools.MAX_TOOL_CALLS)])
+    result = tools.ask(duckdb.connect(), run, "anything", model=model)
+    assert result["withheld"] is True
+    assert result["source"] == tools.SOURCE_WITHHELD

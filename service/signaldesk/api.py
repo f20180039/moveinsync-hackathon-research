@@ -496,6 +496,11 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "answer": result["answer"],
             "withheld": result["withheld"],
             "reason": result["reason"],
+            # UAT task 1: provenance, in the same vocabulary the brief uses.
+            # "sarvam" means the model wrote these words and every figure in
+            # them was checked against a tool result; "withheld" means
+            # nothing the model wrote reached the screen.
+            "source": result["source"],
             "trace": result["trace"],
         }
 

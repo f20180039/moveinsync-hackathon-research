@@ -656,3 +656,36 @@ def test_dispatch_log_is_a_list_of_json_records(client):
     if rows:
         expected_keys = {"runId", "audience", "tier", "channels", "findingIds", "sentAtMs"}
         assert set(rows[0].keys()) == expected_keys
+
+
+# ---------------------------------------------------------------------------
+# Provenance in the API -- UAT task 1. Whether the words on screen were
+# written by Gen AI or by a deterministic path was previously readable only
+# from the source. Both model-mediated responses now say so themselves, in
+# the same vocabulary.
+# ---------------------------------------------------------------------------
+
+def test_the_brief_response_says_template_when_no_model_can_be_called(client, monkeypatch):
+    # The honest half of the question: with no key there is no model call to
+    # make, so the prose on screen is deterministic -- and the field SAYS so
+    # rather than letting a reader assume Gen AI wrote it. Asserted with the
+    # key removed so the test states a fact about the code, not about
+    # whichever environment it happens to run in.
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    body = client.get("/api/runs/latest/brief").json()
+    assert body["source"] == "template"
+
+
+def test_the_ask_response_names_the_path_that_wrote_it(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
+    assert body["withheld"] is True
+    assert body["source"] == "withheld"
+    assert body["answer"] is None
+
+
+def test_every_ask_response_carries_a_source_field(client):
+    # The console renders this; it must never be absent, on any path.
+    body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
+    assert "source" in body
+    assert body["source"] in {"sarvam", "withheld"}

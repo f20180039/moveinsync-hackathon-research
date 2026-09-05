@@ -362,6 +362,33 @@ TOOL_SCHEMAS = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Provenance. "Is the console really using Gen AI, or not?" must be
+# answerable from the response itself rather than from the source tree. The
+# brief already names its path (`compose.brief_with_source` -> "sarvam" |
+# "template"); an ask answer now names its own in the SAME vocabulary:
+# "sarvam" when the words on screen were written by the model and passed the
+# numeric validator, "withheld" when nothing the model wrote reached the
+# screen at all (no key, outage, truncation, budget exhausted, or a figure
+# no tool returned). There is deliberately no third value: ask has no
+# deterministic prose path to fall back to, and inventing one that quietly
+# looked like an answer is exactly the confusion this field exists to end.
+# ---------------------------------------------------------------------------
+
+SOURCE_MODEL = "sarvam"
+SOURCE_WITHHELD = "withheld"
+
+
+def _answered(answer: str, trace: list[dict]) -> dict:
+    return {"answer": answer, "withheld": False, "reason": None,
+            "source": SOURCE_MODEL, "trace": trace}
+
+
+def _withheld(reason: str, trace: list[dict]) -> dict:
+    return {"answer": None, "withheld": True, "reason": reason,
+            "source": SOURCE_WITHHELD, "trace": trace}
+
+
 def _collect_numbers(obj) -> set[float]:
     """Every numeric leaf in a tool result -- Task 9's validator allows a
     figure the model repeats from a tool result, not just from a Finding
@@ -399,17 +426,18 @@ def _complete_with_retry(model, messages: list[dict]):
 def ask(con, run, question: str, model=None) -> dict:
     """The bounded interrogator: at most MAX_TOOL_CALLS tool calls, then
     answers from what it gathered (or declines). Always returns
-    {answer, withheld, reason, trace} -- trace is populated even when the
-    answer is withheld, so the verified numbers a tool actually returned
-    stay visible even when the prose is rejected."""
+    {answer, withheld, reason, source, trace} -- trace is populated even when
+    the answer is withheld, so the verified numbers a tool actually returned
+    stay visible even when the prose is rejected, and `source` names the path
+    that produced the words ("sarvam" or "withheld") so no reader has to
+    infer whether Gen AI was involved."""
     trace: list[dict] = []
     all_numbers: set[float] = set()
 
     if model is None:
         api_key = os.environ.get("SARVAM_API_KEY", "")
         if not api_key:
-            return {"answer": None, "withheld": True,
-                    "reason": "no SARVAM_API_KEY configured", "trace": trace}
+            return _withheld("no SARVAM_API_KEY configured", trace)
         model = SarvamClient(api_key=api_key)
 
     tools_impl = _build_tools(con, run)
@@ -423,25 +451,21 @@ def ask(con, run, question: str, model=None) -> dict:
         try:
             msg = _complete_with_retry(model, messages)
         except TruncatedResponse as e:
-            return {"answer": None, "withheld": True,
-                    "reason": f"model truncated twice: {e}", "trace": trace}
+            return _withheld(f"model truncated twice: {e}", trace)
         except Exception as exc:
             logger.warning("tools: ask model call failed (%s)", type(exc).__name__, exc_info=True)
-            return {"answer": None, "withheld": True,
-                    "reason": f"model unavailable ({type(exc).__name__})", "trace": trace}
+            return _withheld(f"model unavailable ({type(exc).__name__})", trace)
 
         tool_calls = getattr(msg, "tool_calls", None)
         if not tool_calls:
             answer = (msg.content or "").strip()
             if not answer:
-                return {"answer": None, "withheld": True,
-                        "reason": "model returned no answer and called no tool", "trace": trace}
+                return _withheld("model returned no answer and called no tool", trace)
             bad = validate_narrative(answer, run, extra_values=all_numbers)
             if bad is not None:
-                return {"answer": None, "withheld": True,
-                        "reason": f"answer contained a figure no tool returned: {bad}",
-                        "trace": trace}
-            return {"answer": answer, "withheld": False, "reason": None, "trace": trace}
+                return _withheld(
+                    f"answer contained a figure no tool returned: {bad}", trace)
+            return _answered(answer, trace)
 
         messages.append({
             "role": "assistant",
@@ -469,5 +493,4 @@ def ask(con, run, question: str, model=None) -> dict:
             all_numbers |= _collect_numbers(result)
             messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
 
-    return {"answer": None, "withheld": True,
-            "reason": f"tool call budget ({MAX_TOOL_CALLS}) exhausted", "trace": trace}
+    return _withheld(f"tool call budget ({MAX_TOOL_CALLS}) exhausted", trace)
