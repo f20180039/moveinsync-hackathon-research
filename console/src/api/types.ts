@@ -65,6 +65,16 @@ export interface Finding {
   // "no server-computed contributors yet", not an error -- the Why column
   // falls back to the cause phrase.
   owns?: OwnsRow[]
+  // Landing on the service partition (Task 16) -- optional, present only
+  // on CONCERN/BREACH findings: how many of the last `of` windows this
+  // same slice was also Concern or worse. Feature-detect: absent means
+  // "not computed for this finding", not zero.
+  recurrence?: Recurrence
+}
+
+export interface Recurrence {
+  weeks: number
+  of: number
 }
 
 export interface FindingsResponse {

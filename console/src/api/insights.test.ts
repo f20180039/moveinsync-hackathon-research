@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildFindingSentence, computeDelta, groupFindingsByMetric, isLowerBetter, selectPriorityFindings } from './insights.ts'
+import {
+  buildFindingSentence,
+  computeDelta,
+  groupFindingsByMetric,
+  isLowerBetter,
+  isRecurring,
+  selectPriorityFindings,
+  sortRecurringFirst,
+} from './insights.ts'
 import type { Finding } from './types.ts'
 
 function makeFinding(overrides: Partial<Finding>): Finding {
@@ -138,6 +146,52 @@ describe('selectPriorityFindings', () => {
     const findings = makeMany('marshal_compliance', 5)
     const result = selectPriorityFindings(findings, 5, 2)
     expect(result).toHaveLength(5)
+  })
+})
+
+describe('isRecurring', () => {
+  it('is true at 3 of the last 4 weeks and at 4 of 4', () => {
+    expect(isRecurring(makeFinding({ recurrence: { weeks: 3, of: 4 } }))).toBe(true)
+    expect(isRecurring(makeFinding({ recurrence: { weeks: 4, of: 4 } }))).toBe(true)
+  })
+
+  it('is false at 2 of the last 4 weeks', () => {
+    expect(isRecurring(makeFinding({ recurrence: { weeks: 2, of: 4 } }))).toBe(false)
+  })
+
+  it('is false when recurrence is absent (feature-detected, not a crash)', () => {
+    expect(isRecurring(makeFinding({}))).toBe(false)
+  })
+})
+
+describe('sortRecurringFirst', () => {
+  it('floats a recurring finding above a non-recurring one within the same tier', () => {
+    const findings = [
+      makeFinding({ id: 'a', tier: 'BREACH' }),
+      makeFinding({ id: 'b', tier: 'BREACH', recurrence: { weeks: 3, of: 4 } }),
+      makeFinding({ id: 'c', tier: 'BREACH' }),
+    ]
+
+    expect(sortRecurringFirst(findings).map((f) => f.id)).toEqual(['b', 'a', 'c'])
+  })
+
+  it('never lets a recurring CONCERN outrank a non-recurring BREACH', () => {
+    const findings = [
+      makeFinding({ id: 'concern-recurring', tier: 'CONCERN', recurrence: { weeks: 4, of: 4 } }),
+      makeFinding({ id: 'breach-plain', tier: 'BREACH' }),
+    ]
+
+    expect(sortRecurringFirst(findings).map((f) => f.id)).toEqual(['breach-plain', 'concern-recurring'])
+  })
+
+  it('keeps the server\'s relative order among findings that tie on tier and recurrence', () => {
+    const findings = [
+      makeFinding({ id: 'a', tier: 'BREACH' }),
+      makeFinding({ id: 'b', tier: 'BREACH' }),
+      makeFinding({ id: 'c', tier: 'BREACH' }),
+    ]
+
+    expect(sortRecurringFirst(findings).map((f) => f.id)).toEqual(['a', 'b', 'c'])
   })
 })
 

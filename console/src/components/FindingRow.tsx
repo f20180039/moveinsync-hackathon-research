@@ -9,6 +9,7 @@ import {
   shouldDiscloseConfidence,
 } from '../api/types.ts'
 import { EvidencePanel } from './EvidencePanel.tsx'
+import { RecurringTag } from './RecurringTag.tsx'
 import { TierBadge } from './TierBadge.tsx'
 
 export function FindingRow({ finding }: { finding: Finding }) {
@@ -35,7 +36,13 @@ export function FindingRow({ finding }: { finding: Finding }) {
         <span className="finding-row__chevron" aria-hidden="true">
           {expanded ? '▾' : '▸'}
         </span>
-        <TierBadge tier={finding.tier} />
+        {/* One grid cell, same as before RecurringTag existed -- both live
+            inside this wrapper so adding the tag never changes the row's
+            cell count against the header. */}
+        <span className="finding-row__severity">
+          <TierBadge tier={finding.tier} />
+          <RecurringTag finding={finding} />
+        </span>
         <span className="finding-row__metric">{finding.metricLabel}</span>
         <span className="finding-row__slice">{formatSliceLabel(finding.sliceLabel)}</span>
         <span className="finding-row__observed num">

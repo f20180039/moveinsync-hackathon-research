@@ -3,7 +3,7 @@
 // rendering here, so every rule is unit-testable without mounting anything.
 
 import { formatSliceLabel } from './labels.ts'
-import { formatMetricValue, isDataGap } from './types.ts'
+import { TIER_ORDER, formatMetricValue, isDataGap } from './types.ts'
 import type { Finding, Reference } from './types.ts'
 
 // Metrics where a LOWER observed value is the good direction. Everything
@@ -144,6 +144,30 @@ export function buildFindingSentence(finding: Finding): string {
   const unitWord = finding.unit === '%' ? 'points' : finding.unit
   const refText = formatMetricValue(primaryRef.value, finding.unit)
   return `${subject} is ${observedText}, ${magnitude} ${unitWord} ${direction} the ${primaryRef.label} of ${refText}.`
+}
+
+// A finding counts as "recurring" once the same slice has been Concern or
+// worse in at least this many of the last `recurrence.of` windows.
+// `recurrence` is optional (Task 16, landing on the service partition) --
+// feature-detected: no field at all reads as "not recurring", not as a
+// crash.
+export const RECURRING_THRESHOLD_WEEKS = 3
+
+export function isRecurring(finding: Finding): boolean {
+  return (finding.recurrence?.weeks ?? 0) >= RECURRING_THRESHOLD_WEEKS
+}
+
+// Stable re-sort: recurring findings float above non-recurring ones, but
+// only *within* the same tier -- a CONCERN, recurring or not, never
+// outranks a BREACH. Array.prototype.sort is stable in every engine this
+// project targets, so findings that tie on both keys keep the server's
+// own relative order.
+export function sortRecurringFirst(findings: Finding[]): Finding[] {
+  return [...findings].sort((a, b) => {
+    const tierDiff = TIER_ORDER.indexOf(b.tier) - TIER_ORDER.indexOf(a.tier)
+    if (tierDiff !== 0) return tierDiff
+    return Number(isRecurring(b)) - Number(isRecurring(a))
+  })
 }
 
 // "vendor Vikram Mikhailov Travel" -> "Vikram Mikhailov Travel" (drop the

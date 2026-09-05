@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isDismissed } from '../api/dismissed.ts'
-import { selectPriorityFindings } from '../api/insights.ts'
+import { selectPriorityFindings, sortRecurringFirst } from '../api/insights.ts'
 import type { Finding } from '../api/types.ts'
 import { isAlertTier } from '../api/types.ts'
 import { AskBar } from '../components/AskBar.tsx'
@@ -24,7 +24,10 @@ export interface OverviewPageProps {
 // The greeting band (Stage 1) plus, on top of it: four KPI cards (the OTA
 // card and its peer/trend context is the demo's core, per the jury
 // insight) and the top-5 priority actions. `findings` is already ranked
-// worst-first by the server -- filtered and sliced here, never re-sorted.
+// worst-first by the server -- filtered and capped here, and then
+// re-sorted only within a tier (recurring findings float above
+// non-recurring ones at the same severity; a CONCERN never outranks a
+// BREACH), never across tiers.
 export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps) {
   // Triggers a re-render after a Dismiss click, which is all that's needed
   // for the plain (non-memoized) filter below to pick up the updated
@@ -33,7 +36,7 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
   const [, forceRerender] = useState(0)
 
   const alertFindings = findings.filter((f) => isAlertTier(f.tier) && !isDismissed(f.id))
-  const priorityFindings = selectPriorityFindings(alertFindings, PRIORITY_LIMIT, MAX_PER_METRIC)
+  const priorityFindings = sortRecurringFirst(selectPriorityFindings(alertFindings, PRIORITY_LIMIT, MAX_PER_METRIC))
 
   return (
     <>

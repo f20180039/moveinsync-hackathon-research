@@ -8,6 +8,7 @@ import { formatMetricValue, isDataGap } from '../api/types.ts'
 import { Button } from './Button.tsx'
 import { Card } from './Card.tsx'
 import { EvidencePanel } from './EvidencePanel.tsx'
+import { RecurringTag } from './RecurringTag.tsx'
 import { TierBadge } from './TierBadge.tsx'
 
 const DECOMPOSE_DIMENSIONS: DecomposeDimension[] = ['VENDOR', 'SITE', 'SHIFT', 'DELAY_REASON']
@@ -113,6 +114,7 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
             )}
           </h3>
           <TierBadge tier={finding.tier} />
+          <RecurringTag finding={finding} />
         </div>
 
         <p className="priority-card__sentence">{buildFindingSentence(finding)}</p>

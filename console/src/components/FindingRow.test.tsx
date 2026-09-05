@@ -60,6 +60,21 @@ describe('FindingRow', () => {
     expect(within(panel).getByText(/below its SLA target/)).toBeInTheDocument()
   })
 
+  it('shows the Recurring tag in the Severity cell once recurrence clears the threshold, without adding a grid cell', () => {
+    // Task 16's `recurrence` field isn't in the shared fixture yet --
+    // extended locally here on one BREACH row.
+    const recurringFinding: Finding = {
+      ...twoReferenceHighConfidence,
+      recurrence: { weeks: 3, of: 4 },
+    }
+    const { container } = render(<FindingRow finding={recurringFinding} />)
+
+    expect(screen.getByText(/3 of the last 4 weeks/)).toBeInTheDocument()
+
+    const toggle = container.querySelector('.finding-row__toggle') as HTMLElement
+    expect(toggle.children.length).toBe(7)
+  })
+
   it('never shows a bare 0 for a DATA_GAP finding -- an em dash and an explanation instead', async () => {
     const dataGapFinding: Finding = {
       ...twoReferenceHighConfidence,

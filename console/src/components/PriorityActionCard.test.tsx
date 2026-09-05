@@ -56,6 +56,20 @@ describe('PriorityActionCard', () => {
     expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument()
   })
 
+  it('shows a Recurring tag in the title row once recurrence clears the threshold, not below it', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+
+    const { rerender } = render(
+      <PriorityActionCard finding={makeFinding({ recurrence: { weeks: 2, of: 4 } })} runId="run-1" onDismiss={() => {}} />,
+    )
+    expect(screen.queryByText(/of the last 4 weeks/)).not.toBeInTheDocument()
+
+    rerender(
+      <PriorityActionCard finding={makeFinding({ recurrence: { weeks: 3, of: 4 } })} runId="run-1" onDismiss={() => {}} />,
+    )
+    expect(screen.getByText(/3 of the last 4 weeks/)).toBeInTheDocument()
+  })
+
   it('shows the top-2 contributors in Why from finding.owns, with zero /decompose requests', async () => {
     const fetchMock = vi.fn(() => notFound())
     vi.stubGlobal('fetch', fetchMock)

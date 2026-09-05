@@ -631,6 +631,20 @@ body {
   background: var(--tier-neutral);
 }
 
+/* Recurring tag -- muted outline, same family as .tier-badge--muted and
+   the same reason: no new saturated colour, text carries the meaning. */
+.recurring-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Findings list */
 
 .findings-section {
@@ -714,6 +728,21 @@ body {
 
 .finding-row__chevron {
   color: var(--text);
+}
+
+/* Wraps TierBadge + the optional RecurringTag as one grid cell (the
+   Severity column) -- wrapping them here, rather than adding a second
+   top-level grid child, keeps the row's cell count identical to the
+   header's whether or not a finding is recurring. flex-wrap lets the tag
+   drop to its own line under the badge if the column is too narrow for
+   both on one line, rather than forcing the column wider (which
+   .findings-grid-row > * { min-width: 0 } already guards against). */
+.finding-row__severity {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .finding-row__metric {
