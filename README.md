@@ -35,7 +35,7 @@ SENSE ──▶ REASON ──▶ COMPOSE ──▶ ACT
 4. **Act.** The brief is routed by severity to Slack (and SES email), and the
    dispatch is logged with the finding ids it was built from.
 
-A replay clock advances simulated time at 60×, so the 90 days of data play out on
+A replay clock advances simulated time (one simulated day per second by default), so the 90 days of data play out on
 stage and findings appear live — the same loop, with the clock set to *now*, is
 the production version.
 
@@ -45,7 +45,7 @@ the production version.
 |---|---|---|
 | Service | **Python 3.12 · FastAPI · uvicorn** | One stateless process, no queue, no backing database |
 | Data | **DuckDB 1.5** (embedded, in-process) | Reads 570 MB of CSV directly, aggregates 615k rows in milliseconds; the source path is one argument (`local dir` today, `s3://` via `httpfs` tomorrow) |
-| Model | **Sarvam `sarvam-105b`** via the OpenAI-compatible SDK | Language only — one call per brief, so cost is flat in data volume (≈₹0.10 per brief) |
+| Model | **Sarvam `sarvam-105b`** via the OpenAI-compatible SDK | Language only — one call per brief (two if the first truncates), so cost is flat in data volume. Measured on the real dataset: `sarvam-105b` spends 2,000–15,000 reasoning tokens per brief, i.e. **≈₹0.13–0.77 per brief at ₹0.048/1k**, ~₹12–70/month for three briefs a day for an entire client — the same whether it has 500 or 50,000 employees |
 | Delivery | Slack incoming webhook · AWS SES (boto3) | Routed by tier: BREACH/CONCERN → both, WATCH → Slack, PASS → nothing |
 | Console | **React 19 · Vite 8 · TypeScript** | Thin client over a documented HTTP contract |
 | Tests | pytest · Vitest + Testing Library | Every guard is "break-it-to-prove-it" tested; a grep test enforces that SQL lives in exactly two modules |
@@ -99,8 +99,8 @@ data and you get the same number — that is the answer to "where did this come 
 ## Test it
 
 ```sh
-cd service && .venv/bin/pytest -q        # ~90 tests on data/sample; pytest.ini sets the path
-cd console && npm test
+cd service && .venv/bin/pytest -q        # ~125 tests on data/sample; pytest.ini sets the path
+cd console && nvm use && npm test     # Node 22 — the global default is 18 and fails
 ```
 
 Add `SIGNALDESK_DATA=../data/real` to run the data tests against the full dataset.
@@ -174,10 +174,3 @@ Forecasting or predictive risk scoring (cannot be done credibly in six hours and
 invites a question we cannot answer); vernacular feedback translation (the dataset
 has no free text); authentication, a historical pipeline, vendor-system
 integration, write-back. `OBJECTIVES.md` records each decision.
-
-## Status
-
-Build day 5 Sep 2026. Committed and reviewed: contracts, ingest, metric registry,
-references and verdict engine, sweep + replay clock + API. Landing this morning:
-the Sarvam brief, validator and Slack/SES delivery; then the console. The build
-plan with the running order is `docs/superpowers/plans/2026-09-05-signal-desk-python-build.md`.
