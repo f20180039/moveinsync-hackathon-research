@@ -24,6 +24,7 @@ from .compose import brief_with_source
 from .decompose import decompose, valid_dims
 from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
+from .telemetry import LATENCY
 from .schemas import Audience, Dimension, Finding, Slice
 from .sweep import STORE, ReplayClock, sweep
 from .tools import ask as ask_question
@@ -474,7 +475,10 @@ def create_app(data_dir: str | None = None) -> FastAPI:
 
     @app.get("/api/cost")
     def get_cost():
-        return COST.snapshot()
+        # Criterion 2 names cost AND latency; they answer the same
+        # question and belong on the same panel. Labels a run never
+        # exercised are absent, not zero.
+        return {**COST.snapshot(), "latency": LATENCY.snapshot()}
 
     @app.post("/api/ask")
     def post_ask(body: dict):

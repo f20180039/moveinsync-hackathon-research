@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from openai import OpenAI
 
 from . import constants as C
+from .telemetry import LATENCY
 
 BASE_URL = "https://api.sarvam.ai/v1"
 MODEL = "sarvam-105b"      # Sarvam-M is deprecated and no longer served
@@ -163,9 +164,10 @@ class SarvamClient:
 
     def complete(self, messages: list[dict], purpose: str = "brief",
                  max_tokens: int | None = None) -> str:
-        r = self._client.chat.completions.create(
-            model=MODEL, messages=messages,
-            max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS)
+        with LATENCY.measure("model_call"):
+            r = self._client.chat.completions.create(
+                model=MODEL, messages=messages,
+                max_tokens=max_tokens or self.DEFAULT_MAX_TOKENS)
         if r.usage:
             COST.record(purpose, r.usage)
         choice = r.choices[0]
@@ -209,7 +211,12 @@ class SarvamClient:
         if tools:
             kwargs["tools"] = tools
             kwargs["tool_choice"] = "auto"
-        r = self._client.chat.completions.create(**kwargs)
+        # Its own label, not "model_call": a tool-calling turn and a brief
+        # are different interactions with different shapes, and the cost
+        # meter already reports byPurpose the same way. This is the one a
+        # judge waits on live, on stage.
+        with LATENCY.measure("ask_call"):
+            r = self._client.chat.completions.create(**kwargs)
         if r.usage:
             COST.record(purpose, r.usage)
         choice = r.choices[0]

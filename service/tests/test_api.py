@@ -573,8 +573,23 @@ def test_cost_snapshot_has_the_expected_shape(client):
     assert set(body.keys()) == {
         "calls", "inputTokens", "outputTokens", "tokensPerCall", "inr",
         "inrPerOrgPerMonth", "employeesAtScale", "inrPerEmployeePerMonth",
-        "byPurpose", "pricingConfigured", "rateIsApproximate",
+        "byPurpose", "pricingConfigured", "rateIsApproximate", "latency",
     }
+
+
+def test_cost_carries_measured_latency_for_the_startup_sweep(client):
+    """Criterion 2 asks for latency by name. The app sweeps on startup,
+    so by the time anything can call this the sweep and its metric
+    queries have both been measured -- against the real registry, not a
+    stub."""
+    body = client.get("/api/cost").json()
+    latency = body["latency"]
+    assert latency["sweep"]["n"] >= 1
+    assert latency["metric_query"]["n"] > 1
+    assert latency["metric_query"]["p95Ms"] >= latency["metric_query"]["p50Ms"]
+    # No model call is made in the test app, so the label is absent
+    # rather than reported as a zero.
+    assert "model_call" not in latency
 
 
 # ---------------------------------------------------------------------------

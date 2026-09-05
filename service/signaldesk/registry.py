@@ -14,6 +14,7 @@ from __future__ import annotations
 import duckdb
 
 from . import constants as C
+from .telemetry import LATENCY
 from .schemas import Dimension, Direction, Metric, ReferenceKind, Slice, Window
 
 # On-time reads MoveInSync's own delay_minutes column (fix-wave, superseding
@@ -355,7 +356,11 @@ def evaluate(con, metric: Metric, slc: Slice, window: Window) -> float | None:
     key = (id(con), metric.id, slc, window)
     if key in _CACHE:
         return _CACHE[key]
-    row = con.execute(_with_slice(metric.sql, slc), _params(slc, window)).fetchone()
+    # Measured here rather than around the whole call: a cache hit is not
+    # a query, and counting it would flatter the p50 with zeros.
+    with LATENCY.measure("metric_query"):
+        row = con.execute(_with_slice(metric.sql, slc),
+                          _params(slc, window)).fetchone()
     if row is None or row[0] is None:
         value = None
     elif len(row) > 1 and row[1] is not None and row[1] < C.MIN_ROWS_PER_SLICE:

@@ -204,6 +204,13 @@ export interface SafetySummary {
   escortPresentPct: number
 }
 
+export interface LatencyStat {
+  n: number
+  p50Ms: number
+  p95Ms: number
+  maxMs: number
+}
+
 export interface Cost {
   calls: number
   inputTokens: number
@@ -216,6 +223,11 @@ export interface Cost {
   byPurpose: Record<string, number>
   pricingConfigured: boolean
   rateIsApproximate: boolean
+  // Measured, per label ("metric_query", "sweep", "model_call", "ask_call").
+  // A label the service never exercised is ABSENT, not zero -- optional here
+  // for the same reason, so a build that predates the meter renders without
+  // inventing a latency of nothing.
+  latency?: Record<string, LatencyStat>
 }
 
 export interface HealthStatus {

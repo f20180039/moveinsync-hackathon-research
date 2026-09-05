@@ -115,6 +115,16 @@ const WINDOW_KIND_LABELS: Record<string, string> = {
 // future value needs different wording.
 const SAFETY_METRIC_LABELS: Record<string, string> = {}
 
+// Latency labels ("metric_query", "sweep", "model_call", "ask_call") -- the
+// four measured call sites. Named for what a reader is actually asking about,
+// not for the function that carries the timer.
+const LATENCY_LABELS: Record<string, string> = {
+  metric_query: 'Metric query',
+  sweep: 'Full sweep',
+  model_call: 'Model call (brief)',
+  ask_call: 'Model call (ask)',
+}
+
 // The /decompose dimension selector (VENDOR/SITE/SHIFT/DELAY_REASON, etc.)
 // -- same treatment as everything else, never rendered as a raw enum.
 const DIMENSION_LABELS: Record<string, string> = {
@@ -137,6 +147,7 @@ export type LabelKind =
   | 'feed'
   | 'metric'
   | 'purpose'
+  | 'latency'
   | 'dimension'
   | 'windowKind'
   | 'safetyMetric'
@@ -183,6 +194,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(METRIC_LABELS, value)
     case 'purpose':
       return lookup(PURPOSE_LABELS, value)
+    case 'latency':
+      return lookup(LATENCY_LABELS, value)
     case 'dimension':
       return lookup(DIMENSION_LABELS, value)
     case 'windowKind':
