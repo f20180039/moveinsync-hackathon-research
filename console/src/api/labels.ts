@@ -86,6 +86,13 @@ const WINDOW_KIND_LABELS: Record<string, string> = {
   month: 'Monthly',
 }
 
+// Empty on purpose -- the safety summary's `metric` field's exact values
+// aren't confirmed yet; every value falls through to humanise()
+// ("WOMAN_TRAVELLING_ALONE" -> "Woman travelling alone"), which is already
+// the correct shape for the one example given. Add real entries here if a
+// future value needs different wording.
+const SAFETY_METRIC_LABELS: Record<string, string> = {}
+
 // The /decompose dimension selector (VENDOR/SITE/SHIFT/DELAY_REASON, etc.)
 // -- same treatment as everything else, never rendered as a raw enum.
 const DIMENSION_LABELS: Record<string, string> = {
@@ -110,6 +117,7 @@ export type LabelKind =
   | 'purpose'
   | 'dimension'
   | 'windowKind'
+  | 'safetyMetric'
 
 // Humanises anything not in a map: underscores become spaces, sentence
 // case. An unrecognised value from the service still renders as words,
@@ -155,6 +163,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(DIMENSION_LABELS, value)
     case 'windowKind':
       return lookup(WINDOW_KIND_LABELS, value)
+    case 'safetyMetric':
+      return lookup(SAFETY_METRIC_LABELS, value)
   }
 }
 

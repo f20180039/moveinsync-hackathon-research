@@ -1052,6 +1052,21 @@ body {
   margin-top: var(--space-4);
 }
 
+.alerts-group {
+  margin-bottom: var(--space-6);
+}
+
+.alerts-group__header {
+  font-size: var(--font-lg);
+  color: var(--ink-1);
+  margin: 0 0 var(--space-2);
+}
+
+.alerts-group__count {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
 .priority-card {
   display: flex;
   padding: 0;
@@ -1398,4 +1413,12 @@ body {
   margin-top: var(--space-5);
   border-top: 1px solid var(--border);
   padding-top: var(--space-4);
+}
+
+.safety-banner {
+  background: var(--tier-concern-bg);
+  color: var(--ink-1);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-md);
 }

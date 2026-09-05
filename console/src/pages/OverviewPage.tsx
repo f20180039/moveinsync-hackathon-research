@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { isDismissed } from '../api/dismissed.ts'
+import { selectPriorityFindings } from '../api/insights.ts'
 import type { Finding } from '../api/types.ts'
 import { isAlertTier } from '../api/types.ts'
 import { AskBar } from '../components/AskBar.tsx'
 import { KpiRow } from '../components/KpiRow.tsx'
 import { PriorityActionCard } from '../components/PriorityActionCard.tsx'
+import { SafetyBanner } from '../components/SafetyBanner.tsx'
+
+// At most 2 cards per metric -- a noisy metric (e.g. 20
+// marshal_compliance breaches, one per site) must not fill the whole top
+// 5 on its own.
+const PRIORITY_LIMIT = 5
+const MAX_PER_METRIC = 2
 
 export interface OverviewPageProps {
   windowLabel: string | null
@@ -24,7 +32,8 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
   // `findings` itself, so nothing else would otherwise cause a re-render.
   const [, forceRerender] = useState(0)
 
-  const priorityFindings = findings.filter((f) => isAlertTier(f.tier) && !isDismissed(f.id)).slice(0, 5)
+  const alertFindings = findings.filter((f) => isAlertTier(f.tier) && !isDismissed(f.id))
+  const priorityFindings = selectPriorityFindings(alertFindings, PRIORITY_LIMIT, MAX_PER_METRIC)
 
   return (
     <>
@@ -34,6 +43,7 @@ export function OverviewPage({ windowLabel, runId, findings }: OverviewPageProps
       </div>
 
       <KpiRow findings={findings} />
+      {runId && <SafetyBanner runId={runId} />}
 
       <section className="priority-actions" aria-label="Priority actions">
         <div className="priority-actions__header">

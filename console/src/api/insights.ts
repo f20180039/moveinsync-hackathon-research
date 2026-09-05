@@ -43,6 +43,62 @@ export function findReference(finding: Pick<Finding, 'references'>, kind: string
   return finding.references.find((ref) => ref.kind === kind)
 }
 
+// The top `limit` findings for a priority-action list, with at most
+// `maxPerMetric` per metric id -- so one noisy metric (e.g. 20
+// marshal_compliance breaches, one per site) can't fill the whole list on
+// its own. Rank order (the input order) is preserved throughout; if the
+// cap leaves fewer than `limit` selected (not enough *other* metrics to
+// fill the rest), the remaining slots are filled from the capped-out
+// findings, in their original rank order, rather than showing fewer than
+// `limit` cards when more are actually available.
+export function selectPriorityFindings(findings: Finding[], limit: number, maxPerMetric: number): Finding[] {
+  const perMetricCount = new Map<string, number>()
+  const selected: Finding[] = []
+  const overflow: Finding[] = []
+
+  for (const finding of findings) {
+    const count = perMetricCount.get(finding.metricId) ?? 0
+    if (count < maxPerMetric) {
+      selected.push(finding)
+      perMetricCount.set(finding.metricId, count + 1)
+    } else {
+      overflow.push(finding)
+    }
+  }
+
+  const capped = selected.slice(0, limit)
+  if (capped.length < limit) {
+    return capped.concat(overflow.slice(0, limit - capped.length))
+  }
+  return capped
+}
+
+export interface FindingGroup {
+  metricId: string
+  metricLabel: string
+  findings: Finding[]
+}
+
+// Groups findings by metric, preserving the rank order of each metric's
+// first appearance -- used by the Alerts page, which (unlike Overview's
+// capped top-5) keeps every card but groups them so 20 marshal_compliance
+// cards read as one group with a count, not 20 separate top-level cards.
+export function groupFindingsByMetric(findings: Finding[]): FindingGroup[] {
+  const order: string[] = []
+  const groups = new Map<string, Finding[]>()
+  for (const finding of findings) {
+    if (!groups.has(finding.metricId)) {
+      groups.set(finding.metricId, [])
+      order.push(finding.metricId)
+    }
+    groups.get(finding.metricId)!.push(finding)
+  }
+  return order.map((metricId) => {
+    const groupFindings = groups.get(metricId)!
+    return { metricId, metricLabel: groupFindings[0].metricLabel, findings: groupFindings }
+  })
+}
+
 // The unsliced ("overall") finding for one metric, if the sweep produced
 // one -- used by every KPI row (Overview, and the weekly/monthly review
 // pages). Absent means the metric isn't active at the overall level yet,

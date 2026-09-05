@@ -169,6 +169,17 @@ export interface DispatchResponse {
   dispatched: DispatchAudienceResult[]
 }
 
+// Landing on the service partition -- shape is a best-effort inference
+// from the coordinator's prose example ("MoveInSync raised Woman
+// travelling alone on 412 trips this week; an escort was present on 6%"),
+// not a confirmed JSON schema yet. Feature-detect: absent/404 means no
+// banner, not an error.
+export interface SafetySummary {
+  metric: string
+  trips: number
+  escortPresentPct: number
+}
+
 export interface Cost {
   calls: number
   inputTokens: number

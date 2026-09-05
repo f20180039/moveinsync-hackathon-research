@@ -71,10 +71,11 @@ function mockFetchForRoutes() {
     if (url.includes('/api/dispatch/log')) {
       return notFound()
     }
-    if (url.includes('/decompose') || url.includes('/api/ask')) {
-      // Neither is live yet in reality -- matches decomposeFinding()/ask()'s
-      // real-world 404, so every caller's graceful-absence path is what
-      // actually runs in these tests, not an accidental `{}` success.
+    if (url.includes('/decompose') || url.includes('/api/ask') || url.includes('/safety')) {
+      // None of these are live yet in reality -- matches
+      // decomposeFinding()/ask()/getSafety()'s real-world 404, so every
+      // caller's graceful-absence path is what actually runs in these
+      // tests, not an accidental `{}` success.
       return notFound()
     }
     if (url.includes('/brief')) {

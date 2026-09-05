@@ -11,6 +11,7 @@ import type {
   Finding,
   FindingsResponse,
   HealthStatus,
+  SafetySummary,
   SweepResult,
   SweepWindow,
 } from './types.ts'
@@ -97,6 +98,14 @@ export function sweepNow(window?: SweepWindow): Promise<SweepResult> {
 
 export function getHealth(): Promise<HealthStatus> {
   return request<HealthStatus>('/api/health')
+}
+
+// Landing on the service partition, shape not yet confirmed -- tries the
+// per-run endpoint first (per-run data is more specific than a global
+// health line); feature-detects to null on any failure so the safety
+// banner simply doesn't render rather than erroring the page.
+export function getSafety(runId: string): Promise<SafetySummary | null> {
+  return tryRequest<SafetySummary>(`/api/runs/${runId}/safety`)
 }
 
 // Not live yet -- every caller must feature-detect (null -> hide/disable

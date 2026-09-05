@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFindingSentence, computeDelta, isLowerBetter } from './insights.ts'
+import { buildFindingSentence, computeDelta, groupFindingsByMetric, isLowerBetter, selectPriorityFindings } from './insights.ts'
 import type { Finding } from './types.ts'
 
 function makeFinding(overrides: Partial<Finding>): Finding {
@@ -98,5 +98,62 @@ describe('buildFindingSentence', () => {
     })
 
     expect(buildFindingSentence(finding)).toBe('On-time arrival at Cedar Ridge Office could not be measured this window.')
+  })
+})
+
+describe('selectPriorityFindings', () => {
+  function makeMany(metricId: string, count: number, startId = 0): Finding[] {
+    return Array.from({ length: count }, (_, i) =>
+      makeFinding({ id: `${metricId}-${startId + i}`, metricId, sliceLabel: `site Site ${startId + i}` }),
+    )
+  }
+
+  it('caps a noisy metric at 2 cards, filling the rest of the top 5 from other metrics (20 marshal breaches + 3 others -> 2 + 3)', () => {
+    const findings = [...makeMany('marshal_compliance', 20), ...makeMany('otd', 1), ...makeMany('sev1_alert_rate', 1), ...makeMany('no_show_rate', 1)]
+
+    const result = selectPriorityFindings(findings, 5, 2)
+
+    expect(result).toHaveLength(5)
+    const byMetric = new Map<string, number>()
+    for (const f of result) byMetric.set(f.metricId, (byMetric.get(f.metricId) ?? 0) + 1)
+    expect(byMetric.get('marshal_compliance')).toBe(2)
+    expect(byMetric.get('otd')).toBe(1)
+    expect(byMetric.get('sev1_alert_rate')).toBe(1)
+    expect(byMetric.get('no_show_rate')).toBe(1)
+  })
+
+  it('preserves rank order among the selected findings', () => {
+    const findings = [
+      makeFinding({ id: 'a', metricId: 'ota' }),
+      makeFinding({ id: 'b', metricId: 'otd' }),
+      makeFinding({ id: 'c', metricId: 'ota' }),
+    ]
+    const result = selectPriorityFindings(findings, 5, 2)
+    expect(result.map((f) => f.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('fills remaining slots from the capped-out overflow when there are not enough other metrics', () => {
+    // Only one metric present at all -- the cap alone would yield 2, but
+    // there are 5 findings and a limit of 5, so overflow fills the rest.
+    const findings = makeMany('marshal_compliance', 5)
+    const result = selectPriorityFindings(findings, 5, 2)
+    expect(result).toHaveLength(5)
+  })
+})
+
+describe('groupFindingsByMetric', () => {
+  it('groups by metric, preserving each group\'s first-appearance rank order', () => {
+    const findings: Finding[] = [
+      makeFinding({ id: 'a', metricId: 'marshal_compliance', metricLabel: 'Marshal compliance (dark hours)' }),
+      makeFinding({ id: 'b', metricId: 'otd', metricLabel: 'On-time departure' }),
+      makeFinding({ id: 'c', metricId: 'marshal_compliance', metricLabel: 'Marshal compliance (dark hours)' }),
+    ]
+
+    const groups = groupFindingsByMetric(findings)
+
+    expect(groups.map((g) => g.metricId)).toEqual(['marshal_compliance', 'otd'])
+    expect(groups[0].findings.map((f) => f.id)).toEqual(['a', 'c'])
+    expect(groups[0].metricLabel).toBe('Marshal compliance (dark hours)')
+    expect(groups[1].findings.map((f) => f.id)).toEqual(['b'])
   })
 })
