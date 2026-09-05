@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../handoff/fake-findings.json'
 import type { Finding } from '../api/types.ts'
@@ -50,5 +51,29 @@ describe('FindingsList', () => {
     for (const toggle of rowToggles) {
       expect(toggle.children.length).toBe(headerCells.length)
     }
+  })
+
+  it('keeps the cell count in sync after expanding a row, with the evidence panel outside the row grid', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<FindingsList findings={findings} />)
+
+    const header = screen.getByRole('row', { name: /severity/i })
+    const headerCells = within(header).getAllByRole('columnheader')
+
+    const firstToggle = container.querySelector('.finding-row__toggle') as HTMLElement
+    await user.click(firstToggle)
+
+    // Expanding a row must not add or remove any of its own grid cells --
+    // the same 7 columns line up under the header before and after.
+    expect(firstToggle.children.length).toBe(headerCells.length)
+
+    // The evidence panel is a sibling of the toggle button, not one of its
+    // grid children -- it renders as its own full-width block below the
+    // row, so it never shifts or is counted as part of the row's column
+    // template.
+    const evidenceRegion = screen.getByRole('region')
+    expect(Array.from(firstToggle.children)).not.toContain(evidenceRegion)
+    expect(evidenceRegion.parentElement).toBe(firstToggle.parentElement)
+    expect(firstToggle.nextElementSibling).toBe(evidenceRegion)
   })
 })

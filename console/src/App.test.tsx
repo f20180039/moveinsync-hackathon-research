@@ -13,6 +13,45 @@ function notFound() {
   return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found', text: async () => '' } as Response)
 }
 
+// Raw underscore-separated enums (BELOW_TARGET, TRANSPORT_MANAGER, ...).
+const RAW_UNDERSCORE_ENUM = /[A-Z]+_[A-Z_]+/
+// Bare all-uppercase words of 3+ letters (BUS, LOGIN, EARLY, ...) -- catches
+// an enum-like code that has no underscore to trip the pattern above.
+// Legitimate acronyms are whitelisted explicitly rather than excluded by
+// pattern, so a new one has to be a deliberate, reviewable addition.
+const BARE_UPPERCASE_WORD = /\b[A-Z]{3,}\b/g
+const ACRONYM_WHITELIST = new Set(['SQL', 'INR', 'OTA', 'OTD', 'SLA', 'API'])
+
+// The evidence SQL block is raw SQL, deliberately verbatim and "runnable
+// as-is" -- it is expected to contain SELECT/FROM/WHERE/CASE/... and quoted
+// literal values like 'LOGIN' or 'BUS'. That is not an enum leaking into a
+// UI label; it is literal query text the panel promises never to alter, so
+// it is excluded from both scans below.
+const SQL_BLOCK_SELECTOR = '.evidence-panel__sql-block'
+
+function collectOffendingText(container: HTMLElement, pattern: RegExp, whitelist?: Set<string>): string[] {
+  const globalPattern = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`)
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  const offenders: string[] = []
+  let node = walker.nextNode()
+  while (node) {
+    const text = node.textContent
+    const insideSql = node.parentElement?.closest(SQL_BLOCK_SELECTOR) != null
+    if (text && !insideSql) {
+      for (const match of text.match(globalPattern) ?? []) {
+        if (!whitelist?.has(match)) offenders.push(match)
+      }
+    }
+    node = walker.nextNode()
+  }
+  return offenders
+}
+
+function expectNoRawEnumText(container: HTMLElement) {
+  expect(collectOffendingText(container, RAW_UNDERSCORE_ENUM)).toEqual([])
+  expect(collectOffendingText(container, BARE_UPPERCASE_WORD, ACRONYM_WHITELIST)).toEqual([])
+}
+
 function mockFetchForRoutes() {
   return vi.fn((input: RequestInfo | URL) => {
     const url = String(input)
@@ -186,11 +225,11 @@ describe('App', () => {
     }
   })
 
-  it('never renders a raw SCREAMING_SNAKE_CASE enum value as text', async () => {
+  it('never renders a raw enum value as text on the Findings page (every row expanded)', async () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     const user = userEvent.setup()
-    const { container } = renderApp()
+    const { container } = renderApp(['/'])
 
     await screen.findByText(fixture.findings[0].metricLabel)
 
@@ -199,17 +238,39 @@ describe('App', () => {
       await user.click(toggle)
     }
 
-    const rawEnumPattern = /[A-Z]+_[A-Z_]+/
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
-    const offenders: string[] = []
-    let node = walker.nextNode()
-    while (node) {
-      if (node.textContent && rawEnumPattern.test(node.textContent)) {
-        offenders.push(node.textContent)
-      }
-      node = walker.nextNode()
-    }
+    expectNoRawEnumText(container)
+  })
 
-    expect(offenders).toEqual([])
+  it('never renders a raw enum value as text on the Brief page (brief fetched)', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const user = userEvent.setup()
+    const { container } = renderApp(['/brief'])
+
+    await screen.findByRole('heading', { level: 1, name: /brief/i })
+    await user.click(screen.getByRole('button', { name: /preview brief/i }))
+    await screen.findByText('Sample brief text.')
+
+    expectNoRawEnumText(container)
+  })
+
+  it('never renders a raw enum value as text on the Feed health page', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const { container } = renderApp(['/health'])
+
+    await screen.findByRole('heading', { level: 1, name: /feed health/i })
+
+    expectNoRawEnumText(container)
+  })
+
+  it('never renders a raw enum value as text on the Cost page', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const { container } = renderApp(['/cost'])
+
+    await screen.findByRole('heading', { level: 1, name: /cost/i })
+
+    expectNoRawEnumText(container)
   })
 })

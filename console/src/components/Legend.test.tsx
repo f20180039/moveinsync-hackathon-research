@@ -20,6 +20,20 @@ describe('Legend', () => {
     expect(screen.getByText('Breach')).toBeInTheDocument()
   })
 
+  it('moves focus inside the dialog when it opens', async () => {
+    const user = userEvent.setup()
+    render(<Legend />)
+
+    // Auto-opened on mount (first visit).
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.contains(document.activeElement)).toBe(true)
+
+    // Also true for a user-initiated reopen, not just the automatic one.
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    await user.click(screen.getByRole('button', { name: /how to read this/i }))
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true)
+  })
+
   it('closes on the Close button and returns focus to the trigger', async () => {
     const user = userEvent.setup()
     render(<Legend />)
