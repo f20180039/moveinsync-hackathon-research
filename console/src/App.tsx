@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
-import { Button } from './components/Button.tsx'
-import { Legend } from './components/Legend.tsx'
+import { Sidebar } from './components/Sidebar.tsx'
+import { TopBar } from './components/TopBar.tsx'
+import { AlertsPage } from './pages/AlertsPage.tsx'
 import { BriefPage } from './pages/BriefPage.tsx'
 import { CostPage } from './pages/CostPage.tsx'
 import { FindingsPage } from './pages/FindingsPage.tsx'
 import { HealthPage } from './pages/HealthPage.tsx'
+import { OverviewPage } from './pages/OverviewPage.tsx'
+import { ReportsMonthlyPage } from './pages/ReportsMonthlyPage.tsx'
+import { ReportsWeeklyPage } from './pages/ReportsWeeklyPage.tsx'
+import { VendorsPage } from './pages/VendorsPage.tsx'
 
 interface RunState {
   runId: string
@@ -83,63 +88,41 @@ function App() {
     }
   }
 
+  const findings = run?.findings ?? []
+  const alertCount = findings.filter((f) => f.tier === 'CONCERN' || f.tier === 'BREACH').length
+
   return (
-    <div className="console">
-      <header className="console__header">
-        <h1>Signal Desk</h1>
-        {run && (
-          <span className="console__run-meta">
-            {run.windowLabel} · run {run.runId}
-          </span>
+    <div className="shell">
+      <Sidebar alertCount={alertCount} />
+
+      <div className="shell__main">
+        <TopBar
+          runId={run?.runId ?? null}
+          windowLabel={run?.windowLabel ?? null}
+          onSweep={sweepNowAndReload}
+          sweeping={sweeping}
+        />
+
+        {loading && <p className="console__status">Loading…</p>}
+        {error && <p className="console__status console__status--error">{error}</p>}
+
+        {!loading && !error && (
+          <main className="shell__content">
+            <Routes>
+              <Route path="/" element={<OverviewPage windowLabel={run?.windowLabel ?? null} />} />
+              <Route path="/alerts" element={<AlertsPage findings={findings} />} />
+              <Route path="/findings" element={<FindingsPage findings={findings} />} />
+              <Route path="/vendors" element={<VendorsPage findings={findings} />} />
+              <Route path="/health" element={<HealthPage feeds={feeds ?? []} />} />
+              <Route path="/cost" element={cost && <CostPage cost={cost} />} />
+              <Route path="/reports/weekly" element={<ReportsWeeklyPage />} />
+              <Route path="/reports/monthly" element={<ReportsMonthlyPage />} />
+              <Route path="/brief" element={run && <BriefPage runId={run.runId} />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
         )}
-        <Legend />
-        <Button onClick={sweepNowAndReload} busy={sweeping}>
-          Sweep now
-        </Button>
-      </header>
-
-      <nav aria-label="Primary" className="primary-nav">
-        <NavLink
-          to="/"
-          end
-          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
-        >
-          Findings
-        </NavLink>
-        <NavLink
-          to="/brief"
-          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
-        >
-          Brief
-        </NavLink>
-        <NavLink
-          to="/health"
-          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
-        >
-          Feed health
-        </NavLink>
-        <NavLink
-          to="/cost"
-          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
-        >
-          Cost
-        </NavLink>
-      </nav>
-
-      {loading && <p className="console__status">Loading…</p>}
-      {error && <p className="console__status console__status--error">{error}</p>}
-
-      {!loading && !error && (
-        <main className="console__main">
-          <Routes>
-            <Route path="/" element={<FindingsPage cost={cost} findings={run?.findings ?? []} />} />
-            <Route path="/brief" element={run && <BriefPage runId={run.runId} />} />
-            <Route path="/health" element={<HealthPage feeds={feeds ?? []} />} />
-            <Route path="/cost" element={cost && <CostPage cost={cost} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      )}
+      </div>
     </div>
   )
 }

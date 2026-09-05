@@ -1,13 +1,18 @@
 import type {
+  AskResponse,
   Audience,
   Brief,
   Cost,
+  DecomposeDimension,
+  DecomposeResponse,
   DispatchAudienceResult,
   DispatchResponse,
   FeedHealth,
+  Finding,
   FindingsResponse,
   HealthStatus,
   SweepResult,
+  SweepWindow,
 } from './types.ts'
 
 // Trim a trailing slash so a pasted base URL with a stray "/" doesn't turn
@@ -25,8 +30,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T
 }
 
+// For an endpoint that's still landing on the service, or is explicitly
+// optional (the dispatch log, /ask, /decompose on an older service): a 404
+// or any other failure means "not available here", not a page error. Every
+// caller feature-detects by getting `null` back rather than a thrown error.
+async function tryRequest<T>(path: string, init?: RequestInit): Promise<T | null> {
+  try {
+    return await request<T>(path, init)
+  } catch {
+    return null
+  }
+}
+
 export function getLatestFindings(): Promise<FindingsResponse> {
   return request<FindingsResponse>('/api/runs/latest/findings')
+}
+
+export function getFinding(id: string): Promise<Finding> {
+  return request<Finding>(`/api/findings/${id}`)
+}
+
+// Landing on the service partition -- dim is required by the (future)
+// contract; feature-detect with `decomposeFinding(...).then(...) : null`.
+export function decomposeFinding(findingId: string, dim: DecomposeDimension): Promise<DecomposeResponse | null> {
+  return tryRequest<DecomposeResponse>(`/api/findings/${findingId}/decompose?dim=${dim}`)
 }
 
 export function getFeedHealth(): Promise<FeedHealth[]> {
@@ -37,8 +64,16 @@ export function getBrief(runId: string, audience: Audience): Promise<Brief> {
   return request<Brief>(`/api/runs/${runId}/brief?audience=${audience}`)
 }
 
-export function dispatch(runId: string): Promise<DispatchResponse> {
-  return request<DispatchResponse>(`/api/dispatch/${runId}`, { method: 'POST' })
+// `audiences` lets a caller (e.g. "Escalate") target a specific audience
+// rather than whatever the service dispatches by default.
+export function dispatch(runId: string, audiences?: Audience[]): Promise<DispatchResponse> {
+  return request<DispatchResponse>(`/api/dispatch/${runId}`, {
+    method: 'POST',
+    ...(audiences && {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audiences }),
+    }),
+  })
 }
 
 // Optional endpoint -- not part of the frozen contract. Callers should
@@ -52,10 +87,24 @@ export function getCost(): Promise<Cost> {
   return request<Cost>('/api/cost')
 }
 
-export function sweepNow(): Promise<SweepResult> {
-  return request<SweepResult>('/api/sweep', { method: 'POST' })
+// `window` is landing on the service partition -- omit it for the existing
+// behaviour; an older service that ignores the query param still gets a
+// valid POST /api/sweep.
+export function sweepNow(window?: SweepWindow): Promise<SweepResult> {
+  const query = window ? `?window=${window}` : ''
+  return request<SweepResult>(`/api/sweep${query}`, { method: 'POST' })
 }
 
 export function getHealth(): Promise<HealthStatus> {
   return request<HealthStatus>('/api/health')
+}
+
+// Not live yet -- every caller must feature-detect (null -> hide/disable
+// the ask bar's send path) rather than assume this exists.
+export function ask(runId: string, question: string): Promise<AskResponse | null> {
+  return tryRequest<AskResponse>('/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ runId, question }),
+  })
 }

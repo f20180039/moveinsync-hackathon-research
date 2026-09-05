@@ -41,6 +41,20 @@
      row so cells line up. Defined once, referenced everywhere. */
   --findings-grid-template: 24px minmax(84px, 96px) minmax(160px, 1.3fr) minmax(140px, 1fr) 90px
     minmax(200px, 1.6fr) 120px;
+
+  /* Shell: left sidebar + top bar, MoveInSync-style. */
+  --sidebar-width: 256px;
+  --sidebar-width-collapsed: 72px;
+  --sidebar-bg: #14151b;
+  --sidebar-text: #b8b8c2;
+  --sidebar-text-active: #fff;
+  --sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-muted: #7d7d8a;
+  --greeting-gradient-start: var(--accent);
+  --greeting-gradient-end: #2b2fa0;
+  --good-color: var(--tier-pass);
+  --bad-color: var(--tier-breach);
 }
 
 /* Numeric-value utility: tabular figures, right-aligned so a column of
@@ -52,7 +66,7 @@
 
 #root {
   width: 100%;
-  max-width: 1200px;
+  max-width: none;
   text-align: left;
   border-inline: none;
 }
@@ -61,110 +75,214 @@ body {
   background: var(--bg);
 }
 
-.console {
+/* Shell: left sidebar + (top bar, then routed page content). */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  align-items: stretch;
+}
+
+.shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell__content {
+  flex: 1;
   padding: var(--space-5) var(--space-6) 64px;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
 }
 
-.console__header {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: var(--space-4);
-}
-
-.console__header h1 {
-  font-size: var(--font-xl);
-  margin: 0;
-}
-
-.console__run-meta {
-  color: var(--text);
-  font-size: var(--font-md);
-  flex: 1;
-}
-
 .console__status {
   font-size: var(--font-lg);
+  padding: 0 var(--space-6);
 }
 
 .console__status--error {
   color: var(--tier-breach);
 }
 
-.console__main {
+/* Sidebar */
+
+.sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-}
-
-/* Primary nav */
-
-.primary-nav {
-  display: flex;
+  padding: var(--space-5) var(--space-3);
   gap: var(--space-2);
-  flex-wrap: wrap;
+  box-sizing: border-box;
 }
 
-.primary-nav__link {
-  display: inline-flex;
+@media (max-width: 1024px) {
+  .sidebar {
+    width: var(--sidebar-width-collapsed);
+  }
+
+  .sidebar__label,
+  .sidebar__section-label,
+  .sidebar__tagline,
+  .sidebar__brand-name {
+    display: none;
+  }
+
+  .sidebar__link {
+    justify-content: center;
+  }
+
+  .sidebar__badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    margin-left: 0;
+  }
+}
+
+.sidebar__brand {
+  display: flex;
   align-items: center;
-  height: var(--control-height-sm);
-  padding: 0 var(--space-4);
+  gap: var(--space-2);
+  color: var(--sidebar-text-active);
+  font-weight: 700;
+  font-size: var(--font-lg);
+  padding: 0 var(--space-3) var(--space-4);
+}
+
+.sidebar__section {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar__section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--sidebar-muted);
+  padding: var(--space-4) var(--space-3) var(--space-2);
+}
+
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
   border-radius: var(--radius-md);
-  font-size: var(--font-md);
-  font-weight: 600;
-  color: var(--text);
+  color: var(--sidebar-text);
   text-decoration: none;
+  font-size: var(--font-md);
+  position: relative;
 }
 
-.primary-nav__link:hover,
-.primary-nav__link:focus-visible {
-  background: var(--code-bg);
+.sidebar__link:hover,
+.sidebar__link:focus-visible {
+  background: var(--sidebar-hover-bg);
+  color: var(--sidebar-text-active);
 }
 
-.primary-nav__link:focus-visible {
+.sidebar__link:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
-.primary-nav__link--active {
-  background: var(--accent-bg);
-  color: var(--text-h);
+.sidebar__link--active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-text-active);
+  font-weight: 600;
 }
 
-/* Findings-page summary strip: a condensed pointer to the Brief and Cost
-   pages, so neither gets lost while findings own the page. */
+.sidebar__icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
 
-.summary-strip {
-  display: grid;
-  grid-template-columns: 1fr;
+.sidebar__label {
+  flex: 1;
+}
+
+.sidebar__badge {
+  background: var(--tier-breach);
+  color: var(--sidebar-text-active);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+  padding: 3px 7px;
+}
+
+.sidebar__tagline {
+  margin-top: auto;
+  font-size: 12px;
+  color: var(--sidebar-muted);
+  padding: var(--space-4) var(--space-3) 0;
+}
+
+/* Top bar */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 }
 
-@media (min-width: 1024px) {
-  .summary-strip {
-    grid-template-columns: 1fr 1fr;
-  }
+.top-bar__run {
+  color: var(--text);
+  font-size: var(--font-md);
 }
 
-.summary-tile {
+.top-bar__actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* Greeting band */
+
+.greeting-band {
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  background: linear-gradient(135deg, var(--greeting-gradient-start) 0%, var(--greeting-gradient-end) 100%);
+  color: var(--sidebar-text-active);
+}
+
+.greeting-band h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-xl);
+}
+
+.greeting-band p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Vendors page: findings grouped by vendor. */
+
+.vendor-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.vendor-group {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.summary-tile__stats {
-  display: flex;
-  gap: var(--space-5);
-  flex-wrap: wrap;
 }
 
 .page-heading {

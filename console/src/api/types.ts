@@ -38,12 +38,53 @@ export interface Finding {
   references: Reference[]
   evidenceSql: string
   windowLabel?: string
+  // Landing on the service partition -- optional until every deployed
+  // service has it. "" for PASS.
+  action?: string
 }
 
 export interface FindingsResponse {
   runId: string
   windowLabel: string
   findings: Finding[]
+  // Landing shortly -- present once the service supports week/month sweeps.
+  windowDays?: number
+  windowKind?: 'week' | 'month'
+}
+
+export type SweepWindow = 'week' | 'month'
+
+// GET /api/findings/{id}/decompose?dim=... -- one row per contributor
+// (a vendor, a site, a delay reason, ...) to a finding's shortfall.
+export interface DecomposeRow {
+  value: string
+  label: string
+  observed: number
+  shareOfVolume: number
+  pointsOfGap: number
+  n: number
+}
+
+export type DecomposeDimension = 'VENDOR' | 'SITE' | 'SHIFT' | 'MODE' | 'DIRECTION' | 'TENANT' | 'DELAY_REASON'
+
+export interface DecomposeResponse {
+  findingId: string
+  dim: DecomposeDimension
+  overallObserved: number
+  gap: number
+  rows: DecomposeRow[]
+}
+
+// POST /api/ask -- not live yet; every caller must feature-detect (404 ->
+// hide/disable) rather than assume this exists.
+export interface AskRequest {
+  runId: string
+  question: string
+}
+
+export interface AskResponse {
+  answer: string
+  trace: unknown[]
 }
 
 export interface FeedHealth {

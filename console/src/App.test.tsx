@@ -99,15 +99,14 @@ afterEach(() => {
 })
 
 describe('App', () => {
-  it('loads and renders the header, feed health and findings from the API', async () => {
+  it('loads and renders the shell (top bar, sidebar) from the API', async () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp()
 
-    expect(await screen.findByText('Signal Desk')).toBeInTheDocument()
     expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
-    expect(await screen.findByText(fixture.findings[0].metricLabel)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sweep now/i })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /primary/i })).toBeInTheDocument()
   })
 
   it('shows the error message, not a stack, when a fetch fails', async () => {
@@ -131,9 +130,9 @@ describe('App', () => {
     const fetchMock = mockFetchForRoutes()
     vi.stubGlobal('fetch', fetchMock)
 
-    renderApp()
+    renderApp(['/findings'])
 
-    expect(await screen.findByText('Signal Desk')).toBeInTheDocument()
+    expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
     await screen.findByText(fixture.findings[0].metricLabel)
 
     // Give any stray timer/poll a chance to fire before asserting call counts.
@@ -147,48 +146,50 @@ describe('App', () => {
     expect(callsFor('/api/cost')).toBe(1)
   })
 
-  it('places the summary strip before the findings list on the Findings page', async () => {
-    vi.stubGlobal('fetch', mockFetchForRoutes())
-
-    const { container } = renderApp()
-
-    await screen.findByText(fixture.findings[0].metricLabel)
-
-    const summaryStrip = container.querySelector('[data-testid="summary-strip"]')
-    const findingsSection = container.querySelector('[data-testid="findings-section"]')
-    expect(summaryStrip).toBeInTheDocument()
-    expect(findingsSection).toBeInTheDocument()
-
-    const position = summaryStrip!.compareDocumentPosition(findingsSection!)
-    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  })
-
-  it('has a Primary nav with the four route links', async () => {
+  it('has a Primary sidebar nav with every section link', async () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp()
-    await screen.findByText(fixture.findings[0].metricLabel)
+    await screen.findByText(new RegExp(fixture.runId))
 
     const nav = screen.getByRole('navigation', { name: /primary/i })
-    expect(nav).toHaveTextContent('Findings')
-    expect(nav).toHaveTextContent('Brief')
-    expect(nav).toHaveTextContent('Feed health')
+    expect(nav).toHaveTextContent('Overview')
+    expect(nav).toHaveTextContent('Alerts')
+    expect(nav).toHaveTextContent('Insights')
+    expect(nav).toHaveTextContent('Vendors')
+    expect(nav).toHaveTextContent('Data health')
     expect(nav).toHaveTextContent('Cost')
+    expect(nav).toHaveTextContent('Weekly review')
+    expect(nav).toHaveTextContent('Monthly review')
+    expect(nav).toHaveTextContent('Brief & dispatch')
+  })
+
+  it('shows an unread-alert badge counting CONCERN/BREACH findings', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    renderApp()
+    await screen.findByText(new RegExp(fixture.runId))
+
+    const expectedCount = fixture.findings.filter((f) => f.tier === 'CONCERN' || f.tier === 'BREACH').length
+    const nav = screen.getByRole('navigation', { name: /primary/i })
+    expect(nav).toHaveTextContent(String(expectedCount))
   })
 
   it.each([
-    ['/', /findings/i],
-    ['/brief', /brief/i],
+    ['/', /attention/i],
+    ['/alerts', /alerts/i],
+    ['/findings', /insights/i],
+    ['/vendors', /vendors/i],
     ['/health', /feed health/i],
     ['/cost', /cost/i],
+    ['/reports/weekly', /weekly review/i],
+    ['/reports/monthly', /monthly review/i],
+    ['/brief', /brief/i],
   ])('renders the page heading for %s', async (path, expectedHeading) => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     renderApp([path])
-    await screen.findByText(fixture.findings[0].metricLabel).catch(() => {
-      // Only the Findings page renders a finding's metric label -- other
-      // routes just need the fetches to settle before asserting.
-    })
+    await screen.findByText(new RegExp(fixture.runId))
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     expect(screen.getByRole('heading', { level: 1, name: expectedHeading })).toBeInTheDocument()
@@ -199,7 +200,7 @@ describe('App', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const user = userEvent.setup()
-    const { container } = renderApp()
+    const { container } = renderApp(['/findings'])
 
     await screen.findByText(fixture.findings[0].metricLabel)
 
@@ -225,15 +226,26 @@ describe('App', () => {
     }
   })
 
-  it('never renders a raw enum value as text on the Findings page (every row expanded)', async () => {
+  it.each([
+    ['/'],
+    ['/alerts'],
+    ['/findings'],
+    ['/vendors'],
+    ['/health'],
+    ['/cost'],
+    ['/reports/weekly'],
+    ['/reports/monthly'],
+  ])('never renders a raw enum value as text on %s', async (path) => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
     const user = userEvent.setup()
-    const { container } = renderApp(['/'])
+    const { container } = renderApp([path])
 
-    await screen.findByText(fixture.findings[0].metricLabel)
+    await screen.findByText(new RegExp(fixture.runId))
+    await new Promise((resolve) => setTimeout(resolve, 20))
 
-    // Expand every finding row so evidence panels (audiences, cause) render.
+    // Expand every finding row (Insights/Alerts/Vendors may have some) so
+    // evidence panels (audiences, cause) render too.
     for (const toggle of container.querySelectorAll<HTMLElement>('.finding-row__toggle')) {
       await user.click(toggle)
     }
@@ -250,26 +262,6 @@ describe('App', () => {
     await screen.findByRole('heading', { level: 1, name: /brief/i })
     await user.click(screen.getByRole('button', { name: /preview brief/i }))
     await screen.findByText('Sample brief text.')
-
-    expectNoRawEnumText(container)
-  })
-
-  it('never renders a raw enum value as text on the Feed health page', async () => {
-    vi.stubGlobal('fetch', mockFetchForRoutes())
-
-    const { container } = renderApp(['/health'])
-
-    await screen.findByRole('heading', { level: 1, name: /feed health/i })
-
-    expectNoRawEnumText(container)
-  })
-
-  it('never renders a raw enum value as text on the Cost page', async () => {
-    vi.stubGlobal('fetch', mockFetchForRoutes())
-
-    const { container } = renderApp(['/cost'])
-
-    await screen.findByRole('heading', { level: 1, name: /cost/i })
 
     expectNoRawEnumText(container)
   })
