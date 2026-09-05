@@ -9,13 +9,16 @@ never open a DuckDB connection or touch the filesystem.
 from __future__ import annotations
 
 import datetime as dt
+import itertools
 import logging
 import os
+import threading
+import time
 from contextlib import asynccontextmanager
 
 import duckdb
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import forecast, ingest, registry
@@ -205,6 +208,65 @@ def _not_found(kind: str, ident: str):
     raise HTTPException(status_code=404, detail={"error": f"no {kind} {ident!r}"})
 
 
+class SweepJobs:
+    """In-process sweep jobs. Deliberately tiny: one sweep at a time, no
+    queue, no persistence. A second request while one is running JOINS it
+    rather than starting a second 109-second job — two concurrent sweeps over
+    the same connection would be slower than one and would tell the user
+    nothing extra."""
+
+    def __init__(self):
+        self._jobs: dict[str, dict] = {}
+        self._running: str | None = None
+        self._lock = threading.Lock()
+        self._seq = itertools.count(1)
+
+    def start(self, window_kind: str, runner) -> tuple[dict, bool]:
+        """(job, joined) — `joined` is True when an existing running job was
+        returned instead of a new one being started."""
+        with self._lock:
+            if self._running is not None:
+                running = self._jobs[self._running]
+                if running["status"] == "running":
+                    return dict(running), True
+                self._running = None
+            job_id = f"sweep-{int(time.time() * 1000)}-{next(self._seq)}"
+            job = {"jobId": job_id, "status": "running", "window": window_kind,
+                   "runId": None, "findingCount": None, "error": None,
+                   "startedMs": int(time.time() * 1000), "finishedMs": None}
+            self._jobs[job_id] = job
+            self._running = job_id
+        threading.Thread(target=self._execute, args=(job_id, runner),
+                         daemon=True, name=f"sweep-{window_kind}").start()
+        return dict(job), False
+
+    def _execute(self, job_id: str, runner) -> None:
+        job = self._jobs[job_id]
+        try:
+            run = runner()
+            job["runId"] = run.run_id
+            job["findingCount"] = len(run.findings)
+            job["status"] = "done"
+        except Exception as exc:
+            # A failed sweep must be READABLE, not a hung poll: the job ends
+            # in "failed" carrying the exception's own name and message.
+            logger.warning("api: sweep job %s failed", job_id, exc_info=True)
+            job["error"] = f"{type(exc).__name__}: {exc}"
+            job["status"] = "failed"
+        finally:
+            job["finishedMs"] = int(time.time() * 1000)
+            with self._lock:
+                if self._running == job_id:
+                    self._running = None
+
+    def get(self, job_id: str) -> dict | None:
+        job = self._jobs.get(job_id)
+        return dict(job) if job else None
+
+
+JOBS = SweepJobs()
+
+
 def create_app(data_dir: str | None = None) -> FastAPI:
     """`data_dir` lets a test point startup at data/sample without mutating
     SIGNALDESK_DATA for the whole process (Controller ruling, task-5)."""
@@ -223,17 +285,50 @@ def create_app(data_dir: str | None = None) -> FastAPI:
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True,
                        allow_methods=["*"], allow_headers=["*"])
 
+    def _run_sweep(kind: str, con=None):
+        run = sweep(con or state.con, state.clock, state.health,
+                   window_days=WINDOW_DAYS_BY_KIND[kind], window_kind=kind)
+        STORE.put(run)
+        return run
+
     @app.post("/api/sweep")
-    def post_sweep(window: str = "week"):
+    def post_sweep(response: Response, window: str = "week", wait: bool = False):
+        """Asynchronous by default, because the job outlives the platform.
+
+        A full sweep over data/real takes ~109 seconds (1,826 metric queries);
+        Render's proxy gives up long before that, so the synchronous route
+        either hung for a minute and a half or returned the platform's own
+        502 page. No retry policy fixes a call that outlives the proxy — the
+        job has to stop being synchronous. So: 202 immediately with a job id,
+        poll GET /api/sweep/{jobId} until status leaves "running", then read
+        the run at GET /api/runs/{runId}/findings.
+
+        `wait=1` keeps the old synchronous body for callers that genuinely
+        want to block (the tests, and anything driving this from a shell)."""
         kind = (window or "week").lower()
         if kind not in WINDOW_DAYS_BY_KIND:
             valid = ", ".join(WINDOW_DAYS_BY_KIND)
             raise HTTPException(status_code=422, detail={
                 "error": f"unknown window {window!r}; valid values are {valid}"})
-        run = sweep(state.con, state.clock, state.health,
-                   window_days=WINDOW_DAYS_BY_KIND[kind], window_kind=kind)
-        STORE.put(run)
-        return {"runId": run.run_id, "findingCount": len(run.findings)}
+
+        if wait:
+            run = _run_sweep(kind)
+            return {"runId": run.run_id, "findingCount": len(run.findings)}
+
+        job, joined = JOBS.start(kind, lambda: _run_sweep(kind, state.con.cursor()))
+        if joined and job["window"] != kind:
+            raise HTTPException(status_code=409, detail={
+                "error": f"a {job['window']} sweep is already running; poll "
+                         f"/api/sweep/{job['jobId']} and retry after it finishes"})
+        response.status_code = 202
+        return {**job, "pollUrl": f"/api/sweep/{job['jobId']}"}
+
+    @app.get("/api/sweep/{job_id}")
+    def get_sweep_job(job_id: str):
+        job = JOBS.get(job_id)
+        if job is None:
+            _not_found("sweep job", job_id)
+        return {**job, "pollUrl": f"/api/sweep/{job['jobId']}"}
 
     @app.get("/api/runs/{run_id}/findings")
     def get_run_findings(run_id: str):

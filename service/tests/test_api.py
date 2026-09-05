@@ -189,7 +189,7 @@ def test_runs_latest_is_an_alias_for_the_most_recent_run(client):
 # ---------------------------------------------------------------------------
 
 def test_post_sweep_returns_a_run_id_that_the_findings_route_resolves(client):
-    r = client.post("/api/sweep")
+    r = client.post("/api/sweep?wait=1")
     assert r.status_code == 200
     body = r.json()
     assert set(body.keys()) == {"runId", "findingCount"}
@@ -204,7 +204,9 @@ def test_post_sweep_returns_a_run_id_that_the_findings_route_resolves(client):
 
 
 def test_post_sweep_defaults_to_a_week_window_when_no_param_is_given(client):
-    r = client.post("/api/sweep")
+    # wait=1 is the synchronous path, kept exactly for callers like this
+    # one that want the run rather than a job to poll.
+    r = client.post("/api/sweep?wait=1")
     body = r.json()
     findings = client.get(f"/api/runs/{body['runId']}/findings").json()
     assert findings["windowKind"] == "week"
@@ -212,7 +214,7 @@ def test_post_sweep_defaults_to_a_week_window_when_no_param_is_given(client):
 
 
 def test_post_sweep_with_a_month_window_returns_a_28_day_span(client):
-    r = client.post("/api/sweep", params={"window": "month"})
+    r = client.post("/api/sweep", params={"window": "month", "wait": 1})
     assert r.status_code == 200
     run_id = r.json()["runId"]
 
@@ -229,7 +231,7 @@ def test_post_sweep_with_a_month_window_returns_a_28_day_span(client):
 
     # Restore "latest" to a normal week sweep so later tests in this
     # module-scoped client are not left depending on a month-length window.
-    r2 = client.post("/api/sweep")
+    r2 = client.post("/api/sweep?wait=1")
     assert r2.json()["runId"] != run_id
 
 
@@ -771,3 +773,71 @@ def test_the_plain_outlook_route_defaults_to_the_same_chosen_day(client):
     plain = client.get("/api/outlook").json()
     assert plain["targetDate"] == shifts["targetDate"]
     assert plain["targetDateAutoSelected"] is True
+
+
+# ---------------------------------------------------------------------------
+# POST /api/sweep is asynchronous -- the deployed-instance bug. A full sweep
+# over data/real is ~109 seconds; Render's proxy gives up long before that,
+# so "Sweep now" either hung for a minute and a half or returned the
+# platform's own 502 page. No retry fixes a synchronous call that outlives
+# the proxy; the job has to stop being synchronous.
+# ---------------------------------------------------------------------------
+
+def _await_job(client, job_id, tries=600):
+    for _ in range(tries):
+        body = client.get(f"/api/sweep/{job_id}").json()
+        if body["status"] != "running":
+            return body
+        time.sleep(0.05)
+    raise AssertionError("sweep job never finished")
+
+
+def test_sweep_accepts_immediately_with_a_pollable_job(client):
+    r = client.post("/api/sweep?window=week")
+    assert r.status_code == 202
+    body = r.json()
+    assert body["status"] == "running"
+    assert body["window"] == "week"
+    assert body["jobId"]
+    assert body["pollUrl"] == f"/api/sweep/{body['jobId']}"
+
+
+def test_a_sweep_job_resolves_to_a_run_the_client_can_then_fetch(client):
+    job_id = client.post("/api/sweep?window=week").json()["jobId"]
+    done = _await_job(client, job_id)
+    assert done["status"] == "done", done
+    assert done["runId"]
+    assert done["findingCount"] >= 0
+    assert done["error"] is None
+    findings = client.get(f"/api/runs/{done['runId']}/findings")
+    assert findings.status_code == 200
+    assert findings.json()["runId"] == done["runId"]
+
+
+def test_an_unknown_sweep_job_is_a_404_not_a_hang(client):
+    assert client.get("/api/sweep/nope").status_code == 404
+
+
+def test_sweep_still_rejects_an_unknown_window_before_starting_any_work(client):
+    r = client.post("/api/sweep?window=fortnight")
+    assert r.status_code == 422
+    assert "fortnight" in r.json()["detail"]["error"]
+
+
+def test_the_synchronous_sweep_path_is_still_available_for_callers_that_want_it(client):
+    r = client.post("/api/sweep?window=week&wait=1")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["runId"]
+    assert isinstance(body["findingCount"], int)
+
+
+def test_a_second_sweep_while_one_runs_joins_it_rather_than_starting_another(client):
+    first = client.post("/api/sweep?window=week").json()
+    second = client.post("/api/sweep?window=week").json()
+    # Either the first finished between the two calls (a fresh job is then
+    # correct), or it is still running and the second must have joined it
+    # rather than queueing a second 109-second job.
+    if client.get(f"/api/sweep/{first['jobId']}").json()["status"] == "running":
+        assert second["jobId"] == first["jobId"]
+    _await_job(client, second["jobId"])
