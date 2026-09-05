@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
+import { isAlertTier } from './api/types.ts'
 import { Sidebar } from './components/Sidebar.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { AlertsPage } from './pages/AlertsPage.tsx'
@@ -89,7 +90,7 @@ function App() {
   }
 
   const findings = run?.findings ?? []
-  const alertCount = findings.filter((f) => f.tier === 'CONCERN' || f.tier === 'BREACH').length
+  const alertCount = findings.filter((f) => isAlertTier(f.tier)).length
 
   return (
     <div className="shell">

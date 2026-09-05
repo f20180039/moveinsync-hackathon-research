@@ -1,0 +1,61 @@
+import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, expect, it } from 'vitest'
+import { Sidebar } from './Sidebar.tsx'
+
+const ALL_LABELS = [
+  'Overview',
+  'Alerts',
+  'Insights',
+  'Vendors',
+  'Data health',
+  'Cost',
+  'Weekly review',
+  'Monthly review',
+  'Brief & dispatch',
+]
+
+function renderSidebar(initialEntries: string[] = ['/'], alertCount = 0) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Sidebar alertCount={alertCount} />
+    </MemoryRouter>,
+  )
+}
+
+describe('Sidebar', () => {
+  it("gives every nav link an accessible name equal to its label, regardless of the collapse media query", () => {
+    renderSidebar()
+
+    // display:none (used under 1024px) would strip this text from the
+    // accessibility tree; the `aria-label` on each NavLink holds the name
+    // fixed either way, which is exactly what this asserts.
+    for (const label of ALL_LABELS) {
+      expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
+    }
+  })
+
+  it('marks the current route active (aria-current + active class), and nothing else', () => {
+    renderSidebar(['/alerts'])
+
+    const alertsLink = screen.getByRole('link', { name: 'Alerts' })
+    expect(alertsLink).toHaveAttribute('aria-current', 'page')
+    expect(alertsLink.classList.contains('sidebar__link--active')).toBe(true)
+
+    const overviewLink = screen.getByRole('link', { name: 'Overview' })
+    expect(overviewLink).not.toHaveAttribute('aria-current')
+    expect(overviewLink.classList.contains('sidebar__link--active')).toBe(false)
+  })
+
+  it('shows the alert count as a badge when there are unread alerts', () => {
+    renderSidebar(['/'], 3)
+
+    expect(screen.getByRole('link', { name: 'Alerts' })).toHaveTextContent('3')
+  })
+
+  it('shows no badge when there are no alerts', () => {
+    renderSidebar(['/'], 0)
+
+    expect(screen.getByRole('link', { name: 'Alerts' })).not.toHaveTextContent(/\d/)
+  })
+})

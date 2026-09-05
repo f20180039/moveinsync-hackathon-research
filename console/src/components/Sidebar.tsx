@@ -27,8 +27,11 @@ function linkClassName({ isActive }: { isActive: boolean }): string {
 }
 
 // The MoveInSync-style left sidebar. Collapses to icons only below 1024px
-// (pure CSS -- the labels stay in the DOM, hidden, so a screen reader still
-// gets the full accessible name via the link, not an icon-only glyph).
+// (pure CSS -- the labels stay in the DOM, visually hidden rather than
+// display:none, so a screen reader still gets the full accessible name via
+// the link, not an icon-only glyph). `aria-label` is belt-and-braces on top
+// of that CSS technique: it fixes the accessible name to exactly the nav
+// item's label regardless of viewport width or how the label is styled.
 export function Sidebar({ alertCount }: { alertCount: number }) {
   return (
     <nav aria-label="Primary" className="sidebar">
@@ -40,7 +43,7 @@ export function Sidebar({ alertCount }: { alertCount: number }) {
       <ul className="sidebar__section">
         {MAIN_ITEMS.map((item) => (
           <li key={item.to}>
-            <NavLink to={item.to} end={item.end} className={linkClassName}>
+            <NavLink to={item.to} end={item.end} className={linkClassName} aria-label={item.label}>
               <span className="sidebar__icon" aria-hidden="true">
                 {item.icon}
               </span>
@@ -57,7 +60,7 @@ export function Sidebar({ alertCount }: { alertCount: number }) {
       <ul className="sidebar__section">
         {REPORT_ITEMS.map((item) => (
           <li key={item.to}>
-            <NavLink to={item.to} end={item.end} className={linkClassName}>
+            <NavLink to={item.to} end={item.end} className={linkClassName} aria-label={item.label}>
               <span className="sidebar__icon" aria-hidden="true">
                 {item.icon}
               </span>

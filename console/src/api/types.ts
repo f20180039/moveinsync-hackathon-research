@@ -8,6 +8,14 @@ export type Tier = 'PASS' | 'WATCH' | 'CONCERN' | 'BREACH'
 
 export const TIER_ORDER: readonly Tier[] = ['PASS', 'WATCH', 'CONCERN', 'BREACH']
 
+// "Needs attention" -- CONCERN or BREACH. The one place this threshold is
+// defined; the sidebar's unread-alert badge count and the Alerts page's
+// filter both call this instead of repeating the `=== 'CONCERN' || ===
+// 'BREACH'` check.
+export function isAlertTier(tier: Tier): boolean {
+  return tier === 'CONCERN' || tier === 'BREACH'
+}
+
 // The live causes today are TREND_REGRESSION, PEER_LAGGARD, LOW_CONFIDENCE,
 // DATA_GAP, ON_REFERENCE and BELOW_TARGET. Kept as `string` (rather than a
 // union) so an unrecognised cause from the service still renders instead of

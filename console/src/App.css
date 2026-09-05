@@ -126,11 +126,21 @@ body {
     width: var(--sidebar-width-collapsed);
   }
 
+  /* Visually hidden, not display:none -- display:none removes text from
+     the accessibility tree, which would leave every collapsed NavLink with
+     no accessible name (its icon is aria-hidden). This keeps the label in
+     the tree, just off-screen; NavLink also gets an explicit aria-label as
+     belt-and-braces, so the accessible name holds regardless of this rule. */
   .sidebar__label,
   .sidebar__section-label,
   .sidebar__tagline,
   .sidebar__brand-name {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .sidebar__link {
