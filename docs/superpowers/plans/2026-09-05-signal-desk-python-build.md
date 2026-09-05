@@ -2114,6 +2114,19 @@ The service column supplies, in order: **8a** action lines → **8** decompositi
 (by VENDOR/SITE/SHIFT/… and by `delay_reason`) → sweep `window` param → Task 11
 → Task 9 (`/api/ask`, which the Ask bar consumes) → R1 → 8b → R3.
 
+### Added on the day (user direction, 12:30–12:50) — Tasks 14, 15 and console stages 5–7
+
+| Task | What | Partition | Why now |
+|---|---|---|---|
+| **14 Shift readiness outlook** | Deterministic seasonal baseline: weighted mean of the same weekday over the last four weeks ± 1 sd, per metric × slice; `GET /api/outlook`, `GET /api/outlook/shifts` with a readiness label and a rule-based action; an `outlook:` line for the top finding in the brief. **Not a model** — every basis day is a runnable query. Reverses the plan's forecasting refusal at the user's direction ("intelligence and decision making carry marks"). | service | jury: reasoning and decision-making |
+| **15 Employee costs and delays** | `late_pickup_rate` (delay *experienced* by employees), `cost_per_rider`, `GET /api/employees/impact` (employees impacted, no-show / late-pickup legs, by shift band / site / vendor, EMPLOYEE-caused delay share). Built by a second implementer in an isolated worktree. | service | user: "employee costs and delays are not visible" |
+| **On-time redefinition** | on-time = MoveInSync's own `delay_minutes ≤ 5`, not planned-end vs actual-end (59% → ~90%); delay-reason decomposition uses the same predicate | service | controller probe — judges are MoveInSync |
+| **7d stage 5** | light / dark / system theme toggle | console | user |
+| **7d stage 6** | Outlook card ("Tomorrow's shift readiness") + `/outlook` with basis drill-down | console | Task 14 |
+| **7d stage 7** | Persona switch (Transport manager / Facilities head / Line manager) scoping nav, KPIs and priority actions — a filter, not auth; floating assistant persistent across pages (zustand allowed) | console | user: reduce clutter per role; chat while navigating |
+
+Also on the day: per-metric diversity cap (brief ≤3 per metric of the top 8; console ≤2 of the top 5) after `marshal_compliance` breached on 23/24 slices; a safety context line (WOMAN_TRAVELLING_ALONE alerts this window and the escort-present share).
+
 ### The running order — one developer, agents in parallel by partition
 
 **Pre-condition:** Tier 1 whole-branch review clean and **Task 12R (Render) live**
