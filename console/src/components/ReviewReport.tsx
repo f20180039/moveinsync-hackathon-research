@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { dispatch, getBrief, getLatestFindings, sweepNow } from '../api/client.ts'
+import { dispatch, getBrief, getRunFindings, sweepNow } from '../api/client.ts'
 import { label } from '../api/labels.ts'
 import type { Audience, Brief, DispatchAudienceResult, Finding, SweepWindow } from '../api/types.ts'
 import { AUDIENCES } from '../api/types.ts'
@@ -32,6 +32,7 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
   const [brief, setBrief] = useState<Brief | null>(null)
   const [briefLoading, setBriefLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copyUnavailable, setCopyUnavailable] = useState(false)
 
   const [dispatching, setDispatching] = useState(false)
   const [dispatchResult, setDispatchResult] = useState<DispatchAudienceResult[] | null>(null)
@@ -42,8 +43,12 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
     setBrief(null)
     setDispatchResult(null)
     try {
-      await sweepNow(window)
-      const findingsRes = await getLatestFindings()
+      const sweepResult = await sweepNow(window)
+      // Use the run the sweep just created, not whatever /latest happens
+      // to point at right now -- the TopBar's Sweep-now, or a second tab,
+      // could otherwise swap the run out from under this one between the
+      // two requests.
+      const findingsRes = await getRunFindings(sweepResult.runId)
       setRun({
         runId: findingsRes.runId,
         windowLabel: findingsRes.windowLabel,
@@ -61,6 +66,7 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
     if (!run) return
     setBriefLoading(true)
     setCopied(false)
+    setCopyUnavailable(false)
     try {
       const result = await getBrief(run.runId, audience)
       setBrief(result)
@@ -86,13 +92,16 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
 
   function copyForLeadership() {
     if (!brief) return
-    // navigator.clipboard is not present in jsdom / some embedded browsers
-    // -- guarded so a click never throws in tests or a locked-down runtime.
+    // navigator.clipboard is not present in every embedded browser or
+    // locked-down runtime -- guarded so a click never throws, and the
+    // user is told plainly rather than the button just doing nothing.
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       navigator.clipboard
         .writeText(brief.brief)
         .then(() => setCopied(true))
-        .catch(() => {})
+        .catch(() => setCopyUnavailable(true))
+    } else {
+      setCopyUnavailable(true)
     }
   }
 
@@ -117,14 +126,14 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
 
           {paramNotHonoured && (
             <p className="report-page__note">
-              This service returned a "{run.windowKind}" window; the "{window}" request may not be honoured by
-              this service yet.
+              This service returned a "{label('windowKind', run.windowKind as string)}" window; the "
+              {label('windowKind', window)}" request may not be honoured by this service yet.
             </p>
           )}
           {run.windowKind === null && (
             <p className="report-page__note">
-              This service response has no windowKind field yet -- can't confirm whether the {window} request was
-              honoured.
+              This service response has no windowKind field yet -- can't confirm whether the{' '}
+              {label('windowKind', window)} request was honoured.
             </p>
           )}
 
@@ -162,6 +171,10 @@ export function ReviewReport({ window, title }: ReviewReportProps) {
                 <span className="brief-preview__source">Source: {label('source', brief.source)}</span>
                 <pre className="brief-preview__text">{brief.brief}</pre>
               </>
+            )}
+
+            {copyUnavailable && (
+              <p className="report-page__note">Copy not available in this browser -- select the text above instead.</p>
             )}
 
             {dispatchResult && (

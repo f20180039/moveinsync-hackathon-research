@@ -16,8 +16,8 @@ function TierIcon({ tier }: { tier: Tier }) {
       return (
         <svg className="tier-badge__icon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <path d="M8 1.5 15 14.5H1Z" fill="currentColor" />
-          <rect x="7.25" y="5.5" width="1.5" height="4.5" fill="var(--bg)" />
-          <rect x="7.25" y="11" width="1.5" height="1.5" fill="var(--bg)" />
+          <rect x="7.25" y="5.5" width="1.5" height="4.5" fill="var(--tier-breach-icon-cutout)" />
+          <rect x="7.25" y="11" width="1.5" height="1.5" fill="var(--tier-breach-icon-cutout)" />
         </svg>
       )
     case 'CONCERN':

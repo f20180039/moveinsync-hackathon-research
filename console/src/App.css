@@ -47,6 +47,15 @@
   --tier-pass: #1e7a45;
   --tier-breach-bg: rgba(179, 38, 30, 0.06);
   --tier-breach-fill-ink: #fff;
+  /* The Breach icon's exclamation mark is a gap cut out of a solid
+     triangle (fill: currentColor, i.e. --tier-breach-fill-ink -- white)
+     -- the cutout must show the badge's own background colour so the
+     gap actually reads as a gap; it was wrongly set to --bg (the page
+     background, also white), making the mark invisible against the
+     white triangle. Its own token (rather than reusing --tier-breach
+     directly) so a dark-mode redefinition of the badge fill can carry a
+     matching cutout value. */
+  --tier-breach-icon-cutout: var(--tier-breach);
   --tier-concern-fill: #f0a202;
   --tier-concern-fill-ink: var(--text-h);
   --tier-concern-bg: rgba(240, 162, 2, 0.08);
@@ -62,9 +71,24 @@
 
   /* Findings grid: chevron | severity | metric | slice | observed |
      compared-against | confidence -- shared by the column header and every
-     row so cells line up. Defined once, referenced everywhere. */
-  --findings-grid-template: 24px minmax(84px, 96px) minmax(160px, 1.3fr) minmax(140px, 1fr) 90px
+     row so cells line up. Defined once, referenced everywhere. The
+     severity track's floor was raised from 84px to 96px (max 96px to
+     132px) after the tier badge grew an icon: "BREACH"/"CONCERN" plus the
+     stripe and icon no longer fit inside the old 96px ceiling, and since a
+     flex badge's default min-width is its own content width (not 0), the
+     grid track for a row with a long tier word silently grew past the
+     header's own (short-text) track width -- the header and rows then
+     disagreed on where column 2 ended and everything after it drifted.
+     See .tier-badge's min-width: 0 override below, which is the other
+     half of this fix. */
+  --findings-grid-template: 24px minmax(96px, 132px) minmax(160px, 1.3fr) minmax(140px, 1fr) 90px
     minmax(200px, 1.6fr) 120px;
+
+  /* One pair of tokens for both the header row and every finding row, so
+     the two can never drift apart on box-sizing/padding/border again --
+     see .findings-grid-row. */
+  --row-pad-y: 14px;
+  --row-pad-x: var(--space-4);
 
   /* Shell: left sidebar + top bar, MoveInSync-style. */
   --sidebar-width: 256px;
@@ -130,6 +154,13 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  /* Reserve the scrollbar's width whether or not it's currently needed,
+     so the sticky .findings-header (measured against this same
+     scrolling ancestor) never gains or loses width relative to the rows
+     underneath it as content grows past the fold. Defensive -- not the
+     cause of the header/row drift fixed above, which was the severity
+     column's track being forced wider by badge content. */
+  scrollbar-gutter: stable;
 }
 
 .shell__content {
@@ -546,6 +577,11 @@ body {
   padding: 2px var(--space-2) 2px 2px;
   border-radius: 999px;
   line-height: 1;
+  /* Belt-and-braces alongside .findings-grid-row > * { min-width: 0 }:
+     an inline-flex box's own intrinsic min-width is its content's width,
+     not 0, so without this the badge could still refuse to shrink even if
+     a future ancestor rule changed. */
+  min-width: 0;
 }
 
 .tier-badge__stripe {
@@ -608,13 +644,35 @@ body {
   overflow: hidden;
 }
 
-.findings-header {
+/* Shared by .findings-header and .finding-row__toggle -- box-sizing,
+   padding, border and the grid template all come from one place so the
+   header and every row are structurally guaranteed to agree on where
+   each column starts and ends. Anything either element needs on top of
+   this (sticky positioning, hover background, width) stays on its own
+   selector below. */
+.findings-grid-row {
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: var(--findings-grid-template);
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-3);
   align-items: center;
-  padding: 10px var(--space-4);
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border: 0;
   background: var(--bg);
+}
+
+/* No cell's own content is allowed to force a column wider than the
+   template says -- this is what actually fixes the header/row drift (see
+   the --findings-grid-template comment): a grid item's default min-width
+   is auto (its content's own width), not 0, so a wide flex child like
+   .tier-badge could previously stretch its column past the header's much
+   narrower "Severity" text. */
+.findings-grid-row > * {
+  min-width: 0;
+}
+
+.findings-header {
   border-bottom: 1px solid var(--border);
   font-size: var(--font-sm);
   font-weight: 600;
@@ -644,15 +702,8 @@ body {
 
 .finding-row__toggle {
   width: 100%;
-  display: grid;
-  grid-template-columns: var(--findings-grid-template);
-  gap: var(--space-3);
-  align-items: center;
   text-align: left;
-  padding: 14px var(--space-4);
-  background: var(--bg);
   height: auto;
-  border: none;
   border-radius: 0;
 }
 

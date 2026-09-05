@@ -55,7 +55,13 @@ function expectNoRawEnumText(container: HTMLElement) {
 function mockFetchForRoutes() {
   return vi.fn((input: RequestInfo | URL) => {
     const url = String(input)
-    if (url.includes('/api/runs/latest/findings')) {
+    if (url.includes('/api/sweep')) {
+      return jsonResponse({ runId: fixture.runId, findingCount: fixture.findings.length })
+    }
+    // Both /latest (most of the app) and the per-run endpoint (Review
+    // reports, which fetch the run the sweep above just returned rather
+    // than /latest) resolve to the same fixture here.
+    if (url.includes('/api/runs/latest/findings') || url.includes(`/api/runs/${fixture.runId}/findings`)) {
       return jsonResponse({
         runId: fixture.runId,
         windowLabel: fixture.windowLabel,
@@ -87,7 +93,21 @@ function mockFetchForRoutes() {
       })
     }
     if (url.includes('/api/dispatch/')) {
-      return jsonResponse({ runId: fixture.runId, dispatched: [] })
+      // A populated result (not an empty array) so the enum guard, when
+      // it clicks Dispatch on a Review report, actually exercises
+      // label('audience', ...) / label('channel', ...) on real values
+      // instead of vacuously passing over an empty list.
+      return jsonResponse({
+        runId: fixture.runId,
+        dispatched: [
+          {
+            audience: 'TRANSPORT_MANAGER',
+            tier: 'BREACH',
+            channels: [{ channel: 'slack', delivered: true, detail: '' }],
+            findingIds: [],
+          },
+        ],
+      })
     }
     return jsonResponse({})
   })
@@ -289,6 +309,26 @@ describe('App', () => {
     const investigateButtons = screen.queryAllByRole('button', { name: /investigate/i })
     if (investigateButtons.length > 0) {
       await user.click(investigateButtons[0])
+    }
+
+    // The two report routes render nothing worth scanning until a review
+    // is run (KPI row, audience select and dispatch results all live
+    // inside `{run && ...}`) -- without this, this test only ever
+    // scanned an empty page and could never have caught an enum leaking
+    // into any of that content.
+    const runReviewButton = screen.queryByRole('button', { name: /run (week|month) review/i })
+    if (runReviewButton) {
+      await user.click(runReviewButton)
+      // Not findByText(windowLabel) -- the TopBar's own (unrelated) run
+      // summary already contains that same text, which makes it
+      // ambiguous once the review's KPI row has rendered too. The
+      // Dispatch button only exists once `run` is set, so waiting for it
+      // is an unambiguous signal that the review's own content is up.
+      await screen.findByRole('button', { name: /dispatch/i })
+      await user.click(screen.getByRole('button', { name: /dispatch/i }))
+      // Substring match -- the rendered <li> is "Slack · delivered" in
+      // one text node, not "Slack" alone.
+      await screen.findByText(/slack/i)
     }
 
     expectNoRawEnumText(container)

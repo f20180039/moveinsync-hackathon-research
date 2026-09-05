@@ -47,6 +47,15 @@ export function getLatestFindings(): Promise<FindingsResponse> {
   return request<FindingsResponse>('/api/runs/latest/findings')
 }
 
+// Fetches the findings for a *specific* run rather than whatever happens
+// to be latest right now -- a caller that just triggered a sweep (Review
+// reports) must use this with the runId the sweep itself returned, or a
+// second tab's Sweep-now (or the TopBar's) can swap /latest out from
+// under it between the sweep call and the findings call.
+export function getRunFindings(runId: string): Promise<FindingsResponse> {
+  return request<FindingsResponse>(`/api/runs/${runId}/findings`)
+}
+
 export function getFinding(id: string): Promise<Finding> {
   return request<Finding>(`/api/findings/${id}`)
 }

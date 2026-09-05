@@ -27,7 +27,7 @@ export function FindingRow({ finding }: { finding: Finding }) {
     <li className="finding-row" role="row">
       <button
         type="button"
-        className="btn finding-row__toggle"
+        className="btn finding-row__toggle findings-grid-row"
         aria-expanded={expanded}
         aria-controls={panelId}
         onClick={() => setExpanded((value) => !value)}

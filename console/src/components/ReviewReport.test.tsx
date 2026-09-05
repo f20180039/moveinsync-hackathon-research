@@ -18,7 +18,11 @@ function mockFetch(windowKind: 'week' | 'month' | null) {
     if (url.includes('/api/sweep')) {
       return jsonResponse({ runId: fixture.runId, findingCount: fixture.findings.length })
     }
-    if (url.includes('/api/runs/latest/findings')) {
+    // The findings fetch must ask for *this run's* findings (the runId
+    // the sweep above just returned), not /latest -- a stray call to
+    // /latest here would 404 against this mock and fail every test in
+    // this file, which is exactly the point.
+    if (url.includes(`/api/runs/${fixture.runId}/findings`)) {
       return jsonResponse({
         runId: fixture.runId,
         windowLabel: fixture.windowLabel,
@@ -61,6 +65,43 @@ describe('ReviewReport', () => {
     expect(screen.getAllByText(fixture.findings[0].metricLabel).length).toBeGreaterThan(0)
 
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/api/sweep?window=week'), expect.anything())
+  })
+
+  it('fetches findings for the run the sweep just created, not /latest', async () => {
+    // Deliberately different from anything else in this file's fixtures,
+    // so a passing test can only mean the runId travelled from the sweep
+    // response into the findings request -- not that it happened to
+    // match some other constant.
+    const sweptRunId = 'run-from-this-sweep-only'
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.includes('/api/sweep')) {
+        return jsonResponse({ runId: sweptRunId, findingCount: fixture.findings.length })
+      }
+      if (url.includes(`/api/runs/${sweptRunId}/findings`)) {
+        return jsonResponse({
+          runId: sweptRunId,
+          windowLabel: fixture.windowLabel,
+          findings: fixture.findings,
+          windowKind: 'week',
+        })
+      }
+      return notFound()
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+
+    render(<ReviewReport window="week" title="Weekly review" />)
+    await user.click(screen.getByRole('button', { name: /run week review/i }))
+
+    expect(await screen.findByText(new RegExp(fixture.windowLabel))).toBeInTheDocument()
+    // Not toHaveBeenCalledWith(..., expect.anything()) -- the plain GET
+    // this makes has no second (init) argument at all, and
+    // expect.anything() deliberately never matches undefined.
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes(`/api/runs/${sweptRunId}/findings`))).toBe(
+      true,
+    )
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/runs/latest/findings'))).toBe(false)
   })
 
   it('flags when the service ignores the window param (returns a different windowKind)', async () => {
@@ -108,9 +149,15 @@ describe('ReviewReport', () => {
     await screen.findByText('Transport manager')
   })
 
-  it('does not crash when the clipboard API is unavailable', async () => {
+  it('shows "copy not available" (without crashing) when the clipboard API is unavailable', async () => {
     vi.stubGlobal('fetch', mockFetch('week'))
     const user = userEvent.setup()
+    // userEvent.setup() installs its own working clipboard stub, so
+    // deleting navigator.clipboard has to happen *after* setup -- without
+    // this line the guard in copyForLeadership could be deleted entirely
+    // and this test would still pass against userEvent's stub, which is
+    // exactly the false safety net a reviewer caught.
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })
 
     render(<ReviewReport window="week" title="Weekly review" />)
     await user.click(screen.getByRole('button', { name: /run week review/i }))
@@ -118,8 +165,7 @@ describe('ReviewReport', () => {
     await user.click(screen.getByRole('button', { name: /preview brief/i }))
     await screen.findByText('Weekly brief text.')
 
-    expect(async () => {
-      await user.click(screen.getByRole('button', { name: /copy for leadership/i }))
-    }).not.toThrow()
+    await user.click(screen.getByRole('button', { name: /copy for leadership/i }))
+    expect(await screen.findByText(/copy not available/i)).toBeInTheDocument()
   })
 })

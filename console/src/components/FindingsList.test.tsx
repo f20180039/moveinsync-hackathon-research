@@ -53,6 +53,27 @@ describe('FindingsList', () => {
     }
   })
 
+  it('header and every row toggle share one grid-alignment class -- same box-sizing/padding/border/gap/grid-template-columns, all sourced from a single rule', () => {
+    const { container } = render(<FindingsList findings={findings} />)
+
+    const header = container.querySelector('.findings-header') as HTMLElement
+    const rowToggles = container.querySelectorAll('.finding-row__toggle')
+    expect(rowToggles.length).toBeGreaterThan(0)
+
+    // jsdom does not apply our stylesheet, so a real computed-style
+    // comparison isn't meaningful here (see the shell-scroll structural
+    // test above for the same caveat) -- what this test can, and does,
+    // guarantee is that the header and every row toggle carry the exact
+    // same class, so they read from the exact same CSS rule
+    // (.findings-grid-row) for box-sizing, padding, border, gap and
+    // grid-template-columns. They cannot drift apart again without this
+    // test catching the class being dropped from one side.
+    expect(header.classList.contains('findings-grid-row')).toBe(true)
+    for (const toggle of rowToggles) {
+      expect(toggle.classList.contains('findings-grid-row')).toBe(true)
+    }
+  })
+
   it('keeps the cell count in sync after expanding a row, with the evidence panel outside the row grid', async () => {
     const user = userEvent.setup()
     const { container } = render(<FindingsList findings={findings} />)

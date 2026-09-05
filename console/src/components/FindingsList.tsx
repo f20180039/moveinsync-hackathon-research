@@ -32,7 +32,7 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
 
   return (
     <div className="findings" role="table" aria-label="Findings, ranked worst first">
-      <div className="findings-header" role="row">
+      <div className="findings-header findings-grid-row" role="row">
         {COLUMNS.map((column) => (
           <span
             key={column.label || 'chevron'}
