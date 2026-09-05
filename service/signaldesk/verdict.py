@@ -18,6 +18,11 @@ def delta(observed: float, reference: float, better: Direction) -> float:
     sla_breach otherwise invites: one formula covers both directions, and gap is
     delta x reference, so its sign agrees with the tier by CONSTRUCTION rather
     than by care.
+
+    One exception: C.PASS_MAX is a TOLERANCE, so a small POSITIVE delta can
+    still tier PASS, which would leave a positive (accusatory) gap on a
+    passing finding. That boundary case is not handled here -- it is floored
+    to zero in evaluate_finding's PASS branch below, where the tier is known.
     """
     if reference == 0.0:
         if observed == 0.0:

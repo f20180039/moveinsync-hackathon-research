@@ -178,18 +178,36 @@ def test_a_within_tolerance_pass_never_carries_a_positive_gap(con):
     # Bug found running the full Tier-1 metric x slice sweep (see task-4
     # report): C.PASS_MAX is a TOLERANCE, so tier_for(d) can still say PASS
     # for a small POSITIVE d (marginally worse than the reference but inside
-    # tolerance). MEASURED on data/sample, otd unsliced, LATE_JULY: observed
-    # 34.375 vs TREND 35.02, d=0.0184 <= PASS_MAX=0.02 -> PASS, yet the raw
-    # gap (d x reference) is +0.65 -- which Finding.__post_init__ correctly
+    # tolerance). Two data points, per ruling 5, both landing in the
+    # (0, PASS_MAX] band by a different route.
+
+    # 1) MEASURED on data/sample, otd unsliced, LATE_JULY: observed 34.375
+    # vs TREND 35.02, d=0.0184 <= PASS_MAX=0.02 -> PASS, yet the raw gap
+    # (d x reference) is +0.65 -- which Finding.__post_init__ correctly
     # refuses on a PASS. This is the case that used to raise ValueError.
     metric = registry.by_id("otd")
-    slc = Slice.all()
-
-    finding = verdict.evaluate_finding(con, metric, slc, LATE_JULY, feed_confidence=1.0)
-
+    finding = verdict.evaluate_finding(con, metric, Slice.all(), LATE_JULY, feed_confidence=1.0)
     assert finding is not None
     assert finding.tier is Tier.PASS
     assert finding.gap <= 0
+
+    # 2) Synthetic: a metric whose value is a deterministic linear function of
+    # the window's start_ms (never touches trips/bill -- the two "?" just
+    # bind window.start_ms/end_ms as registry.evaluate always requires). Its
+    # four-week TREND lands a hair above its observed value: d ~= 0.00025,
+    # comfortably inside (0, PASS_MAX] -- a different metric, a different
+    # reference kind (TREND vs the real case's TREND-that-happened-to-fire),
+    # and a hand-verified exact value rather than a real-data coincidence.
+    fake = Metric("fake_linear_trend", "Fake", "%", Direction.HIGHER,
+                  "SELECT 100.0 - 0.00000001 * CAST(? AS DOUBLE) "
+                  "WHERE ? IS NOT NULL {{SLICE}}",
+                  (ReferenceKind.TREND,), "trips", ())
+    tiny_window = Window(1_000_000, 2_000_000)
+
+    synthetic = verdict.evaluate_finding(con, fake, Slice.all(), tiny_window, feed_confidence=1.0)
+    assert synthetic is not None
+    assert synthetic.tier is Tier.PASS
+    assert synthetic.gap == 0.0
 
 
 def test_low_confidence_caps_at_watch_and_says_why(con):
