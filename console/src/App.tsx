@@ -120,7 +120,7 @@ function App() {
                   />
                 }
               />
-              <Route path="/alerts" element={<AlertsPage findings={findings} />} />
+              <Route path="/alerts" element={<AlertsPage findings={findings} runId={run?.runId ?? null} />} />
               <Route path="/findings" element={<FindingsPage findings={findings} />} />
               <Route path="/vendors" element={<VendorsPage findings={findings} />} />
               <Route path="/health" element={<HealthPage feeds={feeds ?? []} />} />

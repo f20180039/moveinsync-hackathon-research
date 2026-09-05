@@ -225,3 +225,14 @@ export function sliceDimensionTag(raw: string): string | null {
   if (spaceIndex === -1) return null
   return SLICE_DIMENSION_LABELS[raw.slice(0, spaceIndex)] ?? null
 }
+
+// A bare slice-dimension word ("vendor", "site", "overall", ...) -> its
+// display label ("Vendor", "Site", "Overall"). Used by the Insights
+// filter bar's dimension select, which offers the same lowercase
+// dimension vocabulary `sliceDimensionOf()` (api/filters.ts) extracts from
+// a sliceLabel -- a different vocabulary from the /decompose dimension
+// enum ('VENDOR', 'SITE', ...), which `label('dimension', ...)` covers.
+export function sliceDimensionLabel(dimension: string): string {
+  if (dimension === 'overall') return 'Overall'
+  return SLICE_DIMENSION_LABELS[dimension] ?? humanise(dimension)
+}

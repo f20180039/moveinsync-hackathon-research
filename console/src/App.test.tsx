@@ -139,7 +139,7 @@ describe('App', () => {
     renderApp(['/findings'])
 
     expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
-    await screen.findByText(fixture.findings[0].metricLabel)
+    await screen.findAllByText(fixture.findings[0].metricLabel)
 
     // Give any stray timer/poll a chance to fire before asserting call counts.
     await new Promise((resolve) => setTimeout(resolve, 100))
@@ -208,7 +208,7 @@ describe('App', () => {
     const user = userEvent.setup()
     const { container } = renderApp(['/findings'])
 
-    await screen.findByText(fixture.findings[0].metricLabel)
+    await screen.findAllByText(fixture.findings[0].metricLabel)
 
     // Expand a finding row so its "Copy SQL" button renders too.
     const rowToggle = container.querySelector('.finding-row__toggle') as HTMLElement
