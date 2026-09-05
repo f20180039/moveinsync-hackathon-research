@@ -45,10 +45,9 @@ GENERATOR = ROOT / "scripts" / "make_synthetic.py"
 # test_registry.py's own WINDOW uses.
 WIDE_WINDOW = Window(0, 2_000_000_000_000)
 
-GRACE_MS = 5 * 60_000  # constants.ON_TIME_GRACE_MS, duplicated as a literal
-                       # here rather than imported, so this file's own
-                       # "independent query" genuinely shares no code with
-                       # registry.py's.
+GRACE_MIN = 5  # constants.ON_TIME_GRACE_MIN, duplicated as a literal here
+               # rather than imported, so this file's own "independent
+               # query" genuinely shares no code with registry.py's.
 
 
 def _generate_fixture(out_dir: pathlib.Path, seed: int = 1, cap: int = 200) -> None:
@@ -267,8 +266,7 @@ def test_delay_attribution_counts_match_an_independently_computed_late_total(con
     independent_late_total = con_flag_on.sql(f"""
         SELECT count(*) FROM trips t
         WHERE t.scheduled_at >= {WIDE_WINDOW.start_ms} AND t.scheduled_at < {WIDE_WINDOW.end_ms}
-          AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
-          AND t.actual_at > t.planned_end_at + {GRACE_MS}
+          AND coalesce(t.delay_minutes, 0) > {GRACE_MIN}
     """).fetchone()[0]
 
     assert sum(r["n"] for r in rows) == independent_late_total

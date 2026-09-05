@@ -96,12 +96,6 @@ CAP_DEFAULT = 200_000
 SOURCE_DEFAULT = "data/real"
 OUT_DEFAULT = "data/synthetic"
 
-# Mirrors ingest.py's own on-time grace (constants.ON_TIME_GRACE_MS = 5 min)
-# -- kept as a plain literal here rather than importing service.signaldesk,
-# so this script has zero dependency on the service package and can run
-# standalone exactly like scripts/make_sample.py.
-GRACE_S = 5 * 60
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 

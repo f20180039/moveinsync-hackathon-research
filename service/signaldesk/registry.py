@@ -465,9 +465,18 @@ def _literal_sub(sql: str, values: list) -> str:
 
 # Task 17: delay attribution -- SYNTHETIC augmentation, an extra LENS on an
 # existing finding, never a new finding source (api.py's sweep/brief/findings
-# path is completely untouched by this). "Late" here is the same definition
-# _ON_TIME_BASE uses everywhere else: actual_at strictly after planned_end_at
-# plus the standard on-time grace.
+# path is completely untouched by this). "Late" here is the SAME predicate
+# the on-time metrics themselves now use (fix-wave, on-time redefinition):
+# coalesce(delay_minutes, 0) > ON_TIME_GRACE_MIN -- MoveInSync's own column,
+# not the planned_end_at/actual_at end-time gap this file used before that
+# redefinition (a NODELAY trip always has delay_minutes = 0 and so can never
+# be "late" either way; a trip inside the grace window is correctly excluded
+# here too, exactly as it is not "late" for ota/otd/vendor_ota).
+#
+# ON_TIME_GRACE_MIN is in MINUTES (delay_minutes' own unit); the OTP
+# comparison below is in epoch MILLISECONDS (otp_verified_at/
+# planned_pickup_at, per ingest.py's ms normalisation) -- converted once,
+# _COMMUTER_GRACE_MS, rather than re-deriving minutes-to-ms at every call.
 #
 # Every late trip is assigned to EXACTLY ONE cause by the CASE cascade below,
 # in this precedence order -- so shares always sum to 1.0 by construction,
@@ -481,19 +490,20 @@ def _literal_sub(sql: str, values: list) -> str:
 #                   this trip's (site, shift_band, date) sits above that
 #                   (site, shift_band)'s own trailing-4-week mean.
 #   4. unattributed -- none of the above (folds the remainder).
+_COMMUTER_GRACE_MS = C.ON_TIME_GRACE_MIN * 60_000
+
 _CLASSIFIED_LATE_TRIPS_SQL = f"""
 WITH late_trips AS (
   SELECT t.trip_id, t.site_id, t.shift_band, t.delay_reason,
          CAST(to_timestamp(t.scheduled_at / 1000) AS DATE) AS trip_date
   FROM trips t
   WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-    AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
-    AND t.actual_at > t.planned_end_at + {C.ON_TIME_GRACE_MS}
+    AND coalesce(t.delay_minutes, 0) > {C.ON_TIME_GRACE_MIN}
     {{{{SLICE}}}}
 ),
 commuter_flag AS (
   SELECT DISTINCT trip_id FROM otp_events
-  WHERE otp_verified_at > planned_pickup_at + {C.ON_TIME_GRACE_MS}
+  WHERE otp_verified_at > planned_pickup_at + {_COMMUTER_GRACE_MS}
 ),
 traffic_baseline AS (
   SELECT site_id, shift_band, avg(corridor_congestion_index) AS baseline_4wk
