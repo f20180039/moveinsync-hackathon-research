@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import fixture from '../../../handoff/fake-findings.json'
 import type { Finding } from '../api/types.ts'
@@ -37,5 +37,18 @@ describe('FindingsList', () => {
     expect(header).toHaveTextContent('Observed')
     expect(header).toHaveTextContent('Compared against')
     expect(header).toHaveTextContent('Confidence')
+  })
+
+  it('has the same number of cells in the header as in every row', () => {
+    const { container } = render(<FindingsList findings={findings} />)
+
+    const header = screen.getByRole('row', { name: /severity/i })
+    const headerCells = within(header).getAllByRole('columnheader')
+
+    const rowToggles = container.querySelectorAll('.finding-row__toggle')
+    expect(rowToggles.length).toBe(findings.length)
+    for (const toggle of rowToggles) {
+      expect(toggle.children.length).toBe(headerCells.length)
+    }
   })
 })

@@ -1,3 +1,4 @@
+import { label } from '../api/labels.ts'
 import type { Tier } from '../api/types.ts'
 
 // Tier order used for styling and legends -- worst first. Colours come from
@@ -18,7 +19,7 @@ export function TierBadge({ tier }: { tier: Tier }) {
         className="tier-badge__stripe"
         style={{ background: TIER_STRIPE[tier] }}
       />
-      <strong className="tier-badge__word">{tier}</strong>
+      <strong className="tier-badge__word">{label('tier', tier)}</strong>
     </span>
   )
 }

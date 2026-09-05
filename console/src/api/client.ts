@@ -2,6 +2,7 @@ import type {
   Audience,
   Brief,
   Cost,
+  DispatchAudienceResult,
   DispatchResponse,
   FeedHealth,
   FindingsResponse,
@@ -38,6 +39,13 @@ export function getBrief(runId: string, audience: Audience): Promise<Brief> {
 
 export function dispatch(runId: string): Promise<DispatchResponse> {
   return request<DispatchResponse>(`/api/dispatch/${runId}`, { method: 'POST' })
+}
+
+// Optional endpoint -- not part of the frozen contract. Callers should
+// treat a rejection (404, or any other failure) as "no log available" and
+// hide the section, not as a page-level error.
+export function getDispatchLog(): Promise<DispatchAudienceResult[]> {
+  return request<DispatchAudienceResult[]>('/api/dispatch/log')
 }
 
 export function getCost(): Promise<Cost> {

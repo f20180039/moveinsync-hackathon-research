@@ -1,11 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import fixture from '../../handoff/fake-findings.json'
 import App from './App.tsx'
 
 function jsonResponse(body: unknown) {
   return Promise.resolve({ ok: true, json: async () => body } as Response)
+}
+
+function notFound() {
+  return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found', text: async () => '' } as Response)
 }
 
 function mockFetchForRoutes() {
@@ -24,6 +29,9 @@ function mockFetchForRoutes() {
     if (url.includes('/api/cost')) {
       return jsonResponse(fixture.cost)
     }
+    if (url.includes('/api/dispatch/log')) {
+      return notFound()
+    }
     if (url.includes('/brief')) {
       return jsonResponse({
         runId: fixture.runId,
@@ -39,6 +47,14 @@ function mockFetchForRoutes() {
   })
 }
 
+function renderApp(initialEntries: string[] = ['/']) {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <App />
+    </MemoryRouter>,
+  )
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -47,7 +63,7 @@ describe('App', () => {
   it('loads and renders the header, feed health and findings from the API', async () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
-    render(<App />)
+    renderApp()
 
     expect(await screen.findByText('Signal Desk')).toBeInTheDocument()
     expect(await screen.findByText(new RegExp(fixture.runId))).toBeInTheDocument()
@@ -61,7 +77,7 @@ describe('App', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    renderApp()
 
     expect(await screen.findByText(/500 Server Error/)).toBeInTheDocument()
 
@@ -76,7 +92,7 @@ describe('App', () => {
     const fetchMock = mockFetchForRoutes()
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<App />)
+    renderApp()
 
     expect(await screen.findByText('Signal Desk')).toBeInTheDocument()
     await screen.findByText(fixture.findings[0].metricLabel)
@@ -90,31 +106,61 @@ describe('App', () => {
     expect(callsFor('/api/runs/latest/findings')).toBe(1)
     expect(callsFor('/api/health/feeds')).toBe(1)
     expect(callsFor('/api/cost')).toBe(1)
-    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
-  it('places the control strip before the findings list in DOM order', async () => {
+  it('places the summary strip before the findings list on the Findings page', async () => {
     vi.stubGlobal('fetch', mockFetchForRoutes())
 
-    const { container } = render(<App />)
+    const { container } = renderApp()
 
     await screen.findByText(fixture.findings[0].metricLabel)
 
-    const controlStrip = container.querySelector('[data-testid="control-strip"]')
+    const summaryStrip = container.querySelector('[data-testid="summary-strip"]')
     const findingsSection = container.querySelector('[data-testid="findings-section"]')
-    expect(controlStrip).toBeInTheDocument()
+    expect(summaryStrip).toBeInTheDocument()
     expect(findingsSection).toBeInTheDocument()
 
-    const position = controlStrip!.compareDocumentPosition(findingsSection!)
+    const position = summaryStrip!.compareDocumentPosition(findingsSection!)
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('renders every button as the shared Button component', async () => {
+  it('has a Primary nav with the four route links', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    renderApp()
+    await screen.findByText(fixture.findings[0].metricLabel)
+
+    const nav = screen.getByRole('navigation', { name: /primary/i })
+    expect(nav).toHaveTextContent('Findings')
+    expect(nav).toHaveTextContent('Brief')
+    expect(nav).toHaveTextContent('Feed health')
+    expect(nav).toHaveTextContent('Cost')
+  })
+
+  it.each([
+    ['/', /findings/i],
+    ['/brief', /brief/i],
+    ['/health', /feed health/i],
+    ['/cost', /cost/i],
+  ])('renders the page heading for %s', async (path, expectedHeading) => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    renderApp([path])
+    await screen.findByText(fixture.findings[0].metricLabel).catch(() => {
+      // Only the Findings page renders a finding's metric label -- other
+      // routes just need the fetches to settle before asserting.
+    })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(screen.getByRole('heading', { level: 1, name: expectedHeading })).toBeInTheDocument()
+  })
+
+  it('renders every control as the shared Button component (the row toggle is a deliberate exception)', async () => {
     const fetchMock = mockFetchForRoutes()
     vi.stubGlobal('fetch', fetchMock)
 
     const user = userEvent.setup()
-    const { container } = render(<App />)
+    const { container } = renderApp()
 
     await screen.findByText(fixture.findings[0].metricLabel)
 
@@ -122,18 +168,48 @@ describe('App', () => {
     const rowToggle = container.querySelector('.finding-row__toggle') as HTMLElement
     await user.click(rowToggle)
 
-    // Fetch a brief so its "show/hide brief" toggle renders too.
-    await user.click(screen.getByRole('button', { name: /preview brief/i }))
-    await screen.findByText(/source: template/)
-
-    // Dispatch it so nothing is left unrendered.
-    await user.click(screen.getByRole('button', { name: /dispatch/i }))
-    await screen.findByRole('button', { name: /hide brief/i })
-
     const buttons = container.querySelectorAll('button')
-    expect(buttons.length).toBeGreaterThan(0)
+    expect(buttons.length).toBeGreaterThan(1)
     for (const button of buttons) {
+      // Every button, without exception, carries the shared reset class.
       expect(button.classList.contains('btn')).toBe(true)
+
+      if (button.classList.contains('finding-row__toggle')) {
+        // Every ranked-list row toggle deliberately isn't a `Button`
+        // instance -- a full-width table row can't be a pill-shaped
+        // fixed-height control -- so all of them are exempted from the
+        // identity check (there are 8 finding rows, only one expanded).
+        expect(button.dataset.component).toBeUndefined()
+      } else {
+        expect(button.dataset.component).toBe('Button')
+      }
     }
+  })
+
+  it('never renders a raw SCREAMING_SNAKE_CASE enum value as text', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const user = userEvent.setup()
+    const { container } = renderApp()
+
+    await screen.findByText(fixture.findings[0].metricLabel)
+
+    // Expand every finding row so evidence panels (audiences, cause) render.
+    for (const toggle of container.querySelectorAll<HTMLElement>('.finding-row__toggle')) {
+      await user.click(toggle)
+    }
+
+    const rawEnumPattern = /[A-Z]+_[A-Z_]+/
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+    const offenders: string[] = []
+    let node = walker.nextNode()
+    while (node) {
+      if (node.textContent && rawEnumPattern.test(node.textContent)) {
+        offenders.push(node.textContent)
+      }
+      node = walker.nextNode()
+    }
+
+    expect(offenders).toEqual([])
   })
 })

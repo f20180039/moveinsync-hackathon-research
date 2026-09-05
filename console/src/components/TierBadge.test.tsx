@@ -8,18 +8,20 @@ describe('TierBadge', () => {
 
     // The tier word must be present as real text content, independent of
     // whatever colour the stripe carries -- a screen reader or a washed-out
-    // projector must still be able to tell BREACH from PASS.
-    expect(screen.getByText('BREACH')).toBeInTheDocument()
+    // projector must still be able to tell BREACH from PASS. Rendered in
+    // Title Case ("Breach"), per the UI-friendly-label rule -- the raw
+    // enum value never reaches the screen.
+    expect(screen.getByText('Breach')).toBeInTheDocument()
   })
 
   it('renders a different word per tier', () => {
     const { rerender } = render(<TierBadge tier="PASS" />)
-    expect(screen.getByText('PASS')).toBeInTheDocument()
+    expect(screen.getByText('Pass')).toBeInTheDocument()
 
     rerender(<TierBadge tier="WATCH" />)
-    expect(screen.getByText('WATCH')).toBeInTheDocument()
+    expect(screen.getByText('Watch')).toBeInTheDocument()
 
     rerender(<TierBadge tier="CONCERN" />)
-    expect(screen.getByText('CONCERN')).toBeInTheDocument()
+    expect(screen.getByText('Concern')).toBeInTheDocument()
   })
 })

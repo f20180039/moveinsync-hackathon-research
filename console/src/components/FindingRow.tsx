@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { formatSliceLabel } from '../api/labels.ts'
 import type { Finding } from '../api/types.ts'
 import { formatMetricValue, shouldDiscloseConfidence } from '../api/types.ts'
 import { EvidencePanel } from './EvidencePanel.tsx'
@@ -30,8 +31,8 @@ export function FindingRow({ finding }: { finding: Finding }) {
         </span>
         <TierBadge tier={finding.tier} />
         <span className="finding-row__metric">{finding.metricLabel}</span>
-        <span className="finding-row__slice">{finding.sliceLabel}</span>
-        <span className="finding-row__observed">{formatMetricValue(finding.observed, finding.unit)}</span>
+        <span className="finding-row__slice">{formatSliceLabel(finding.sliceLabel)}</span>
+        <span className="finding-row__observed num">{formatMetricValue(finding.observed, finding.unit)}</span>
         <span className="finding-row__references">
           {finding.references.map((ref) => (
             <span key={`${ref.kind}-${ref.label}`} className="finding-row__reference">
@@ -39,11 +40,12 @@ export function FindingRow({ finding }: { finding: Finding }) {
             </span>
           ))}
         </span>
-        {shouldDiscloseConfidence(finding.confidence) && (
-          <span className="finding-row__confidence">
-            confidence {finding.confidence.toFixed(2)}
-          </span>
-        )}
+        {/* Always rendered (even empty) so every row has the same number of
+            cells as the header, regardless of whether this finding's
+            confidence clears the disclosure threshold. */}
+        <span className="finding-row__confidence num">
+          {shouldDiscloseConfidence(finding.confidence) ? `confidence ${finding.confidence.toFixed(2)}` : null}
+        </span>
       </button>
       {expanded && (
         <div id={panelId} role="region" aria-label={`Evidence for ${finding.metricLabel}`}>

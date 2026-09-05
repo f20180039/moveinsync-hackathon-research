@@ -116,20 +116,10 @@ export interface SweepResult {
   findingCount: number
 }
 
-// Maps the rule that fired to a short, plain-English phrase. One place, per
-// the controller ruling -- nothing else in the UI switches on `cause`.
-export const CAUSE_PHRASES: Record<string, string> = {
-  TREND_REGRESSION: 'worse than its own recent trend',
-  PEER_LAGGARD: 'behind comparable peers',
-  LOW_CONFIDENCE: 'too little reliable data to be sure',
-  DATA_GAP: 'missing or unmatched data for this slice',
-  ON_REFERENCE: 'in line with its reference',
-  BELOW_TARGET: 'below its SLA target',
-}
-
-export function causePhrase(cause: Cause): string {
-  return CAUSE_PHRASES[cause] ?? cause
-}
+// The rule-that-fired -> plain-English phrase map, and every other raw
+// code/enum -> UI text mapping, lives in `./labels.ts` (`causePhrase`,
+// `label`, `formatSliceLabel`) -- one module, so nothing in the UI ever
+// renders SCREAMING_SNAKE_CASE.
 
 // Confidence is noise above this line and a feature below it -- the product
 // admitting it is unsure. Shared threshold: everywhere confidence is

@@ -9,45 +9,70 @@ afterEach(() => {
 })
 
 describe('Legend', () => {
-  it('renders all four tier names', () => {
+  it('opens automatically on a first visit and renders all four tier names', () => {
     render(<Legend />)
 
-    expect(screen.getByText('PASS')).toBeInTheDocument()
-    expect(screen.getByText('WATCH')).toBeInTheDocument()
-    expect(screen.getByText('CONCERN')).toBeInTheDocument()
-    expect(screen.getByText('BREACH')).toBeInTheDocument()
+    const dialog = screen.getByRole('dialog', { name: /how to read this/i })
+    expect(dialog).toBeVisible()
+    expect(screen.getByText('Pass')).toBeInTheDocument()
+    expect(screen.getByText('Watch')).toBeInTheDocument()
+    expect(screen.getByText('Concern')).toBeInTheDocument()
+    expect(screen.getByText('Breach')).toBeInTheDocument()
   })
 
-  it('is open by default and collapses/expands on toggle', async () => {
+  it('closes on the Close button and returns focus to the trigger', async () => {
     const user = userEvent.setup()
     render(<Legend />)
 
-    // Open by default on a first visit -- the body content is visible.
-    expect(screen.getByText(/one model call per brief/)).toBeInTheDocument()
+    const trigger = screen.getByRole('button', { name: /how to read this/i })
+    await user.click(screen.getByRole('button', { name: /close/i }))
 
-    await user.click(screen.getByRole('button', { name: /hide/i }))
-    expect(screen.queryByText(/one model call per brief/)).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: /show/i }))
-    expect(screen.getByText(/one model call per brief/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(trigger).toHaveFocus()
   })
 
-  it('honours a stored collapsed state', () => {
-    vi.spyOn(window.localStorage.__proto__, 'getItem').mockReturnValue('true')
-
+  it('closes on Escape', async () => {
+    const user = userEvent.setup()
     render(<Legend />)
 
-    expect(screen.queryByText(/one model call per brief/)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /show/i })).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeVisible()
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('does not crash when localStorage throws', () => {
+  it('closes on a backdrop click', async () => {
+    const user = userEvent.setup()
+    render(<Legend />)
+
+    const dialog = screen.getByRole('dialog')
+    // A click on the <dialog> element itself (not its inner panel) is a
+    // backdrop click.
+    await user.click(dialog)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('does not reopen automatically once the visitor has closed it', async () => {
+    const user = userEvent.setup()
+    const { unmount } = render(<Legend />)
+
+    await user.click(screen.getByRole('button', { name: /close/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    unmount()
+
+    // A later visit (a fresh mount) -- localStorage now remembers it was seen.
+    render(<Legend />)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /how to read this/i })).toBeInTheDocument()
+  })
+
+  it('does not crash when localStorage throws, and still opens on first visit', () => {
     vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation(() => {
       throw new Error('storage disabled')
     })
 
     expect(() => render(<Legend />)).not.toThrow()
-    // Safe default when storage is unavailable: open.
-    expect(screen.getByText(/one model call per brief/)).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeVisible()
   })
 })

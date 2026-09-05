@@ -1,5 +1,6 @@
+import { causePhrase, label } from '../api/labels.ts'
 import type { Finding } from '../api/types.ts'
-import { causePhrase, formatMetricValue } from '../api/types.ts'
+import { formatMetricValue } from '../api/types.ts'
 import { Button } from './Button.tsx'
 
 // Expanded region for one finding: observed value, every reference, the rule
@@ -23,7 +24,7 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
 
         {finding.references.map((ref) => (
           <div key={`${ref.kind}-${ref.label}`} className="evidence-panel__ref">
-            <dt>{ref.label}</dt>
+            <dt>{ref.label || label('referenceKind', ref.kind)}</dt>
             <dd>{formatMetricValue(ref.value, finding.unit)}</dd>
           </div>
         ))}
@@ -35,7 +36,7 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
         <dd>{finding.confidence.toFixed(2)}</dd>
 
         <dt>Sent to</dt>
-        <dd>{finding.audiences.join(', ')}</dd>
+        <dd>{finding.audiences.map((audience) => label('audience', audience)).join(', ')}</dd>
       </dl>
 
       <div className="evidence-panel__sql">

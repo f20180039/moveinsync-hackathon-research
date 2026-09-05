@@ -3,13 +3,14 @@ import { FindingRow } from './FindingRow.tsx'
 
 // One definition per column, reused for both the header text and its
 // tooltip -- "Also add a one-line title/tooltip on each column header
-// repeating its definition."
-const COLUMNS: { label: string; title: string }[] = [
+// repeating its definition." Observed and Confidence are numeric columns,
+// right-aligned to match the values beneath them.
+const COLUMNS: { label: string; title: string; align?: 'right' }[] = [
   { label: '', title: 'Expand a row to see its evidence' },
-  { label: 'Severity', title: 'PASS, WATCH, CONCERN or BREACH -- how urgent this is' },
+  { label: 'Severity', title: 'Pass, Watch, Concern or Breach -- how urgent this is' },
   { label: 'Metric', title: 'Which measured metric this finding is about' },
   { label: 'Slice', title: 'Which vendor, site, tenant, or the overall scope this applies to' },
-  { label: 'Observed', title: 'The measured value for this window' },
+  { label: 'Observed', title: 'The measured value for this window', align: 'right' },
   {
     label: 'Compared against',
     title: 'The reference values used to judge it -- trend, peer, or target',
@@ -17,6 +18,7 @@ const COLUMNS: { label: string; title: string }[] = [
   {
     label: 'Confidence',
     title: 'Shown only below 0.9 -- part of the underlying feed was quarantined or unmatched',
+    align: 'right',
   },
 ]
 
@@ -32,7 +34,12 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
     <div className="findings" role="table" aria-label="Findings, ranked worst first">
       <div className="findings-header" role="row">
         {COLUMNS.map((column) => (
-          <span key={column.label || 'chevron'} role="columnheader" title={column.title}>
+          <span
+            key={column.label || 'chevron'}
+            role="columnheader"
+            title={column.title}
+            className={column.align === 'right' ? 'num' : undefined}
+          >
             {column.label}
           </span>
         ))}

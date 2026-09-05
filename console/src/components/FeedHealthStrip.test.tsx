@@ -35,10 +35,10 @@ describe('FeedHealthStrip', () => {
   it('shows quarantined rows as a number rather than hiding them', () => {
     render(<FeedHealthStrip feeds={quarantineFeeds} />)
 
-    const alphaRow = screen.getByRole('row', { name: /alpha/ })
+    const alphaRow = screen.getByRole('row', { name: /alpha/i })
     expect(within(alphaRow).getByTestId('quarantined-count')).toHaveTextContent('1204')
 
-    const betaRow = screen.getByRole('row', { name: /beta/ })
+    const betaRow = screen.getByRole('row', { name: /beta/i })
     expect(within(betaRow).getByTestId('quarantined-count')).toHaveTextContent('37')
   })
 
@@ -46,12 +46,12 @@ describe('FeedHealthStrip', () => {
     render(<FeedHealthStrip feeds={fixtureFeeds} />)
 
     // alerts sits at 0.6335 confidence in the fixture.
-    const alertsRow = screen.getByRole('row', { name: /alerts/ })
+    const alertsRow = screen.getByRole('row', { name: /alerts/i })
     expect(alertsRow).toHaveTextContent('⚠ low confidence')
 
     // trips sits at 0.9865 confidence and mustBeDisclosed: false -- must not
     // be flagged.
-    const tripsRow = screen.getByRole('row', { name: /trips/ })
+    const tripsRow = screen.getByRole('row', { name: /trips/i })
     expect(tripsRow).not.toHaveTextContent('⚠ low confidence')
   })
 
@@ -69,7 +69,7 @@ describe('FeedHealthStrip', () => {
     ]
     render(<FeedHealthStrip feeds={feeds} />)
 
-    const gammaRow = screen.getByRole('row', { name: /gamma/ })
+    const gammaRow = screen.getByRole('row', { name: /gamma/i })
     expect(gammaRow).toHaveTextContent('⚠ low confidence')
   })
 })

@@ -1,3 +1,4 @@
+import { label } from '../api/labels.ts'
 import type { FeedHealth } from '../api/types.ts'
 import { shouldFlagFeed } from '../api/types.ts'
 
@@ -10,10 +11,18 @@ export function FeedHealthStrip({ feeds }: { feeds: FeedHealth[] }) {
       <thead>
         <tr>
           <th scope="col">Feed</th>
-          <th scope="col">Rows loaded</th>
-          <th scope="col">Quarantined</th>
-          <th scope="col">Unmatched</th>
-          <th scope="col">Confidence</th>
+          <th scope="col" className="num">
+            Rows loaded
+          </th>
+          <th scope="col" className="num">
+            Quarantined
+          </th>
+          <th scope="col" className="num">
+            Unmatched
+          </th>
+          <th scope="col" className="num">
+            Confidence
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -21,16 +30,16 @@ export function FeedHealthStrip({ feeds }: { feeds: FeedHealth[] }) {
           const flagged = shouldFlagFeed(feed)
           return (
             <tr key={feed.feed} className={flagged ? 'feed-health-strip__row--flagged' : undefined}>
-              <th scope="row">{feed.feed}</th>
-              <td>{feed.rowsLoaded}</td>
+              <th scope="row">{label('feed', feed.feed)}</th>
+              <td className="num">{feed.rowsLoaded}</td>
               <td
                 data-testid="quarantined-count"
-                className={feed.rowsRejected > 0 ? 'feed-health-strip__quarantined' : undefined}
+                className={`num${feed.rowsRejected > 0 ? ' feed-health-strip__quarantined' : ''}`}
               >
                 {feed.rowsRejected}
               </td>
-              <td>{feed.unmatchedKeys}</td>
-              <td>
+              <td className="num">{feed.unmatchedKeys}</td>
+              <td className="num">
                 {Math.round(feed.confidence * 100)}%{' '}
                 {flagged && <span className="feed-health-strip__flag">⚠ low confidence</span>}
               </td>

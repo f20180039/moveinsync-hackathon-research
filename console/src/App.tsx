@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
-import { BriefPreview } from './components/BriefPreview.tsx'
 import { Button } from './components/Button.tsx'
-import { CostMeter } from './components/CostMeter.tsx'
-import { FeedHealthStrip } from './components/FeedHealthStrip.tsx'
-import { FindingsList } from './components/FindingsList.tsx'
 import { Legend } from './components/Legend.tsx'
+import { BriefPage } from './pages/BriefPage.tsx'
+import { CostPage } from './pages/CostPage.tsx'
+import { FindingsPage } from './pages/FindingsPage.tsx'
+import { HealthPage } from './pages/HealthPage.tsx'
 
 interface RunState {
   runId: string
@@ -15,6 +16,12 @@ interface RunState {
   findings: Finding[]
 }
 
+// Vite's dev server serves an SPA fallback automatically (any unknown path
+// resolves to index.html), so client-side routes work out of the box in
+// `npm run dev`. A production static host does NOT do this by default --
+// deploying this build needs a rewrite rule sending every path to
+// /index.html (e.g. CloudFront's custom error response, or an S3 website
+// redirect rule), or a deep link like /brief will 404 at the edge.
 function App() {
   const [run, setRun] = useState<RunState | null>(null)
   const [feeds, setFeeds] = useState<FeedHealth[] | null>(null)
@@ -85,40 +92,52 @@ function App() {
             {run.windowLabel} · run {run.runId}
           </span>
         )}
+        <Legend />
         <Button onClick={sweepNowAndReload} busy={sweeping}>
           Sweep now
         </Button>
       </header>
+
+      <nav aria-label="Primary" className="primary-nav">
+        <NavLink
+          to="/"
+          end
+          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
+        >
+          Findings
+        </NavLink>
+        <NavLink
+          to="/brief"
+          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
+        >
+          Brief
+        </NavLink>
+        <NavLink
+          to="/health"
+          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
+        >
+          Feed health
+        </NavLink>
+        <NavLink
+          to="/cost"
+          className={({ isActive }) => `primary-nav__link${isActive ? ' primary-nav__link--active' : ''}`}
+        >
+          Cost
+        </NavLink>
+      </nav>
 
       {loading && <p className="console__status">Loading…</p>}
       {error && <p className="console__status console__status--error">{error}</p>}
 
       {!loading && !error && (
         <main className="console__main">
-          <Legend />
-
-          {/* Control strip: brief controls + cost meter, both visible
-              without scrolling; the brief text panel spans full width
-              underneath. Order top -> bottom matters for the DOM-order
-              test below -- this must come before the findings section. */}
-          <div className="control-strip" data-testid="control-strip">
-            {run && <BriefPreview runId={run.runId} />}
-            {cost && (
-              <div className="control-strip__cost">
-                <h2 className="panel-heading">Cost</h2>
-                <CostMeter cost={cost} />
-              </div>
-            )}
-          </div>
-
-          {feeds && <FeedHealthStrip feeds={feeds} />}
-
-          {run && (
-            <section className="findings-section" data-testid="findings-section">
-              <h2 className="panel-heading">Findings</h2>
-              <FindingsList findings={run.findings} />
-            </section>
-          )}
+          <Routes>
+            <Route path="/" element={<FindingsPage cost={cost} findings={run?.findings ?? []} />} />
+            <Route path="/brief" element={run && <BriefPage runId={run.runId} />} />
+            <Route path="/health" element={<HealthPage feeds={feeds ?? []} />} />
+            <Route path="/cost" element={cost && <CostPage cost={cost} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </main>
       )}
     </div>
