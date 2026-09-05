@@ -95,7 +95,8 @@ def _owns_line(top: Finding) -> str | None:
     return f"Owns the shortfall: {parts}"
 
 
-def validate_narrative(narrative: str, run, audience: Audience | None = None) -> str | None:
+def validate_narrative(narrative: str, run, audience: Audience | None = None,
+                       extra_values=None) -> str | None:
     """Returns the offending figure, or None if every number checks out.
 
     Every number in the narrative must match a figure in the findings, at the
@@ -112,6 +113,12 @@ def validate_narrative(narrative: str, run, audience: Audience | None = None) ->
     that repeats "two vendors own 5.2 of the 7 points" is not rejected as
     inventing 5.2. Defaults to None, which adds nothing -- every pre-Task-8
     caller keeps its exact prior behaviour.
+
+    `extra_values`: Task 9's interrogator passes every numeric value any
+    tool returned this turn (a tool result can carry a figure -- e.g. a
+    decompose_finding row's own points_of_gap -- that is real and correct
+    but does not live on any Finding directly). Any iterable of numbers;
+    defaults to None, which adds nothing.
     """
     values: set[float] = set()
     for f in run.findings:
@@ -125,6 +132,9 @@ def validate_narrative(narrative: str, run, audience: Audience | None = None) ->
     if run.safety_alert_count > 0:
         values.add(run.safety_alert_count)
         values.add(run.safety_alert_escort_pct)
+    if extra_values:
+        for v in extra_values:
+            values.add(v)
 
     top = None
     if audience is not None:
