@@ -13,6 +13,7 @@ import type {
   FindingsResponse,
   HealthStatus,
   SafetySummary,
+  ShiftOutlook,
   SweepResult,
   SweepWindow,
 } from './types.ts'
@@ -115,6 +116,15 @@ export function getDispatchLog(): Promise<DispatchAudienceResult[]> {
 // page decides what an absent endpoint looks like on screen.
 export function getEmployeeImpact(runId = 'latest'): Promise<EmployeeImpact> {
   return request<EmployeeImpact>(`/api/employees/impact?runId=${encodeURIComponent(runId)}`)
+}
+
+// Optional endpoint -- gated by the "outlook" capability. `date` is the
+// service's own ?date=YYYY-MM-DD steering; omitted, the service picks its
+// default target day.
+export function getShiftOutlook(runId = 'latest', date?: string): Promise<ShiftOutlook> {
+  const query = new URLSearchParams({ runId })
+  if (date) query.set('date', date)
+  return request<ShiftOutlook>(`/api/outlook/shifts?${query.toString()}`)
 }
 
 export function getCost(): Promise<Cost> {

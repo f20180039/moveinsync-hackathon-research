@@ -7,6 +7,7 @@ import { isAlertTier } from '../api/types.ts'
 import { KpiRow } from '../components/KpiRow.tsx'
 import { PriorityActionCard } from '../components/PriorityActionCard.tsx'
 import { SafetyBanner } from '../components/SafetyBanner.tsx'
+import { ShiftOutlookCard } from '../components/ShiftOutlookCard.tsx'
 
 // At most 2 cards per metric -- a noisy metric (e.g. 20
 // marshal_compliance breaches, one per site) must not fill the whole top
@@ -87,6 +88,11 @@ export function OverviewPage({
           </div>
         )}
       </section>
+
+      {/* Optional endpoint -- the card feature-detects the "outlook"
+          capability itself and renders nothing at all when this build does
+          not serve it. */}
+      {runId && <ShiftOutlookCard runId={runId} />}
     </>
   )
 }

@@ -59,6 +59,18 @@ const SHIFT_BAND_LABELS: Record<string, string> = {
   NIGHT: 'Night',
 }
 
+// forecast.py's readiness words. A one-to-one rename of the verdict tier
+// the projection lands in -- not a second scale -- plus the two states that
+// are not a verdict at all.
+const READINESS_LABELS: Record<string, string> = {
+  READY: 'Ready',
+  WATCH: 'Watch',
+  AT_RISK: 'At risk',
+  NOT_READY: 'Not ready',
+  WITHHELD: 'Withheld',
+  UNJUDGED: 'Not judged',
+}
+
 const CHANNEL_LABELS: Record<string, string> = {
   slack: 'Slack',
   email: 'Email',
@@ -129,6 +141,7 @@ export type LabelKind =
   | 'windowKind'
   | 'safetyMetric'
   | 'shiftBand'
+  | 'readiness'
 
 // Humanises anything not in a map: underscores become spaces, sentence
 // case. An unrecognised value from the service still renders as words,
@@ -178,6 +191,8 @@ export function label(kind: LabelKind, value: string): string {
       return lookup(SAFETY_METRIC_LABELS, value)
     case 'shiftBand':
       return lookup(SHIFT_BAND_LABELS, value)
+    case 'readiness':
+      return lookup(READINESS_LABELS, value)
   }
 }
 

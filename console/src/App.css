@@ -1896,3 +1896,67 @@ body {
 .impact-table .num {
   text-align: right;
 }
+
+
+/* Shift readiness outlook -- one card on Overview, reusing .impact-table's
+   type scale and the shared Card shell. */
+
+.outlook-card {
+  margin-top: var(--space-5);
+}
+
+.outlook-card__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.outlook-card__date {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--font-sm);
+}
+
+.outlook-card__date:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.outlook-card__method,
+.outlook-card__empty {
+  color: var(--text);
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-3);
+}
+
+/* Readiness is a rename of the verdict tier, so it borrows the tier
+   colours rather than introducing a second palette. */
+.outlook-readiness {
+  font-weight: 600;
+}
+
+.outlook-readiness--not_ready {
+  color: var(--tier-breach);
+}
+
+.outlook-readiness--at_risk {
+  color: var(--tier-concern);
+}
+
+.outlook-readiness--watch {
+  color: var(--tier-watch);
+}
+
+.outlook-readiness--ready {
+  color: var(--tier-pass);
+}
+
+.outlook-table {
+  width: 100%;
+}

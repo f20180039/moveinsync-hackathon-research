@@ -321,3 +321,55 @@ export interface EmployeeImpact {
   costPerRider: number | null
   costPerRiderTrend: number | null
 }
+
+
+// GET /api/outlook/shifts -- field names verbatim from
+// service/signaldesk/forecast.py's Projection.to_json(). This is a STATED
+// SEASONAL BASELINE, not a prediction: each projection is the
+// recency-weighted mean of the same weekday over the last four weeks, and
+// carries the basis observations that produced it.
+export interface OutlookBasis {
+  date: string
+  weekday: string
+  weeksBack: number
+  weight: number
+  value: number | null
+  windowStartMs: number
+  windowEndMs: number
+  sql: string
+}
+
+export interface OutlookProjection {
+  metric: string
+  metricLabel: string
+  unit: string
+  slice: string
+  targetDate: string
+  targetStartMs: number
+  // null whenever `withheld` -- too few basis days to state a number. That
+  // is a refusal, not a zero, and must never render as one.
+  projected: number | null
+  intervalLow: number | null
+  intervalHigh: number | null
+  readiness: string
+  tier: Tier | null
+  reference: { kind: string; label: string; value: number } | null
+  action: string
+  method: string
+  basisDaysUsed: number
+  degraded: boolean
+  withheld: boolean
+  note: string
+  basis: OutlookBasis[]
+}
+
+export interface ShiftOutlook {
+  runId: string
+  metric: string
+  method: string
+  basisWeeks: number
+  weights: number[]
+  targetDate: string | null
+  targetStartMs: number
+  shifts: OutlookProjection[]
+}
