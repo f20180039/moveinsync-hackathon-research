@@ -1,0 +1,29 @@
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import fixture from '../../../handoff/fake-findings.json'
+import type { Finding } from '../api/types.ts'
+import { FindingsList } from './FindingsList.tsx'
+
+const findings = fixture.findings as Finding[]
+
+describe('FindingsList', () => {
+  it('renders findings in the order the server ranked them', () => {
+    render(<FindingsList findings={findings} />)
+
+    const metrics = screen.getAllByText(
+      (_, element) => element?.tagName.toLowerCase() === 'span' && element.classList.contains('finding-row__metric'),
+    )
+    const renderedOrder = metrics.map((el) => el.textContent)
+    const expectedOrder = findings.map((f) => f.metricLabel)
+
+    expect(renderedOrder).toEqual(expectedOrder)
+  })
+
+  it('says so plainly when a sweep found nothing', () => {
+    render(<FindingsList findings={[]} />)
+
+    expect(
+      screen.getByText('The sweep found nothing above PASS for this window.'),
+    ).toBeInTheDocument()
+  })
+})
