@@ -786,6 +786,26 @@ body {
   color: var(--text);
 }
 
+.health-quirks {
+  margin-top: var(--space-5);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+}
+
+.health-quirks__feed {
+  margin-top: var(--space-3);
+}
+
+.health-quirks__feed h3 {
+  font-size: var(--font-md);
+  margin: 0 0 var(--space-1);
+}
+
+.health-quirks__feed ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
 /* Dispatch log (Brief page) */
 
 .brief-preview__log {
@@ -975,6 +995,20 @@ body {
 .priority-card__title {
   margin: 0;
   font-size: var(--font-lg);
+}
+
+.priority-card__dimension-tag {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
 }
 
 .priority-card__sentence {

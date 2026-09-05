@@ -201,3 +201,27 @@ export function formatSliceLabel(raw: string): string {
 
   return `${dimensionLabel}: ${rest}`
 }
+
+// `Finding.owns[].value` and a decompose row's `value`/`label` can be
+// either a proper noun the service made up (a vendor name, a site name --
+// render verbatim) or an enum-like code (a delay reason, a mode -- render
+// humanised). There's no dimension tag to key off here the way
+// `formatSliceLabel` has one, so the rule is structural: a value that is
+// entirely uppercase letters/digits/punctuation (at least one letter) is
+// treated as a code and humanised; anything with lower-case in it is
+// assumed to already be a real name and passed through untouched.
+export function formatContributorName(value: string): string {
+  const looksLikeEnumCode = /[A-Z]/.test(value) && value === value.toUpperCase()
+  return looksLikeEnumCode ? humanise(value) : value
+}
+
+// The dimension word alone ("Vendor", "Site", ...) for a slice label, or
+// null for "overall" / an unrecognised prefix -- used as a small tag next
+// to a bare slice name, so "San Jose Commons" still says what kind of
+// thing it is without repeating "Site:" in the title itself.
+export function sliceDimensionTag(raw: string): string | null {
+  if (raw === 'overall') return null
+  const spaceIndex = raw.indexOf(' ')
+  if (spaceIndex === -1) return null
+  return SLICE_DIMENSION_LABELS[raw.slice(0, spaceIndex)] ?? null
+}

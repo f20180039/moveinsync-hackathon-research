@@ -12,6 +12,10 @@
       "tier": "BREACH",
       "cause": "BELOW_TARGET",
       "action": "Check the delay-reason split in the breakdown before escalating: driver delay is a vendor conversation, employee delay is a comms one, traffic is a routing one.",
+      "owns": [
+        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 4.1, "n": 65 },
+        { "value": "Pooja Sokolov Travel", "pointsOfGap": 2.6, "n": 52 }
+      ],
       "observed": 59.1,
       "gap": 30.9,
       "confidence": 0.96,
@@ -42,6 +46,10 @@
       "tier": "BREACH",
       "cause": "PEER_LAGGARD",
       "action": "Move volume off Vikram Mikhailov Travel to the top-quartile vendors at this site, and put it on the next vendor review.",
+      "owns": [
+        { "value": "Clearwater Campus", "pointsOfGap": 15.2, "n": 40 },
+        { "value": "Cedar Ridge Office", "pointsOfGap": 9.8, "n": 28 }
+      ],
       "observed": 32.31,
       "gap": 26.79,
       "confidence": 0.94,
@@ -72,6 +80,10 @@
       "tier": "BREACH",
       "cause": "BELOW_TARGET",
       "action": "Escalate Clearwater Campus against the agreed target.",
+      "owns": [
+        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 3.8, "n": 22 },
+        { "value": "Anand Fleet Services", "pointsOfGap": 2.1, "n": 15 }
+      ],
       "observed": 93.6,
       "gap": 6.4,
       "confidence": 0.91,
@@ -97,6 +109,10 @@
       "tier": "CONCERN",
       "cause": "TREND_REGRESSION",
       "action": "Compare the affected shift's release time against cab arrival -- logout slippage is usually a dispatch-window problem, not a vendor one.",
+      "owns": [
+        { "value": "Horizon Transit Co.", "pointsOfGap": 2.9, "n": 30 },
+        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 1.8, "n": 19 }
+      ],
       "observed": 54.7,
       "gap": 6.4,
       "confidence": 0.93,
@@ -121,6 +137,10 @@
       "tier": "CONCERN",
       "cause": "TREND_REGRESSION",
       "action": "Look at what changed for vanta-Aus in the last week -- this is a move against its own history.",
+      "owns": [
+        { "value": "Anand Fleet Services", "pointsOfGap": 2.4, "n": 33 },
+        { "value": "Horizon Transit Co.", "pointsOfGap": 1.1, "n": 17 }
+      ],
       "observed": 14.8,
       "gap": 5.2,
       "confidence": 0.88,
@@ -146,6 +166,10 @@
       "tier": "CONCERN",
       "cause": "PEER_LAGGARD",
       "action": "Share the no-show list with the line managers for catalyst-Sac; confirmed no-shows are billable capacity nobody used.",
+      "owns": [
+        { "value": "Pooja Sokolov Travel", "pointsOfGap": 1.9, "n": 26 },
+        { "value": "Vikram Mikhailov Travel", "pointsOfGap": 0.9, "n": 14 }
+      ],
       "observed": 11.24,
       "gap": 3.26,
       "confidence": 0.97,
@@ -170,6 +194,7 @@
       "tier": "WATCH",
       "cause": "TREND_REGRESSION",
       "action": "Look at what changed for this population in the last week -- this is a move against its own history.",
+      "owns": [],
       "observed": 3.42,
       "gap": 0.18,
       "confidence": 0.86,
@@ -189,11 +214,12 @@
       "id": "47642ff6c5ba",
       "metricId": "cost_per_km",
       "metricLabel": "Cost per km",
-      "unit": "INR",
+      "unit": "INR/km",
       "sliceLabel": "mode BUS",
       "tier": "PASS",
       "cause": "ON_REFERENCE",
       "action": "",
+      "owns": [],
       "observed": 21.4,
       "gap": -2.8,
       "confidence": 0.95,
@@ -270,7 +296,14 @@
       "unmatchedKeys": 25,
       "nullCriticalFields": 617,
       "confidence": 0.7901,
-      "mustBeDisclosed": true
+      "mustBeDisclosed": true,
+      "quirks": [
+        {
+          "name": "Slab-billed lines with no distance",
+          "rows": 247914,
+          "detail": "₹380.6M, 45% of spend"
+        }
+      ]
     },
     {
       "feed": "alerts",

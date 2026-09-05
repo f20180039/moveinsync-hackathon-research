@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { decomposeFinding, dispatch } from '../api/client.ts'
 import { markDismissed } from '../api/dismissed.ts'
-import { buildFindingSentence } from '../api/insights.ts'
-import { causePhrase, formatSliceLabel, label } from '../api/labels.ts'
+import { buildFindingSentence, sliceForSentence } from '../api/insights.ts'
+import { causePhrase, formatContributorName, label, sliceDimensionTag } from '../api/labels.ts'
 import type { DecomposeDimension, DecomposeResponse, DispatchAudienceResult, Finding } from '../api/types.ts'
 import { formatMetricValue, isDataGap } from '../api/types.ts'
 import { Button } from './Button.tsx'
@@ -18,44 +18,38 @@ export interface PriorityActionCardProps {
   onDismiss: (findingId: string) => void
 }
 
+// "Pooja Sokolov Travel owns 4.1 pts, Vikram Mikhailov Travel 1.3 pts" --
+// the verb only needs saying once. Shared between the server-computed
+// `finding.owns` (always available, no fetch) and the on-demand
+// `/decompose` result (Investigate's dimension selector).
+function topContributorsText(rows: { value: string; pointsOfGap: number }[]): string {
+  return rows
+    .slice(0, 2)
+    .map((row, index) => {
+      const name = formatContributorName(row.value)
+      return index === 0 ? `${name} owns ${row.pointsOfGap.toFixed(1)} pts` : `${name} ${row.pointsOfGap.toFixed(1)} pts`
+    })
+    .join(', ')
+}
+
 // One finding as an actionable card: stripe + tier word (never colour
 // alone), the plain-English sentence, three fact columns, and the
 // Investigate/Escalate/Dismiss actions. Reused as-is by the Overview
 // panel (Stage 2, top 5) and the Alerts page (Stage 3, all of them).
+//
+// The "Why" column's top-2 contributors come from `finding.owns` --
+// computed server-side and already present on the finding, precisely so
+// this card never has to fetch anything just to render. `/decompose` is
+// fetched only when Investigate is opened (for its dimension selector),
+// never on mount: with 5 cards on Overview, a mount-time fetch per card
+// was 5 requests for data the card usually already had via `owns`.
 export function PriorityActionCard({ finding, runId, onDismiss }: PriorityActionCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [dim, setDim] = useState<DecomposeDimension>('VENDOR')
   const [decompose, setDecompose] = useState<DecomposeResponse | null>(null)
-  const [whyContributors, setWhyContributors] = useState<string | null>(null)
   const [escalating, setEscalating] = useState(false)
   const [escalateError, setEscalateError] = useState<string | null>(null)
   const [escalateResult, setEscalateResult] = useState<DispatchAudienceResult[] | null>(null)
-
-  useEffect(() => {
-    let ignore = false
-    // /decompose is landing on the service -- a 404 (today, always) comes
-    // back as `null` from decomposeFinding, and the "Why" column just
-    // falls back to the cause phrase below. This is not an error state.
-    // oxlint-disable-next-line react/set-state-in-effect
-    decomposeFinding(finding.id, 'VENDOR').then((result) => {
-      // Defensive against a malformed/unexpected response shape too, not
-      // just the documented "not implemented" 404 -- `rows` missing
-      // entirely must not crash this card.
-      if (ignore || !result || !Array.isArray(result.rows) || result.rows.length === 0) return
-      // "Pooja Sokolov Travel owns 4.1 pts, Vikram Mikhailov Travel 1.3
-      // pts" -- the verb only needs saying once.
-      const top2 = result.rows
-        .slice(0, 2)
-        .map((row, index) =>
-          index === 0 ? `${row.label} owns ${row.pointsOfGap.toFixed(1)} pts` : `${row.label} ${row.pointsOfGap.toFixed(1)} pts`,
-        )
-        .join(', ')
-      setWhyContributors(top2)
-    })
-    return () => {
-      ignore = true
-    }
-  }, [finding.id])
 
   async function loadDecompose(nextDim: DecomposeDimension) {
     setDim(nextDim)
@@ -89,8 +83,19 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
     onDismiss(finding.id)
   }
 
-  const totalTrips =
+  // Decomposition trips, if the user opened Investigate and fetched one;
+  // else the trip count already summed from `finding.owns`, if present.
+  const decomposeTrips =
     decompose && Array.isArray(decompose.rows) ? decompose.rows.reduce((sum, row) => sum + row.n, 0) : null
+  const ownsTrips =
+    finding.owns && finding.owns.length > 0 ? finding.owns.reduce((sum, row) => sum + row.n, 0) : null
+  const totalTrips = decomposeTrips ?? ownsTrips
+
+  const whyText =
+    finding.owns && finding.owns.length > 0 ? topContributorsText(finding.owns) : causePhrase(finding.cause)
+
+  const bareSlice = sliceForSentence(finding.sliceLabel)
+  const dimensionTag = sliceDimensionTag(finding.sliceLabel)
 
   return (
     <Card className={`priority-card priority-card--${finding.tier.toLowerCase()}`}>
@@ -98,7 +103,14 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
       <div className="priority-card__body">
         <div className="priority-card__header">
           <h3 className="priority-card__title">
-            {finding.metricLabel} — {formatSliceLabel(finding.sliceLabel)}
+            {finding.metricLabel}
+            {bareSlice && (
+              <>
+                {' — '}
+                {bareSlice}
+                {dimensionTag && <span className="priority-card__dimension-tag">{dimensionTag}</span>}
+              </>
+            )}
           </h3>
           <TierBadge tier={finding.tier} />
         </div>
@@ -108,7 +120,7 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
         <div className="priority-card__columns">
           <div className="priority-card__column">
             <h4>Why</h4>
-            <p>{whyContributors ?? causePhrase(finding.cause)}</p>
+            <p>{whyText}</p>
           </div>
           <div className="priority-card__column">
             <h4>Impact</h4>

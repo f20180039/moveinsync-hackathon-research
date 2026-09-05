@@ -31,6 +31,17 @@ export interface Reference {
   label: string
 }
 
+// The top 2 contributors to a CONCERN/BREACH finding's shortfall, computed
+// server-side so the console never has to fetch /decompose just to fill in
+// the "Why" column. `value` is already the display name (a vendor, a site,
+// whatever the service picked) -- there is no separate `label` here the way
+// DecomposeRow has one.
+export interface OwnsRow {
+  value: string
+  pointsOfGap: number
+  n: number
+}
+
 export interface Finding {
   id: string
   metricId: string
@@ -49,6 +60,11 @@ export interface Finding {
   // Landing on the service partition -- optional until every deployed
   // service has it. "" for PASS.
   action?: string
+  // Landing alongside `action` -- present (non-empty) on CONCERN/BREACH
+  // findings, empty on PASS/WATCH. Feature-detect: absent or empty means
+  // "no server-computed contributors yet", not an error -- the Why column
+  // falls back to the cause phrase.
+  owns?: OwnsRow[]
 }
 
 export interface FindingsResponse {
@@ -95,6 +111,16 @@ export interface AskResponse {
   trace: unknown[]
 }
 
+// A named, quantified pattern the sweep noticed and handled in this feed
+// (e.g. "slab-billed lines with no distance") -- the demo beat is "here is
+// what the data does that we noticed and handled," not a hidden data-
+// quality issue.
+export interface FeedQuirk {
+  name: string
+  rows: number
+  detail: string
+}
+
 export interface FeedHealth {
   feed: string
   rowsLoaded: number
@@ -103,6 +129,9 @@ export interface FeedHealth {
   nullCriticalFields: number
   confidence: number
   mustBeDisclosed: boolean
+  // Landing on the service partition -- optional, feature-detect: absent
+  // means nothing to show, not an error.
+  quirks?: FeedQuirk[]
 }
 
 export type Audience = 'TRANSPORT_MANAGER' | 'FACILITIES_HEAD' | 'LINE_MANAGER'

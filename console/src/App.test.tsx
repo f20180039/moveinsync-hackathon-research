@@ -256,6 +256,14 @@ describe('App', () => {
       await user.click(toggle)
     }
 
+    // On Overview, also open one priority card's Investigate so its
+    // decomposition table and VENDOR/SITE/SHIFT/DELAY_REASON dim selector
+    // get scanned too, not just the collapsed card.
+    const investigateButtons = screen.queryAllByRole('button', { name: /investigate/i })
+    if (investigateButtons.length > 0) {
+      await user.click(investigateButtons[0])
+    }
+
     expectNoRawEnumText(container)
   })
 

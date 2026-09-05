@@ -56,28 +56,50 @@ describe('PriorityActionCard', () => {
     expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument()
   })
 
-  it('shows the top-2 contributors in Why once /decompose resolves', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
-        jsonResponse({
-          findingId: '1f4f6f672a4f',
-          dim: 'VENDOR',
-          overallObserved: 59.1,
-          gap: 26.79,
-          rows: [
-            { value: 'v1', label: 'Pooja Sokolov Travel', observed: 40, shareOfVolume: 30, pointsOfGap: 4.1, n: 50 },
-            { value: 'v2', label: 'Vikram Mikhailov Travel', observed: 32.31, shareOfVolume: 70, pointsOfGap: 1.3, n: 120 },
-          ],
-        }),
-      ),
-    )
+  it('shows the top-2 contributors in Why from finding.owns, with zero /decompose requests', async () => {
+    const fetchMock = vi.fn(() => notFound())
+    vi.stubGlobal('fetch', fetchMock)
+    const finding = makeFinding({
+      owns: [
+        { value: 'POOJA SOKOLOV TRAVEL', pointsOfGap: 4.1, n: 50 },
+        { value: 'Vikram Mikhailov Travel', pointsOfGap: 1.3, n: 120 },
+      ],
+    })
 
+    render(<PriorityActionCard finding={finding} runId="run-1" onDismiss={() => {}} />)
+
+    // owns[].value is humanised only when it looks like an enum code (all
+    // uppercase); a real name with mixed case renders verbatim.
+    expect(
+      screen.getByText('Pooja sokolov travel owns 4.1 pts, Vikram Mikhailov Travel 1.3 pts'),
+    ).toBeInTheDocument()
+
+    // No fetch at all -- the Why column came entirely from `finding.owns`,
+    // already on the finding, no request needed to render it.
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('fetches /decompose only on Investigate -- zero requests before, exactly one after', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL) =>
+      jsonResponse({
+        findingId: '1f4f6f672a4f',
+        dim: 'VENDOR',
+        overallObserved: 59.1,
+        gap: 26.79,
+        rows: [{ value: 'v1', label: 'Pooja Sokolov Travel', observed: 40, shareOfVolume: 30, pointsOfGap: 4.1, n: 50 }],
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
     render(<PriorityActionCard finding={makeFinding()} runId="run-1" onDismiss={() => {}} />)
 
-    expect(
-      await screen.findByText('Pooja Sokolov Travel owns 4.1 pts, Vikram Mikhailov Travel 1.3 pts'),
-    ).toBeInTheDocument()
+    expect(fetchMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: /investigate/i }))
+    await screen.findByText('Pooja Sokolov Travel')
+
+    const decomposeCalls = fetchMock.mock.calls.filter((call) => String(call[0]).includes('/decompose'))
+    expect(decomposeCalls).toHaveLength(1)
   })
 
   it('expands to the evidence panel and decomposition table on Investigate', async () => {
