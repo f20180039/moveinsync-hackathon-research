@@ -119,6 +119,12 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
 
         <p className="priority-card__sentence">{buildFindingSentence(finding)}</p>
 
+        {/* The action is the whole point of a page called "Priority actions",
+            and it is already on the wire (computed server-side, deterministic).
+            It reads on the collapsed card, directly under the sentence, so the
+            default screen answers "what do I do next" without a click. */}
+        {finding.action && <p className="priority-card__action">Action: {finding.action}</p>}
+
         <div className="priority-card__columns">
           <div className="priority-card__column">
             <h4>Why</h4>
@@ -178,7 +184,6 @@ export function PriorityActionCard({ finding, runId, onDismiss }: PriorityAction
 
         {expanded && (
           <div className="priority-card__investigate">
-            {finding.action && <p className="priority-card__action">Action: {finding.action}</p>}
             <EvidencePanel finding={finding} />
             <div className="priority-card__decompose">
               <div className="priority-card__decompose-dims" role="group" aria-label="Decompose by">

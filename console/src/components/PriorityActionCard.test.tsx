@@ -56,6 +56,29 @@ describe('PriorityActionCard', () => {
     expect(screen.getByRole('button', { name: /dismiss/i })).toBeInTheDocument()
   })
 
+  it('shows the action on the collapsed card, without expanding Investigate', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+    const finding = makeFinding({
+      action: "Share the late-pickup list for Vikram Mikhailov Travel with the vendor's dispatch lead",
+    })
+
+    render(<PriorityActionCard finding={finding} runId="run-1" onDismiss={() => {}} />)
+
+    // Nothing clicked: the card is collapsed (no evidence SQL on screen) and
+    // the action is already readable. This is the whole promise of the page.
+    expect(screen.queryByText(/SELECT/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /investigate/i })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByText(/Share the late-pickup list for Vikram Mikhailov Travel/)).toBeInTheDocument()
+  })
+
+  it('says nothing about an action when the finding carries none', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+
+    render(<PriorityActionCard finding={makeFinding()} runId="run-1" onDismiss={() => {}} />)
+
+    expect(screen.queryByText(/^Action:/)).not.toBeInTheDocument()
+  })
+
   it('shows a Recurring tag in the title row once recurrence clears the threshold, not below it', async () => {
     vi.stubGlobal('fetch', vi.fn(() => notFound()))
 
