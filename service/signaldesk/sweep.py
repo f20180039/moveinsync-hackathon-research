@@ -37,7 +37,14 @@ def _owns_for(con, f: Finding) -> tuple[tuple[str, float, int], ...]:
         logger.warning("sweep: decompose(%s) failed for finding %s while attaching owns",
                        dim.name, f.id, exc_info=True)
         return ()
-    named = [r for r in rows if r["value"] != decompose.OTHER][:2]
+    # Only contributors that actually own SOME of the shortfall. A row with a
+    # non-positive points_of_gap moved the other way -- naming it under "owns
+    # the shortfall" would be backwards. Previously unreachable in practice
+    # (every trusted contributor of a ratio sits on the worse side when the
+    # aggregate does); reachable for a volume, where one vendor can shrink
+    # while the site as a whole surges. Enforced here rather than relied upon.
+    named = [r for r in rows
+             if r["value"] != decompose.OTHER and r["points_of_gap"] > 0][:2]
     return tuple((r["value"], r["points_of_gap"], r["n"]) for r in named)
 
 

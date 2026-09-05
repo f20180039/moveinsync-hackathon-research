@@ -40,6 +40,19 @@ trip count while its ratio's true denominator is planned-employee count
 not an identity -- which is why the sum-to-whole test carries a tolerance
 rather than asserting exact equality throughout.
 
+Task 18 -- an ADDITIVE metric decomposes DIFFERENTLY, and it has to. The
+algebra above is only valid for a metric whose overall value is a
+population-weighted AVERAGE of its parts (every ratio in the registry is).
+riders_per_day is a SUM: the overall figure is the parts ADDED UP, not
+averaged, so "share of population x distance from the overall reference" is
+not an approximation there -- it is the wrong arithmetic, and it produced a
+NEGATIVE contribution for every contributor (each band's own headcount is far
+below a reference derived from the whole population's). An additive metric is
+therefore decomposed by each contributor's move against ITS OWN four-week
+trend (registry.trend_reference), which sums to the overall move by
+construction because both the observed values and their trends add up.
+See _decompose_additive below.
+
 A dimension value below MIN_ROWS_PER_SLICE is not silently dropped (that
 would understate the population the sum is taken over) -- it, and any value
 present in the window but never returned as its own metric row (a null
@@ -52,8 +65,8 @@ from __future__ import annotations
 from typing import Literal
 
 from . import constants as C
-from . import registry
-from .schemas import Dimension, Direction, Finding, Slice, Window
+from . import registry, verdict
+from .schemas import Cause, Dimension, Direction, Finding, Slice, Window
 
 DELAY_REASON = "DELAY_REASON"
 
@@ -86,27 +99,112 @@ def dimension_for(finding: Finding) -> Dimension:
     return Dimension.SITE if finding.slice.dim is Dimension.VENDOR else Dimension.VENDOR
 
 
-def _shortfall(observed: float, reference: float, better: Direction) -> float:
+def _worse_is_above(finding: Finding, better: "Direction | None") -> bool:
+    """Is a HIGHER observed value the worse one, for THIS finding?
+
+    For a one-directional metric this is a property of the metric alone
+    (LOWER-is-better -> yes). Task 18: for a TWO-SIDED metric (better is None,
+    riders_per_day) it is a property of the FINDING, because both sides are
+    real -- a demand SURGE is worse above the reference, a demand DROP is
+    worse below it -- and the finding's own Cause is where that direction was
+    recorded. _decompose_dimension refuses to attribute a two-sided finding
+    that carries neither demand cause rather than guessing a sign.
+    """
+    if better is None:
+        return finding.cause is Cause.DEMAND_SURGE
+    return better is Direction.LOWER
+
+
+def _shortfall(observed: float, reference: float, worse_is_above: bool) -> float:
     """Points of shortfall against `reference`, signed so positive always
     means worse -- the same convention Finding.gap uses (deviation 1)."""
-    return (reference - observed) if better is Direction.HIGHER else (observed - reference)
+    return (observed - reference) if worse_is_above else (reference - observed)
 
 
-def _reference_point(finding: Finding, better: Direction, overall_observed: float) -> float:
+def _reference_point(finding: Finding, worse_is_above: bool, overall_observed: float) -> float:
     """The reference-equivalent point implied by the finding's own gap (see
     the module docstring's algebra)."""
-    return overall_observed + finding.gap if better is Direction.HIGHER else overall_observed - finding.gap
+    return overall_observed - finding.gap if worse_is_above else overall_observed + finding.gap
+
+
+def _decompose_additive(con, finding: Finding, dim: Dimension, metric, parent,
+                        worse_is_above: bool, overall_n: int) -> list[dict]:
+    """Task 18: the decomposition for a metric whose parts ADD to the whole.
+
+    "Which vendor owns the demand surge" is answered by each vendor's own move
+    against its OWN four-week trend -- not by comparing a vendor's headcount
+    against a reference derived from the whole site's, which is what the
+    share-weighted algebra above would do (and which comes out negative for
+    every contributor, because one vendor's riders are always far below the
+    total's reference).
+
+    points_of_gap is therefore in the metric's own unit (riders/day), signed
+    positive-means-worse exactly like every other row this module emits: for
+    a SURGE the contributors that grew own it, for a DROP the ones that
+    shrank do. A contributor whose own trend cannot be resolved is folded into
+    "(other)" rather than being compared against a reference it does not have.
+    """
+    rows: list[dict] = []
+    counted_n = 0
+    thin_n = 0
+    for value in registry.distinct_values(con, dim, finding.window):
+        slc = parent + (Slice(dim, value),)
+        value_observed, n = registry.evaluate_with_n(con, metric, slc, finding.window)
+        if n <= 0:
+            continue
+        counted_n += n
+        own_trend = (None if (n < C.MIN_ROWS_PER_SLICE or value_observed is None)
+                     else registry.trend_reference(con, metric, slc, finding.window))
+        if own_trend is None:
+            thin_n += n
+            continue
+        rows.append({
+            "value": value,
+            "observed": value_observed,
+            "share_of_volume": n / overall_n,
+            "points_of_gap": _shortfall(value_observed, own_trend, worse_is_above),
+            "n": n,
+        })
+
+    other_n = thin_n + max(overall_n - counted_n, 0)
+    if other_n > 0:
+        rows.append({
+            "value": OTHER,
+            "observed": None,
+            "share_of_volume": other_n / overall_n,
+            "points_of_gap": finding.gap - sum(r["points_of_gap"] for r in rows),
+            "n": other_n,
+        })
+
+    rows.sort(key=lambda r: -r["points_of_gap"])
+    return rows
 
 
 def _decompose_dimension(con, finding: Finding, dim: Dimension) -> list[dict]:
     metric = registry.by_id(finding.metric_id)
     parent = () if finding.slice.dim is Dimension.NONE else (finding.slice,)
 
+    # Task 18: a two-sided finding whose Cause is not one of the two demand
+    # causes (LOW_CONFIDENCE, DATA_GAP -- the direction was never established)
+    # has no "worse" side to attribute a share of, so it is not decomposed at
+    # all. Guessing one would put the whole contributor table on the wrong
+    # sign of zero.
+    if metric.is_two_sided and finding.cause not in verdict.DEMAND_CAUSES:
+        return []
+    worse_is_above = _worse_is_above(finding, metric.better)
+
     overall_observed, overall_n = registry.evaluate_with_n(con, metric, finding.slice, finding.window)
     if overall_observed is None or overall_n <= 0:
         return []
 
-    reference = _reference_point(finding, metric.better, overall_observed)
+    if metric.is_two_sided:
+        # An additive metric (a volume) -- see the module docstring. Its parts
+        # ADD to the whole rather than averaging to it, so it gets its own
+        # arithmetic instead of the share-weighted one below.
+        return _decompose_additive(con, finding, dim, metric, parent,
+                                   worse_is_above, overall_n)
+
+    reference = _reference_point(finding, worse_is_above, overall_observed)
 
     rows: list[dict] = []
     counted_n = 0
@@ -125,7 +223,7 @@ def _decompose_dimension(con, finding: Finding, dim: Dimension) -> list[dict]:
             "value": value,
             "observed": value_observed,
             "share_of_volume": share,
-            "points_of_gap": share * _shortfall(value_observed, reference, metric.better),
+            "points_of_gap": share * _shortfall(value_observed, reference, worse_is_above),
             "n": n,
         })
 
