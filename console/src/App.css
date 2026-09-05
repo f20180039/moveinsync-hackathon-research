@@ -1761,6 +1761,9 @@ body {
 .assistant-panel__title {
   font-size: var(--font-md);
   margin: 0;
+  /* Pushes Expand and Close to the right edge together, now that the
+     header holds three children rather than two. */
+  margin-right: auto;
 }
 
 /* The two-column region between the header and the composer: starter
@@ -2355,4 +2358,149 @@ body {
 .health-cost-link {
   margin: var(--space-4) 0 0;
   font-size: var(--font-sm);
+}
+
+/* ---------------------------------------------------------------------
+   Review summary (Weekly / Monthly review) -- the verdict-mix bar and the
+   three dense report tables. Appended as one block on purpose; nothing
+   above this line is touched. Colour comes only from the tier tokens in
+   :root, and the bar is inline SVG (no charting library, no network).
+   --------------------------------------------------------------------- */
+
+.review-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: var(--space-5) 0;
+}
+
+.review-summary__empty,
+.review-summary__more {
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+  margin: var(--space-2) 0 0;
+}
+
+.review-summary__lede {
+  color: var(--ink-2);
+  font-size: var(--font-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.review-summary__bar {
+  display: block;
+  width: 100%;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.review-summary__seg--breach {
+  fill: var(--tier-breach);
+}
+
+.review-summary__seg--concern {
+  fill: var(--tier-concern-fill);
+}
+
+.review-summary__seg--watch {
+  fill: var(--tier-watch);
+}
+
+.review-summary__seg--pass {
+  fill: var(--tier-pass);
+}
+
+.review-summary__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  font-size: var(--font-sm);
+  color: var(--ink-2);
+}
+
+.review-summary__legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.review-summary__share {
+  color: var(--ink-3);
+}
+
+.review-summary__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.review-summary__swatch--breach {
+  background: var(--tier-breach);
+}
+
+.review-summary__swatch--concern {
+  background: var(--tier-concern-fill);
+}
+
+.review-summary__swatch--watch {
+  background: var(--tier-watch);
+}
+
+.review-summary__swatch--pass {
+  background: var(--tier-pass);
+}
+
+.review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-sm);
+}
+
+.review-table th,
+.review-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.review-table th {
+  color: var(--ink-3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.review-table td {
+  color: var(--ink-2);
+}
+
+.review-table td:first-child {
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+.review-table th.num,
+.review-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.review-table__quiet {
+  color: var(--ink-3);
+}
+
+/* The panel's route into the full chat page. An anchor borrowing the
+   button classes (navigation, so it must stay middle-clickable), which
+   needs the two properties a <button> gets for free. */
+.assistant-panel__expand {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
 }
