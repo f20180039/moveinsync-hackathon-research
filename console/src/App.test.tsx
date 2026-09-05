@@ -223,9 +223,11 @@ describe('App', () => {
 
     // No auto-retry: a failed initial load must not keep hammering the API.
     // Each of the three routes is called once (Promise.all fires them
-    // together, then the first rejection short-circuits the rest).
+    // together, then the first rejection short-circuits the rest), plus the
+    // assistant footer's one capabilities read -- it is mounted on every
+    // page, including this one.
     await new Promise((resolve) => setTimeout(resolve, 50))
-    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(3)
+    expect(fetchMock.mock.calls.length).toBeLessThanOrEqual(4)
   })
 
   it('fetches each route exactly once on initial render, with no polling', async () => {
@@ -256,7 +258,6 @@ describe('App', () => {
 
     const nav = screen.getByRole('navigation', { name: /primary/i })
     expect(nav).toHaveTextContent('Overview')
-    expect(nav).toHaveTextContent('Ask')
     expect(nav).toHaveTextContent('Alerts')
     expect(nav).toHaveTextContent('Insights')
     expect(nav).toHaveTextContent('Employees')
@@ -266,8 +267,10 @@ describe('App', () => {
     expect(nav).toHaveTextContent('Monthly review')
 
     // /cost and /brief are routed but not linked (nav.ts) -- they are
-    // reached from the page that needs them, not from the daily nav.
+    // reached from the page that needs them, not from the daily nav. The
+    // assistant has no slot either: it is the sticky footer on every page.
     expect(nav).not.toHaveTextContent('Brief & dispatch')
+    expect(nav).not.toHaveTextContent('Ask')
   })
 
   it('shows an unread-alert badge counting CONCERN/BREACH findings', async () => {
@@ -470,13 +473,13 @@ describe('App: role switch', () => {
     renderApp()
 
     await findLoaded()
-    await user.click(screen.getByRole('button', { name: /open mobility intelligence assistant/i }))
-    await screen.findByRole('dialog', { name: /mobility intelligence assistant/i })
+    await user.click(screen.getByRole('button', { name: /expand/i }))
+    await screen.findByRole('region', { name: /mobility intelligence assistant/i })
 
     await user.selectOptions(screen.getByLabelText(/viewing as/i), 'FACILITIES_HEAD')
 
-    // Still open, still the same dialog -- switching role didn't remount
-    // (and so didn't close) the assistant.
-    expect(screen.getByRole('dialog', { name: /mobility intelligence assistant/i })).toBeInTheDocument()
+    // Still expanded, still the same conversation -- switching role didn't
+    // remount (and so didn't collapse) the assistant.
+    expect(screen.getByRole('region', { name: /mobility intelligence assistant/i })).toBeInTheDocument()
   })
 })

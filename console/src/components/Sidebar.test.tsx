@@ -6,7 +6,6 @@ import type { AlertSeverity } from './Sidebar.tsx'
 
 const ALL_LABELS = [
   'Overview',
-  'Ask',
   'Alerts',
   'Insights',
   'Vendors',

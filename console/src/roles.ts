@@ -43,7 +43,7 @@ export interface RoleConfig {
   // are the identity filter; the hook stays because scoping a persona's
   // findings is a role-level decision and this is where it belongs.
   findingsFilter: (finding: Finding) => boolean
-  // The floating assistant's suggested chips for this role.
+  // The assistant footer's suggested chips for this role.
   suggestedQuestions: string[]
 }
 
@@ -52,7 +52,6 @@ export interface RoleConfig {
 // here would be a permission for a link that no longer exists.
 const ALL_NAV_PATHS = new Set([
   '/',
-  '/chat',
   '/alerts',
   '/findings',
   '/employees',
@@ -96,7 +95,7 @@ export const ROLES: Record<Role, RoleConfig> = {
     // contract questions, not on which named site or shift band is hurting
     // employees this week -- the same reason it has no Insights table and
     // no feed-health internals.
-    visibleNavPaths: new Set(['/', '/chat', '/alerts', '/vendors', '/reports/weekly', '/reports/monthly']),
+    visibleNavPaths: new Set(['/', '/alerts', '/vendors', '/reports/weekly', '/reports/monthly']),
     kpiMetricIds: ['ota', 'cost_per_km', 'cost_per_rider', 'marshal_compliance'],
     kpiStripLabel: 'Cost · Safety · Experience',
     isPriorityFinding: (finding) => finding.tier === 'BREACH',

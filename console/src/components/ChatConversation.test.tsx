@@ -1,31 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AskResponse } from '../api/types.ts'
-import { loadSessions, saveCurrentTurns } from '../chat.ts'
-import type { ChatTurn } from '../chat.ts'
-import { ChatPage } from './ChatPage.tsx'
-
-function jsonResponse(body: unknown) {
-  return Promise.resolve({ ok: true, json: async () => body } as Response)
-}
-
-function notFound() {
-  return Promise.resolve({ ok: false, status: 404, statusText: 'Not Found', text: async () => '' } as Response)
-}
-
-function healthResponse(capabilities?: string[]) {
-  return jsonResponse({
-    status: 'ok',
-    activeMetrics: ['ota'],
-    clock: '2026-09-05T09:00:00Z',
-    ...(capabilities !== undefined && { capabilities }),
-  })
-}
+import type { ChatSession, ChatTurn } from '../chat.ts'
+import { ChatConversation } from './ChatConversation.tsx'
 
 function makeResponse(overrides: Partial<AskResponse> = {}): AskResponse {
   return {
-    runId: 'latest',
+    runId: 'run-1',
     question: 'Why is on-time low this week?',
     answer: 'Vendor A and Vendor C are dragging on-time down.',
     withheld: false,
@@ -35,199 +17,181 @@ function makeResponse(overrides: Partial<AskResponse> = {}): AskResponse {
   }
 }
 
-function stubFetch(routes: { health?: () => Promise<Response>; ask?: () => Promise<Response> }) {
-  const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
-    const url = String(input)
-    if (url.includes('/api/health')) return routes.health?.() ?? notFound()
-    if (url.includes('/api/ask')) return routes.ask?.() ?? notFound()
-    return notFound()
-  })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
+function turn(overrides: Partial<ChatTurn> = {}): ChatTurn {
+  return { id: 't1', question: 'Why is on-time low this week?', response: makeResponse(), error: null, ...overrides }
 }
 
-function turn(question: string, answer: string): ChatTurn {
-  return { id: `id-${question}`, question, response: makeResponse({ question, answer, trace: [] }), error: null }
+function renderConversation(props: Partial<Parameters<typeof ChatConversation>[0]> = {}) {
+  const onAsk = vi.fn()
+  const onNewChat = vi.fn()
+  const onResume = vi.fn()
+  const result = render(
+    <ChatConversation
+      turns={[]}
+      sessions={[]}
+      asking={false}
+      available={true}
+      suggestedQuestions={['Why is on-time low this week?', 'Summarise this week']}
+      onAsk={onAsk}
+      onNewChat={onNewChat}
+      onResume={onResume}
+      {...props}
+    />,
+  )
+  return { ...result, onAsk, onNewChat, onResume }
 }
 
-function askBody(fetchMock: ReturnType<typeof stubFetch>) {
-  const call = fetchMock.mock.calls.find(([input]) => String(input).includes('/api/ask'))
-  return JSON.parse(String(call?.[1]?.body))
-}
-
-beforeEach(() => {
-  window.localStorage.clear()
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  window.localStorage.clear()
-})
-
-describe('ChatPage', () => {
-  it('renders one centred column with the composer focused, ready to type into', async () => {
-    stubFetch({ health: () => healthResponse(['ask']) })
-    const { container } = render(<ChatPage />)
-
-    expect(container.querySelector('.chat-page__column')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /mobility intelligence/i, level: 1 })).toBeInTheDocument()
-    expect(screen.getByLabelText(/ask a question/i)).toHaveFocus()
-    await waitFor(() => expect(screen.getByLabelText(/ask a question/i)).toBeEnabled())
-  })
-
-  it('offers the grounded starter questions while the conversation is empty', async () => {
-    const fetchMock = stubFetch({
-      health: () => healthResponse(['ask']),
-      ask: () => jsonResponse(makeResponse({ answer: 'Vendor C is worst on on-time.' })),
-    })
-    render(<ChatPage />)
+describe('ChatConversation', () => {
+  it('offers the starter questions while the conversation is empty', async () => {
+    const { onAsk } = renderConversation()
     const user = userEvent.setup()
 
-    await user.click(await screen.findByRole('button', { name: 'Which vendor is worst on on-time?' }))
+    expect(screen.getByText("Ask a question about this window's findings.")).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Summarise this week' }))
 
-    expect(await screen.findByText('Vendor C is worst on on-time.')).toBeInTheDocument()
-    expect(askBody(fetchMock)).toEqual({ runId: 'latest', question: 'Which vendor is worst on on-time?' })
-    // Once there is a conversation, the starters are out of the way.
+    expect(onAsk).toHaveBeenCalledWith('Summarise this week')
+  })
+
+  it('disables the starters when this build serves no assistant', () => {
+    renderConversation({ available: false })
+    expect(screen.getByRole('button', { name: 'Summarise this week' })).toBeDisabled()
+  })
+
+  it('distinguishes the question from the answer, and names who said each', () => {
+    const { container } = renderConversation({ turns: [turn()] })
+
+    const user = container.querySelector('.chat-message--user') as HTMLElement
+    const assistant = container.querySelector('.chat-message--assistant') as HTMLElement
+    expect(within(user).getByText('Why is on-time low this week?')).toBeInTheDocument()
+    expect(within(assistant).getByText('Vendor A and Vendor C are dragging on-time down.')).toBeInTheDocument()
+    // The starters are out of the way once there is a conversation.
     expect(screen.queryByRole('button', { name: 'Summarise this week' })).not.toBeInTheDocument()
   })
 
-  it('sends on Enter, and renders the answer with a trace that is collapsed by default', async () => {
-    stubFetch({ health: () => healthResponse(['ask']), ask: () => jsonResponse(makeResponse()) })
-    render(<ChatPage />)
+  it('keeps the tool trace one click away -- collapsed, never gone', async () => {
+    renderConversation({ turns: [turn()] })
     const user = userEvent.setup()
 
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'Why is on-time low this week?')
-    await user.keyboard('{Enter}')
-
-    expect(await screen.findByText('Vendor A and Vendor C are dragging on-time down.')).toBeInTheDocument()
-    // Grounding is the product: the trace is one click away, never gone.
     expect(screen.queryByText(/query_findings/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: /show trace/i }))
+    const toggle = screen.getByRole('button', { name: /show trace \(1\)/i })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    await user.click(toggle)
     expect(screen.getByText(/query_findings/)).toBeInTheDocument()
   })
 
-  it('Shift+Enter is a newline, not a send', async () => {
-    const fetchMock = stubFetch({ health: () => healthResponse(['ask']), ask: () => jsonResponse(makeResponse()) })
-    render(<ChatPage />)
-    const user = userEvent.setup()
-
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'half a question')
-    await user.keyboard('{Shift>}{Enter}{/Shift}')
-
-    expect(fetchMock.mock.calls.filter(([i]) => String(i).includes('/api/ask'))).toHaveLength(0)
-    expect(input).toHaveValue('half a question\n')
-  })
-
-  it('carries the prior turns to the service as `history`, oldest first', async () => {
-    saveCurrentTurns([turn('why is on-time low?', 'Vendor C slipped.')])
-    const fetchMock = stubFetch({
-      health: () => healthResponse(['ask']),
-      ask: () => jsonResponse(makeResponse({ answer: 'It was 91% the week before.' })),
-    })
-    render(<ChatPage />)
-    const user = userEvent.setup()
-
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'and the week before?')
-    await user.keyboard('{Enter}')
-
-    await screen.findByText('It was 91% the week before.')
-    expect(askBody(fetchMock)).toEqual({
-      runId: 'latest',
-      question: 'and the week before?',
-      history: [
-        { role: 'user', content: 'why is on-time low?' },
-        { role: 'assistant', content: 'Vendor C slipped.' },
+  it('renders a withheld answer as its reason, with the trace still available', () => {
+    renderConversation({
+      turns: [
+        turn({
+          response: makeResponse({ answer: null, withheld: true, reason: 'That needs data outside this window.' }),
+        }),
       ],
     })
+
+    expect(screen.getByText('That needs data outside this window.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show trace/i })).toBeInTheDocument()
   })
 
-  it('restores the conversation on a reload, which is what a persisted session buys', async () => {
-    saveCurrentTurns([turn('why is on-time low?', 'Vendor C slipped.')])
-    stubFetch({ health: () => healthResponse(['ask']) })
+  it('shows the service\'s plain-language message on a refusal, not the internal reason', async () => {
+    renderConversation({
+      turns: [
+        turn({
+          response: makeResponse({
+            answer: null,
+            withheld: true,
+            reason: 'answer contained a figure no tool returned: 14.8',
+            message: 'I held this answer back because one number could not be traced. Try a narrower question.',
+          }),
+        }),
+      ],
+    })
+    const user = userEvent.setup()
 
-    render(<ChatPage />)
-
-    expect(screen.getByText('why is on-time low?')).toBeInTheDocument()
-    expect(screen.getByText('Vendor C slipped.')).toBeInTheDocument()
+    expect(
+      screen.getByText('I held this answer back because one number could not be traced. Try a narrower question.'),
+    ).toBeInTheDocument()
+    // The diagnostic is NOT the headline...
+    expect(screen.queryByText(/answer contained a figure no tool returned/)).not.toBeInTheDocument()
+    // ...but it is one click away, with the trace, because it is the receipt.
+    await user.click(screen.getByRole('button', { name: /show trace/i }))
+    expect(screen.getByText('answer contained a figure no tool returned: 14.8')).toBeInTheDocument()
   })
 
-  it('"New chat" files the conversation away and starts empty, and it can be resumed', async () => {
-    saveCurrentTurns([turn('why is on-time low?', 'Vendor C slipped.')])
-    stubFetch({ health: () => healthResponse(['ask']) })
-    render(<ChatPage />)
+  it('keeps the reason reachable even when the refusal spent no tool calls', async () => {
+    renderConversation({
+      turns: [
+        turn({
+          response: makeResponse({
+            answer: null,
+            withheld: true,
+            reason: 'no SARVAM_API_KEY configured',
+            message: 'The assistant is not switched on for this build.',
+            trace: [],
+          }),
+        }),
+      ],
+    })
+    const user = userEvent.setup()
+
+    expect(screen.getByText('The assistant is not switched on for this build.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /show detail/i }))
+    expect(screen.getByText('no SARVAM_API_KEY configured')).toBeInTheDocument()
+  })
+
+  it('falls back to the reason when the service sends no message', () => {
+    // An older service that predates the field must render exactly as it
+    // did before -- the reason as the headline, and not printed twice.
+    renderConversation({
+      turns: [turn({ response: makeResponse({ answer: null, withheld: true, reason: 'That needs data outside this window.' }) })],
+    })
+
+    expect(screen.getAllByText('That needs data outside this window.')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: /show trace \(1\)/i })).toBeInTheDocument()
+  })
+
+  it('shows no refusal detail at all on an answered turn', () => {
+    renderConversation({ turns: [turn()] })
+    expect(screen.getByRole('button', { name: /show trace \(1\)/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show detail/i })).not.toBeInTheDocument()
+  })
+
+  it('renders a failed request as an error, which is a different thing from a withheld answer', () => {
+    renderConversation({
+      turns: [turn({ response: null, error: 'Could not reach the assistant -- try again in a moment.' })],
+    })
+
+    expect(screen.getByText(/could not reach the assistant/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show trace/i })).not.toBeInTheDocument()
+  })
+
+  it('lists past conversations by their first question, and resumes the one clicked', async () => {
+    const sessions: ChatSession[] = [
+      { id: 's1', startedAt: '2026-09-04T09:00:00Z', turns: [turn({ question: 'why did vendor C slip?' })] },
+    ]
+    const { onResume } = renderConversation({ sessions })
+    const user = userEvent.setup()
+
+    await user.click(
+      within(screen.getByRole('region', { name: /previous chats/i })).getByRole('button', {
+        name: 'why did vendor C slip?',
+      }),
+    )
+
+    expect(onResume).toHaveBeenCalledWith('s1')
+  })
+
+  it('shows that tools are running while an answer is in flight', () => {
+    renderConversation({ asking: true })
+    expect(screen.getByText(/working through the tools/i)).toBeInTheDocument()
+  })
+
+  it('starts a new chat on request', async () => {
+    const { onNewChat } = renderConversation({ turns: [turn()] })
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: /new chat/i }))
 
-    expect(screen.queryByText('Vendor C slipped.')).not.toBeInTheDocument()
-    expect(screen.getByText("Ask a question about this window's findings.")).toBeInTheDocument()
-    expect(loadSessions()).toHaveLength(1)
-
-    await user.click(screen.getByRole('button', { name: 'why is on-time low?' }))
-
-    expect(screen.getByText('Vendor C slipped.')).toBeInTheDocument()
-  })
-
-  it('renders a withheld answer as its reason, with the trace still available', async () => {
-    stubFetch({
-      health: () => healthResponse(['ask']),
-      ask: () =>
-        jsonResponse(
-          makeResponse({ answer: null, withheld: true, reason: 'That needs data outside this window.' }),
-        ),
-    })
-    render(<ChatPage />)
-    const user = userEvent.setup()
-
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'What will next month look like?')
-    await user.keyboard('{Enter}')
-
-    expect(await screen.findByText('That needs data outside this window.')).toBeInTheDocument()
-    expect(screen.queryByText(/could not reach/i)).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /show trace/i })).toBeInTheDocument()
-  })
-
-  it('a 500 is one failed question -- the composer stays enabled to retry', async () => {
-    stubFetch({
-      health: () => healthResponse(['ask']),
-      ask: () =>
-        Promise.resolve({ ok: false, status: 500, statusText: 'Server Error', text: async () => '' } as Response),
-    })
-    render(<ChatPage />)
-    const user = userEvent.setup()
-
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'a question that fails')
-    await user.keyboard('{Enter}')
-
-    expect(await screen.findByText(/could not reach the assistant/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/ask a question/i)).toBeEnabled()
-  })
-
-  it('a 404 from /api/ask turns the page off, because this build serves no assistant', async () => {
-    stubFetch({ health: () => healthResponse(['ask']), ask: () => notFound() })
-    render(<ChatPage />)
-    const user = userEvent.setup()
-
-    const input = await screen.findByLabelText(/ask a question/i)
-    await user.type(input, 'a question to an endpoint that is gone')
-    await user.keyboard('{Enter}')
-
-    expect(await screen.findByText(/does not serve the assistant endpoint/i)).toBeInTheDocument()
-    await waitFor(() => expect(screen.getByLabelText(/ask a question/i)).toBeDisabled())
-  })
-
-  it('renders every control as the shared Button component', async () => {
-    stubFetch({ health: () => healthResponse(['ask']) })
-    const { container } = render(<ChatPage />)
-    await screen.findByLabelText(/ask a question/i)
-
-    for (const button of container.querySelectorAll('button')) {
-      expect(button.classList.contains('btn')).toBe(true)
-    }
+    expect(onNewChat).toHaveBeenCalled()
   })
 })

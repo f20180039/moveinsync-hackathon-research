@@ -144,11 +144,12 @@ export function sessionTitle(session: ChatSession): string {
 /** The optional `history` field of POST /api/ask: chronological, oldest
  * first, EXCLUDING the question being asked. A failed turn contributes
  * nothing (there is no assistant message to remember), and a withheld one
- * contributes its reason, which is genuinely what the assistant said. */
+ * contributes what the user actually saw -- the plain-language `message`
+ * where the service sent one, its `reason` where it did not. */
 export function toHistoryMessages(turns: ChatTurn[], max = MAX_HISTORY_MESSAGES): AskHistoryMessage[] {
   const messages: AskHistoryMessage[] = []
   for (const turn of turns) {
-    const said = turn.response?.answer ?? turn.response?.reason ?? null
+    const said = turn.response?.answer ?? turn.response?.message ?? turn.response?.reason ?? null
     if (!said) continue
     messages.push({ role: 'user', content: turn.question })
     messages.push({ role: 'assistant', content: said })

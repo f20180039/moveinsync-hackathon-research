@@ -4,14 +4,13 @@ import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
 import { isAlertTier } from './api/types.ts'
-import { FloatingAssistant } from './components/FloatingAssistant.tsx'
+import { AssistantFooter } from './components/AssistantFooter.tsx'
 import { Sidebar } from './components/Sidebar.tsx'
 import { TopBar } from './components/TopBar.tsx'
 import { ROLES } from './roles.ts'
 import { useAppStore } from './store.ts'
 import { AlertsPage } from './pages/AlertsPage.tsx'
 import { BriefPage } from './pages/BriefPage.tsx'
-import { ChatPage } from './pages/ChatPage.tsx'
 import { CostPage } from './pages/CostPage.tsx'
 import { EmployeesPage } from './pages/EmployeesPage.tsx'
 import { FindingsPage } from './pages/FindingsPage.tsx'
@@ -145,7 +144,6 @@ function App() {
                   />
                 }
               />
-              <Route path="/chat" element={<ChatPage />} />
               <Route path="/alerts" element={<AlertsPage findings={findings} runId={run?.runId ?? null} />} />
               <Route path="/findings" element={<FindingsPage findings={findings} />} />
               {/* Fetches its own data (and feature-detects the optional
@@ -163,10 +161,12 @@ function App() {
         )}
       </div>
 
-      {/* Mounted once here, not per-page, so the conversation survives
-          navigating between routes -- it only unmounts (and its
-          localStorage-persisted history reloads) on a full page reload. */}
-      {run && <FloatingAssistant runId={run.runId} suggestedQuestions={roleConfig.suggestedQuestions} />}
+      {/* Mounted once here, not per-page: a sticky footer present on
+          every route, so a question can be asked from wherever the
+          operator already is rather than by navigating to a page for it.
+          The conversation survives route changes because this never
+          unmounts, and a reload because chat.ts persists it. */}
+      <AssistantFooter runId={run?.runId ?? 'latest'} suggestedQuestions={roleConfig.suggestedQuestions} />
     </div>
   )
 }

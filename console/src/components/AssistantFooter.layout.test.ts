@@ -5,85 +5,51 @@ import { describe, expect, it } from 'vitest'
 
 // The real stylesheet, read as text. Deliberately not `../App.css?raw`:
 // Vite hands that back through its CSS pipeline, not verbatim, and the
-// point of this file is to assert what is actually in the source. The
-// tsconfig for src/ pins `types: ["vite/client"]`, hence the reference
-// directive above -- @types/node is already a devDependency.
+// point of this file is to assert what is actually in the source.
 // vitest runs with the console/ package root as cwd.
 const css = readFileSync(join(process.cwd(), 'src/App.css'), 'utf8')
 
-// jsdom applies no stylesheet, so a rendering test in this repo CANNOT
-// prove the assistant panel fits a short viewport -- it would happily pass
-// while the composer is clipped away, which is exactly how the reported bug
-// survived. The pixel verification is done separately in headless Chrome
-// (see the task report: real viewport boxes measured at 1280x768, 1280x600,
-// 390x600 and 1280x460, before and after).
-//
-// What this file locks is the source of the bug: three CSS declarations
-// that, if any one of them regresses, put the panel back into the state
-// where its own content overflows its max-height box and `overflow: hidden`
-// clips the bottom of it. Each assertion names the value that was wrong.
+// jsdom applies no stylesheet, so a rendering test in this repo cannot
+// prove the footer sits clear of the page's own content -- it would happily
+// pass while the bar covered the last row of every table. What this file
+// locks is the source of that class of bug: the declarations that keep the
+// fixed bar out of the content's way and keep the expanded panel inside the
+// viewport.
 function rule(selector: string): string {
-  // Matches `\n<selector> {  ... }` -- the declarations of exactly one rule.
   const match = css.match(new RegExp(`\\n${selector.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\s*\\{([^}]*)\\}`))
   if (!match) throw new Error(`no CSS rule found for ${selector}`)
   return match[1]
 }
 
-describe('floating assistant panel layout (CSS contract)', () => {
-  it('the message list can shrink to nothing and scrolls internally', () => {
-    const history = rule('.assistant-panel__history')
-
-    // The bug: a flex item's default min-height is its content size, so
-    // `min-height: 80px` made the list refuse to shrink, pushed the panel's
-    // content past its max-height and clipped the composer.
-    expect(history).toMatch(/min-height:\s*0\s*;/)
-    expect(history).not.toMatch(/min-height:\s*(?!0\s*;)\S+/)
-    expect(history).toMatch(/overflow-y:\s*auto\s*;/)
+describe('assistant footer layout (CSS contract)', () => {
+  it('the bar is pinned to the bottom of the viewport on every page', () => {
+    const footer = rule('.assistant-footer')
+    expect(footer).toMatch(/position:\s*fixed\s*;/)
+    expect(footer).toMatch(/bottom:\s*0\s*;/)
+    // Clears the sidebar rather than sitting under it.
+    expect(footer).toMatch(/left:\s*var\(--sidebar-width\)\s*;/)
   })
 
-  it('the suggestions column scrolls itself instead of eating the panel', () => {
-    const suggestions = rule('.assistant-panel__suggestions')
-
-    // Four wrapped chips measured 177px -- a third of the panel that no
-    // viewport height could reclaim while this was `flex-shrink: 0`.
-    expect(suggestions).not.toMatch(/flex-shrink:\s*0\s*;/)
-    expect(suggestions).toMatch(/min-height:\s*0\s*;/)
-    expect(suggestions).toMatch(/overflow-y:\s*auto\s*;/)
-    // A fixed left track: it must not take width from the conversation.
-    expect(suggestions).toMatch(/flex:\s*0 0 \d+px\s*;/)
+  it('the shell reserves exactly the bar\'s height, from the same token the bar is sized by', () => {
+    // Two independently-written numbers is how the last row of a table ends
+    // up unreachable underneath a fixed bar. One token, referenced twice.
+    expect(css).toMatch(/--assistant-bar-height:\s*\d+px\s*;/)
+    expect(rule('.shell__content')).toMatch(/padding:[^;]*calc\(var\(--assistant-bar-height\)/)
+    expect(rule('.assistant-footer__panel')).toMatch(/var\(--assistant-bar-height\)/)
   })
 
-  it('the two-column body is the flex item that absorbs the vertical give', () => {
-    const body = rule('.assistant-panel__body')
-    expect(body).toMatch(/display:\s*flex\s*;/)
-    expect(body).toMatch(/flex:\s*1 1 auto\s*;/)
-    expect(body).toMatch(/min-height:\s*0\s*;/)
+  it('the expanded conversation is capped and scrolls itself, so the composer always stays', () => {
+    const panel = rule('.assistant-footer__panel')
+    expect(panel).toMatch(/max-height:\s*min\(/)
+    expect(panel).toMatch(/overflow-y:\s*auto\s*;/)
   })
 
-  it('narrow widths reflow the suggestions to a capped row, never a crushed column', () => {
-    // The same markup, no second render path. Without the cap the reflowed
-    // row would take the panel back to the state that clipped the composer.
-    expect(css).toMatch(/@media \(max-width: 620px\) \{/)
-    const narrow = css.slice(css.indexOf('@media (max-width: 620px)'))
-    expect(narrow).toMatch(/\.assistant-panel__body\s*\{\s*flex-direction:\s*column\s*;/)
-    expect(narrow).toMatch(/flex-wrap:\s*wrap\s*;/)
-    expect(narrow).toMatch(/max-height:\s*\d+px\s*;/)
+  it('both states share one centred measure, so expanding does not move the composer', () => {
+    expect(rule('.assistant-footer__column')).toMatch(/width:\s*min\(760px,\s*100%\)\s*;/)
+    expect(rule('.assistant-footer__column')).toMatch(/margin:\s*0 auto\s*;/)
   })
 
-  it("the panel's height budget is the space above the launcher, not a flat 70vh", () => {
-    const panel = rule('.assistant-panel')
-
-    // 70vh left ~30vh unusable above the panel while its children fought
-    // over a box too small for all of them.
-    expect(panel).not.toMatch(/max-height:\s*min\(70vh/)
-    expect(panel).toMatch(/max-height:\s*min\(640px,\s*calc\(100vh -/)
-    // The subtraction has to account for the launcher itself (56px) or the
-    // panel overlaps it at short heights.
-    expect(panel).toMatch(/calc\(100vh - 56px/)
-  })
-
-  it('the composer never shrinks, so it is always the part that stays', () => {
-    expect(rule('.assistant-panel__form')).toMatch(/flex-shrink:\s*0\s*;/)
-    expect(rule('.assistant-panel__header')).toMatch(/flex-shrink:\s*0\s*;/)
+  it('narrow viewports give the footer the full width, where the sidebar is not a left column', () => {
+    expect(css).toMatch(/@media \(max-width: 900px\) \{\s*\.assistant-footer \{\s*left:\s*0\s*;/)
   })
 })

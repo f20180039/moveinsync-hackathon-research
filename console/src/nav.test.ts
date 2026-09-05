@@ -8,9 +8,9 @@ describe('titleFor', () => {
     }
   })
 
-  it('puts Ask directly under Overview, where a question is asked before a page is browsed', () => {
+  it('has no slot for the assistant -- it is a sticky footer on every page, not a page of its own', () => {
     expect(MAIN_ITEMS[0].to).toBe('/')
-    expect(MAIN_ITEMS[1]).toMatchObject({ to: '/chat', label: 'Ask' })
+    expect([...MAIN_ITEMS, ...REPORT_ITEMS, ...UNLISTED_ITEMS].map((item) => item.to)).not.toContain('/chat')
   })
 
   it('still titles a routed-but-unlinked page, so a deep link is not headed "Signal Desk"', () => {

@@ -219,6 +219,25 @@ describe('toHistoryMessages', () => {
     ])
   })
 
+  it('carries the plain-language message a withheld turn actually showed', () => {
+    const withheld: ChatTurn = {
+      id: 't-withheld',
+      question: 'what will OTA be next month?',
+      response: answer('', {
+        answer: null,
+        withheld: true,
+        reason: 'answer contained a figure no tool returned: 14.8',
+        message: 'I held this answer back because one number could not be traced.',
+      }),
+      error: null,
+    }
+
+    expect(toHistoryMessages([withheld])).toEqual([
+      { role: 'user', content: 'what will OTA be next month?' },
+      { role: 'assistant', content: 'I held this answer back because one number could not be traced.' },
+    ])
+  })
+
   it('carries a withheld reason, which is what the assistant actually said', () => {
     const withheld: ChatTurn = {
       id: 'w',

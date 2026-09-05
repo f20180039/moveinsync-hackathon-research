@@ -131,7 +131,16 @@ export interface AskResponse {
   // a null answer as an error: render `reason` and the trace instead.
   answer: string | null
   withheld: boolean
+  // The engineer's diagnostic ("answer contained a figure no tool returned:
+  // 14.8"). Kept, and worth keeping -- it is the receipt that the guardrail
+  // fired -- but it belongs in the expandable detail, not on screen as the
+  // headline.
   reason: string | null
+  // The sentence a person reads on a refusal: plain language, what happened
+  // and what to try next. Null on an answered response. OPTIONAL because a
+  // service deployed before this field existed does not send it; every
+  // reader falls back to `reason` when it is absent.
+  message?: string | null
   trace: AskTraceStep[]
 }
 
