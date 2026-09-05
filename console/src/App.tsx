@@ -134,6 +134,7 @@ function App() {
                     windowLabel={run?.windowLabel ?? null}
                     runId={run?.runId ?? null}
                     findings={findings}
+                    kpiFindings={run?.findings ?? []}
                     kpiMetricIds={roleConfig.kpiMetricIds}
                     kpiStripLabel={roleConfig.kpiStripLabel}
                     isPriorityFinding={roleConfig.isPriorityFinding}
