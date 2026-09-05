@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ask } from '../api/client.ts'
+import { ApiError, ask, getCapabilities, hasCapability } from '../api/client.ts'
 import { DEFAULT_SUGGESTED_QUESTIONS } from '../api/insights.ts'
 import type { AskResponse } from '../api/types.ts'
 import { Button } from './Button.tsx'
@@ -113,20 +113,22 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
   const previouslyFocusedRef = useRef<HTMLElement | null>(null)
   const historyRef = useRef<HTMLDivElement>(null)
 
-  // A cheap probe with an empty question just to learn whether the route
-  // exists at all -- feature-detection, not a real question. Runs once per
-  // runId regardless of whether the panel is open, so the launcher itself
-  // can reflect availability the moment it's opened.
+  // Feature-detection reads GET /api/health's `capabilities` list. It does
+  // NOT probe /api/ask -- the console used to POST an empty question here,
+  // the service correctly answered 422, and the console read that as
+  // "endpoint missing" and disabled the assistant against a working
+  // backend. Capabilities describe the build, not the run, so this runs
+  // once per mount rather than per runId.
   useEffect(() => {
     let ignore = false
     // oxlint-disable-next-line react/set-state-in-effect
-    ask(runId, '').then((result) => {
-      if (!ignore) setAvailable(result !== null)
+    getCapabilities().then((capabilities) => {
+      if (!ignore) setAvailable(hasCapability(capabilities, 'ask'))
     })
     return () => {
       ignore = true
     }
-  }, [runId])
+  }, [])
 
   useEffect(() => {
     if (!open) return undefined
@@ -162,22 +164,31 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
     if (!trimmed) return
     setQuestion('')
     setAsking(true)
+    let exchange: Exchange
     try {
-      const result = await ask(runId, trimmed)
-      const exchange: Exchange = {
+      exchange = { id: makeId(), question: trimmed, response: await ask(runId, trimmed), error: null }
+    } catch (err) {
+      // Only a 404 means this build has no /api/ask; a 422, a 500 or a
+      // timeout is one question that failed, so the input stays enabled
+      // and the user can retry.
+      if (err instanceof ApiError && err.status === 404) setAvailable(false)
+      exchange = {
         id: makeId(),
         question: trimmed,
-        response: result,
-        error: result === null ? 'Could not reach the assistant -- try again in a moment.' : null,
+        response: null,
+        error:
+          err instanceof ApiError && err.status === 404
+            ? 'This build does not serve the assistant endpoint.'
+            : 'Could not reach the assistant -- try again in a moment.',
       }
-      setHistory((prev) => {
-        const next = [...prev, exchange].slice(-MAX_EXCHANGES)
-        saveHistory(next)
-        return next
-      })
     } finally {
       setAsking(false)
     }
+    setHistory((prev) => {
+      const next = [...prev, exchange].slice(-MAX_EXCHANGES)
+      saveHistory(next)
+      return next
+    })
   }
 
   return (

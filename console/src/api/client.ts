@@ -22,11 +22,27 @@ import type {
 // the deployed API's origin.
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '')
 
+// A non-2xx response, carrying the status code so callers can tell the
+// two cases apart that the console used to conflate: 404 means "this build
+// does not serve that route", anything else (422, 500, a gateway timeout)
+// means "the route exists and this particular request failed". Treating
+// every non-2xx as "endpoint missing" is exactly what disabled the
+// assistant against a working backend.
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(status: number, statusText: string, body: string) {
+    super(`${status} ${statusText}${body ? `: ${body}` : ''}`)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, init)
   if (!res.ok) {
     const body = await res.text().catch(() => '')
-    throw new Error(`${res.status} ${res.statusText}${body ? `: ${body}` : ''}`)
+    throw new ApiError(res.status, res.statusText, body)
   }
   return (await res.json()) as T
 }
@@ -117,12 +133,40 @@ export function getSafety(runId: string): Promise<SafetySummary | null> {
   return tryRequest<SafetySummary>(`/api/runs/${runId}/safety`)
 }
 
-// Not live yet -- every caller must feature-detect (null -> hide/disable
-// the ask bar's send path) rather than assume this exists.
-export function ask(runId: string, question: string): Promise<AskResponse | null> {
-  return tryRequest<AskResponse>('/api/ask', {
+// Throws (ApiError) rather than swallowing failures to null. Callers must
+// distinguish a 404 -- this build has no /api/ask, disable the feature --
+// from a 422/500/timeout, which is one question that failed and must leave
+// the input enabled to retry. Availability is NOT detected by calling this;
+// use getCapabilities() below.
+export function ask(runId: string, question: string): Promise<AskResponse> {
+  return request<AskResponse>('/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ runId, question }),
   })
+}
+
+// Feature detection for the optional endpoints, read off GET /api/health's
+// `capabilities` list -- a fixed contract with the service, whose names are
+// "ask", "decompose", "safety", "employees", "cost", "dispatch-log".
+//
+// Returns null for "unknown": either the field is absent (an older service
+// that predates it, which still serves the routes) or /api/health itself
+// could not be reached. Never POST a request you know is invalid to find
+// out whether a route exists -- the service rightly answers 422 and the
+// answer you get back is a lie.
+export async function getCapabilities(): Promise<string[] | null> {
+  try {
+    const health = await request<HealthStatus>('/api/health')
+    return Array.isArray(health.capabilities) ? health.capabilities : null
+  } catch {
+    return null
+  }
+}
+
+// Absence of evidence is not evidence of absence: unknown capabilities
+// (null) means available. Only an explicit list that omits `name` disables
+// the feature.
+export function hasCapability(capabilities: string[] | null, name: string): boolean {
+  return capabilities === null || capabilities.includes(name)
 }

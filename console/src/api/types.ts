@@ -222,6 +222,11 @@ export interface HealthStatus {
   status: string
   activeMetrics: string[]
   clock: string
+  // The optional endpoints this build actually serves ("ask", "decompose",
+  // "safety", "employees", "cost", "dispatch-log"). Optional on purpose:
+  // a service that predates the field omits it, and absence must be read
+  // as "unknown, assume available" -- see hasCapability in client.ts.
+  capabilities?: string[]
 }
 
 export interface SweepResult {

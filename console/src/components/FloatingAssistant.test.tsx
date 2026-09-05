@@ -14,6 +14,35 @@ function jsonResponse(body: unknown) {
   return Promise.resolve({ ok: true, json: async () => body } as Response)
 }
 
+// A non-404 failure: the endpoint exists, this one request failed.
+function errorResponse(status: number, statusText: string) {
+  return Promise.resolve({ ok: false, status, statusText, text: async () => '' } as Response)
+}
+
+// GET /api/health with an explicit `capabilities` list. Pass undefined for
+// an older service that predates the field entirely.
+function healthResponse(capabilities?: string[]) {
+  return jsonResponse({
+    status: 'ok',
+    activeMetrics: ['ota'],
+    clock: '2026-09-05T09:00:00Z',
+    ...(capabilities !== undefined && { capabilities }),
+  })
+}
+
+// Routes the only two endpoints the assistant touches. Anything unrouted
+// 404s, which for /api/health means "capabilities unknown".
+function stubFetch(routes: { health?: () => Promise<Response>; ask?: () => Promise<Response> }) {
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.includes('/api/health')) return routes.health?.() ?? notFound()
+    if (url.includes('/api/ask')) return routes.ask?.() ?? notFound()
+    return notFound()
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
 function makeResponse(overrides: Partial<AskResponse> = {}): AskResponse {
   return {
     runId: 'run-1',
@@ -80,13 +109,77 @@ describe('FloatingAssistant', () => {
     expect(screen.queryByRole('button', { name: 'Which vendor is underperforming?' })).not.toBeInTheDocument()
   })
 
-  it('disables the input with helper text when /api/ask 404s', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => notFound()))
+  it('disables the input when /api/health advertises capabilities without "ask"', async () => {
+    stubFetch({ health: () => healthResponse(['decompose', 'safety', 'employees']) })
     render(<FloatingAssistant runId="run-1" />)
     await openPanel()
 
     expect(await screen.findByText('Interrogation lands with the tools — coming')).toBeInTheDocument()
     expect(screen.getByLabelText(/ask a question/i)).toBeDisabled()
+  })
+
+  it('stays available when /api/health omits `capabilities` entirely (older service)', async () => {
+    // Absence of evidence is not evidence of absence: a service that
+    // predates the field still serves /api/ask.
+    stubFetch({ health: () => healthResponse(undefined) })
+    render(<FloatingAssistant runId="run-1" />)
+    await openPanel()
+
+    const input = await screen.findByLabelText(/ask a question/i)
+    await waitFor(() => expect(input).toBeEnabled())
+    expect(screen.queryByText('Interrogation lands with the tools — coming')).not.toBeInTheDocument()
+  })
+
+  it('stays available when `capabilities` lists "ask"', async () => {
+    stubFetch({ health: () => healthResponse(['ask', 'decompose']) })
+    render(<FloatingAssistant runId="run-1" />)
+    await openPanel()
+
+    const input = await screen.findByLabelText(/ask a question/i)
+    await waitFor(() => expect(input).toBeEnabled())
+  })
+
+  it('never probes /api/ask to feature-detect -- no request is sent until a question is asked', async () => {
+    const fetchMock = stubFetch({ health: () => healthResponse(['ask']) })
+    render(<FloatingAssistant runId="run-1" />)
+    await openPanel()
+    await screen.findByLabelText(/ask a question/i)
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const askCalls = fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/ask'))
+    expect(askCalls).toHaveLength(0)
+  })
+
+  it('leaves the input ENABLED when /api/ask answers 422, and surfaces the failure on that question', async () => {
+    // The regression this locks: a 422 is a rejected question, not a
+    // missing endpoint. The console used to disable the whole assistant.
+    stubFetch({
+      health: () => healthResponse(['ask']),
+      ask: () => errorResponse(422, 'Unprocessable Entity'),
+    })
+    render(<FloatingAssistant runId="run-1" />)
+    const user = await openPanel()
+    const input = await screen.findByLabelText(/ask a question/i)
+
+    await user.type(input, 'a question the service rejects')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    expect(await screen.findByText(/could not reach the assistant/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/ask a question/i)).toBeEnabled()
+    expect(screen.queryByText('Interrogation lands with the tools — coming')).not.toBeInTheDocument()
+  })
+
+  it('disables the assistant when /api/ask itself answers 404', async () => {
+    stubFetch({ health: () => healthResponse(['ask']), ask: () => notFound() })
+    render(<FloatingAssistant runId="run-1" />)
+    const user = await openPanel()
+    const input = await screen.findByLabelText(/ask a question/i)
+
+    await user.type(input, 'a question to an endpoint that is gone')
+    await user.click(screen.getByRole('button', { name: /^send$/i }))
+
+    expect(await screen.findByText(/does not serve the assistant endpoint/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText(/ask a question/i)).toBeDisabled())
   })
 
   it('Escape closes the panel and returns focus to the launcher', async () => {
@@ -213,20 +306,12 @@ describe('FloatingAssistant', () => {
   })
 
   it('renders an error message (not withheld) when the request itself fails', async () => {
-    // /api/ask 404s on the *real* question, after the mount-time empty-
-    // question probe already reported it as available (an inconsistent
-    // service, or a transient failure) -- distinguishes "the service
-    // failed to answer" from "the assistant chose not to answer".
-    let call = 0
-    const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      const url = String(input)
-      if (url.includes('/api/ask')) {
-        call += 1
-        return call === 1 ? jsonResponse(makeResponse()) : notFound()
-      }
-      return notFound()
+    // A 500 from /api/ask -- distinguishes "the service failed to answer"
+    // from "the assistant chose not to answer", and leaves the feature on.
+    stubFetch({
+      health: () => healthResponse(['ask']),
+      ask: () => errorResponse(500, 'Internal Server Error'),
     })
-    vi.stubGlobal('fetch', fetchMock)
 
     render(<FloatingAssistant runId="run-1" />)
     const user = await openPanel()
@@ -236,6 +321,7 @@ describe('FloatingAssistant', () => {
     await user.click(screen.getByRole('button', { name: /^send$/i }))
 
     expect(await screen.findByText(/could not reach the assistant/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/ask a question/i)).toBeEnabled()
   })
 
   it('renders every control as the shared Button component', async () => {
