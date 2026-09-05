@@ -578,15 +578,18 @@ def test_late_pickup_rate_excludes_a_leg_with_a_null_actual_pickup():
 def _grace_boundary_con(extra_delay_ms):
     """9 emp_legs (clears MIN_ROWS_PER_SLICE=9, isolating the grace-boundary
     check from the population-floor guard): 8 on-time, 1 picked up exactly
-    ON_TIME_GRACE_MS + extra_delay_ms after its planned time."""
+    ON_TIME_GRACE_MIN minutes + extra_delay_ms after its planned time.
+    late_pickup_rate's SQL compares epoch-ms timestamps, so the grace (in
+    minutes) is converted to ms here to build the boundary directly."""
     con = _mini_con()
     base = WINDOW.start_ms + 1_000
+    grace_ms = C.ON_TIME_GRACE_MIN * 60_000
     for i in range(8):
         con.execute("INSERT INTO trips VALUES (?, ?)", [i, base])
         con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)", [i, base, base])
     con.execute("INSERT INTO trips VALUES (?, ?)", [8, base])
     con.execute("INSERT INTO emp_legs VALUES (?, ?, ?)",
-               [8, base, base + C.ON_TIME_GRACE_MS + extra_delay_ms])
+               [8, base, base + grace_ms + extra_delay_ms])
     return con
 
 

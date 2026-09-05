@@ -163,12 +163,17 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 """
 
 # Task 15: the delay EXPERIENCED by an employee -- a leg picked up more than
-# ON_TIME_GRACE_MS after its own planned_pickup_at. This is deliberately a
-# different reading from ota/otd (which measure the TRIP's arrival/departure
-# against planned_end_at) and from delay_reason = 'EMPLOYEE' (which measures
-# delay CAUSED by an employee, e.g. a late report-in) -- late_pickup_rate is
-# the employee-experienced side of the same story: "how often is MY pickup
-# late", regardless of who or what caused it.
+# ON_TIME_GRACE_MIN (minutes) after its own planned_pickup_at. This is
+# deliberately a different reading from ota/otd (which, since the on-time
+# redefinition above, read trips.delay_minutes directly -- a TRIP-level
+# figure) and from delay_reason = 'EMPLOYEE' (which measures delay CAUSED by
+# an employee, e.g. a late report-in) -- late_pickup_rate is the
+# employee-experienced side of the same story: "how often is MY pickup
+# late", regardless of who or what caused it. emp_legs carries no
+# delay_minutes column of its own, so this reads the leg's own
+# planned/actual pickup timestamps (epoch ms) directly rather than any trip-
+# level delay figure -- the SAME grace constant, ON_TIME_GRACE_MIN, converted
+# to ms here since these two columns are timestamps, not a minutes count.
 #
 # Window and slice both bind on t. (not e.) so a slice means the same trip
 # population here as it does on every metric in this file -- joining in
@@ -178,7 +183,7 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 # still on time (same boundary convention as _ON_TIME_BASE's own <=), proven
 # by test_registry.py's dedicated boundary test.
 _LATE_PICKUP_SQL = f"""
-SELECT 100.0 * sum(CASE WHEN e.actual_pickup_at > e.planned_pickup_at + {C.ON_TIME_GRACE_MS}
+SELECT 100.0 * sum(CASE WHEN e.actual_pickup_at > e.planned_pickup_at + {C.ON_TIME_GRACE_MIN * 60_000}
                         THEN 1 ELSE 0 END)
        / nullif(count(*), 0),
        count(*) AS n
@@ -536,7 +541,7 @@ def trend_reference(con, metric: Metric, slc: "Slice | tuple[Slice, ...]",
 # trip population here as everywhere else.
 #
 # "Late" here is deliberately the SAME grace and direction as late_pickup_rate
-# above (actual_pickup_at strictly more than ON_TIME_GRACE_MS after
+# above (actual_pickup_at strictly more than ON_TIME_GRACE_MIN minutes after
 # planned_pickup_at) -- this is the delay an employee EXPERIENCES. It is a
 # different reading from employee_caused_delay_share below, which is the
 # delay an employee CAUSES (trips.delay_reason = 'EMPLOYEE'): the two numbers
@@ -556,10 +561,10 @@ WITH legs AS (
 _EMPLOYEE_IMPACT_TOTALS_SQL = _EMPLOYEE_LEGS_CTE + f"""
 SELECT
     count(DISTINCT stwid) AS riders_in_window,
-    count(DISTINCT CASE WHEN is_no_show OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000})
+    count(DISTINCT CASE WHEN is_no_show OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MIN})
                         THEN stwid END) AS employees_impacted,
     sum(CASE WHEN is_no_show THEN 1 ELSE 0 END) AS no_show_legs,
-    sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000}
+    sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MIN}
              THEN 1 ELSE 0 END) AS late_pickup_legs,
     avg(delay_min) AS avg_pickup_delay_min,
     median(delay_min) AS median_pickup_delay_min
@@ -577,7 +582,7 @@ SELECT sum(CASE WHEN delay_reason = 'EMPLOYEE' THEN 1 ELSE 0 END),
        count(*)
 FROM trips t
 WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
-  AND t.delay_minutes IS NOT NULL AND t.delay_minutes > {C.ON_TIME_GRACE_MS / 60_000}
+  AND t.delay_minutes IS NOT NULL AND t.delay_minutes > {C.ON_TIME_GRACE_MIN}
 """
 
 
@@ -625,10 +630,10 @@ def employee_impact_by_dim(con, dim: Dimension, window: Window,
     SELECT grp,
            count(*) AS legs,
            sum(CASE WHEN is_no_show THEN 1 ELSE 0 END) AS no_shows,
-           sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000}
+           sum(CASE WHEN delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MIN}
                     THEN 1 ELSE 0 END) AS late_pickups,
            count(DISTINCT CASE WHEN is_no_show
-                                OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MS / 60_000})
+                                OR (delay_min IS NOT NULL AND delay_min > {C.ON_TIME_GRACE_MIN})
                            THEN stwid END) AS impacted
     FROM legs
     GROUP BY grp
