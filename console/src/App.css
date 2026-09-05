@@ -74,6 +74,20 @@
   --tier-concern-fill-ink: var(--text-h);
   --tier-concern-bg: rgba(240, 162, 2, 0.08);
   --tier-neutral: #6b7280;
+  /* The two MUTED tiers (Watch, Pass) are chips, not hairline outlines: a
+     faint neutral surface and a slightly firmer edge, so a Pass badge reads
+     as a finished object rather than an unstyled border. Deliberately
+     near-white -- this adds shape, not weight. Breach and Concern remain
+     the only two tiers allowed to pull the eye, and the muted word keeps
+     --tier-neutral on this fill at 4.5:1. */
+  --tier-muted-bg: #f8f8f9;
+  --tier-muted-border: #dcdbe0;
+  /* Pass's own quiet green -- a DESATURATED cousin of --tier-pass (#1e7a45),
+     carried only by the 2px stripe and the 14px check glyph, never by a fill
+     and never by the word. It exists so Pass is not pixel-identical to
+     Watch; it is dimmer and greyer than --tier-pass precisely so it cannot
+     compete with Breach's saturated fill. */
+  --tier-pass-muted: #45735a;
 
   /* Three text levels, no more: ink-1 (titles, observed values, the
      action line -- primary, heavier weight), ink-2 (body text and
@@ -687,7 +701,10 @@ body {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 2px var(--space-2) 2px 2px;
+  /* Left padding is 6px, not 2px: with a 999px radius on a 22px-tall pill
+     the left edge curves in to x=4.7 at the stripe's top and bottom, so a
+     stripe at x=2 visibly hung OUTSIDE the badge. 6px clears the curve. */
+  padding: 2px var(--space-2) 2px 6px;
   border-radius: 999px;
   line-height: 1;
   /* Belt-and-braces alongside .findings-grid-row > * { min-width: 0 }:
@@ -734,14 +751,31 @@ body {
 }
 
 .tier-badge--muted {
-  background: transparent;
-  border: 1px solid var(--border);
+  background: var(--tier-muted-bg);
+  border: 1px solid var(--tier-muted-border);
   color: var(--tier-neutral);
 }
 
 .tier-badge--muted .tier-badge__stripe {
   width: 2px;
   background: var(--tier-neutral);
+}
+
+/* Pass, and only Pass, carries its quiet green on the two smallest
+   coloured elements it has -- the 2px stripe and the check glyph
+   (currentColor). The word stays --tier-neutral, so Pass and Watch keep
+   exactly the same text weight and Pass gains identity without gaining
+   volume. */
+.tier-badge--muted.tier-badge--pass {
+  color: var(--tier-pass-muted);
+}
+
+.tier-badge--muted.tier-badge--pass .tier-badge__word {
+  color: var(--tier-neutral);
+}
+
+.tier-badge--muted.tier-badge--pass .tier-badge__stripe {
+  background: var(--tier-pass-muted);
 }
 
 /* Recurring tag -- muted outline, same family as .tier-badge--muted and
@@ -1178,6 +1212,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* The badge is a flex item in this column, and a column flexbox's default
+   align-items: stretch was blowing it out to the card's FULL width -- a
+   Pass badge rendered as a wide grey bar, and Breach/Concern as full-width
+   saturated bars far louder than the compact pills they are everywhere
+   else. flex-start restores the chip, and with it the severity hierarchy
+   this row is supposed to have. */
+.kpi-card .tier-badge {
+  align-self: flex-start;
 }
 
 .kpi-card__title {
