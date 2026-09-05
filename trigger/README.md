@@ -1,11 +1,12 @@
 # `trigger/` — automated LangChain agents
 
-Two agents, one shared spine. Nothing outside this folder is modified.
+Three agents, one shared spine. Nothing outside this folder is modified.
 
 | Agent | Runs | Asks |
 |---|---|---|
 | **Transport Manager** (`shift_planning_TransportManager/`) | once each morning | *what should tomorrow's roster be?* |
 | **Team Manager** (`delay_management_TransportManager/`) | every few minutes | *which rides need me right now?* |
+| **Facilities Head** (`vendor_strategy_Facilities_Head/`) | daily / monthly / quarterly | *are we getting value from these vendors, and what next?* |
 
 ## Structure
 
@@ -97,6 +98,97 @@ Team Manager: `TEAM_NOW`, `TEAM_LOOKAHEAD_MIN` (45), `TEAM_LOOKBACK_MIN` (60),
 `TEAM_ETA_DEVIATION_MIN` (15, from `SLA_BREACH_MS`), `TEAM_DRIVER_LATE_MIN` (10),
 `TEAM_PICKUP_SLIP_MIN` (10), `TEAM_NOSHOW_LEGS_MIN` (2),
 `TEAM_MAX_ESCALATIONS` (8), `TEAM_SEND_REPEATS` (false), `TEAM_STATE_PATH`.
+
+---
+
+# Facilities Head agent — vendor strategy
+
+Three triggers over ONE deterministic metric engine. `metrics.py` and
+`scorecard.py` own every number; the model interprets and recommends.
+
+```bash
+python -m trigger.vendor_strategy_Facilities_Head.selftest        # 29 checks
+python -m trigger.vendor_strategy_Facilities_Head.daily.run     --dry-run --date 2026-07-31
+python -m trigger.vendor_strategy_Facilities_Head.monthly.run   --dry-run --month 2026-07
+python -m trigger.vendor_strategy_Facilities_Head.quarterly.run --dry-run
+```
+
+```cron
+30 21 * * *   ... daily.run          # end of operations
+0  7  1 * *   ... monthly.run        # first morning of the new month
+0  8  1 1,4,7,10 *  ... quarterly.run
+```
+
+## The scoring model (deterministic, and argued with rather than guessed at)
+
+| Dimension | Built from | Weight |
+|---|---|---|
+| **Service** | 0.45 on-time % + 0.30 SLA adherence + 0.15 completion + 0.10 rider rating (renormalised when unrated) | 0.40 |
+| **Reliability** | 0.50 consistency (100 − 2 × stdev of daily on-time) + 0.30 good-day share + 0.20 operational cleanliness (no-shows, alerts, driver non-compliance) | 0.30 |
+| **Cost value** | peer-relative around the median **cost per on-time trip**: 50 at the median, 100 at half it, 0 at twice it | 0.30 |
+
+Cost per *on-time* trip, not cost per trip — a vendor running cheap trips
+late is paying for all of them and delivering some of them. Cost value is
+centred at 50 by construction, so overall scores sit below service scores:
+it is a ranking instrument, not an absolute grade. Days with fewer than 3
+trips are excluded from the consistency series; one trip at 0% is one trip,
+not a bad day.
+
+**Trend is never averaged away.** The window is split into its own parts
+(months in a quarter, thirds of a month) and the first is compared with the
+last: 95% → 91% → 83% reads DETERIORATING even though the average is a
+healthy 89.7%.
+
+**Confidence is deterministic** — from trips, periods with data and cost
+coverage. The model may lower it and may never raise it.
+
+## What the model may and may not decide
+
+| Python decides | The model decides |
+|---|---|
+| every figure | what happened, and why it matters |
+| the score and the rank | how several metrics add up strategically |
+| the recommendation FLOOR | the narrative, strengths, concerns, the action |
+| the confidence ceiling | the executive framing |
+| the strategy buckets | the risks worth naming |
+
+Guards, re-applied after parsing: the verdict is re-bound to the right
+vendor; a recommendation outside the fixed vocabulary falls back to the
+floor; the model may move a verdict at most ONE notch along
+`INCREASE → PREFERRED → CONTINUE → MONITOR → REVIEW → REDUCE → REPLACE`;
+confidence is clamped to the deterministic level; and the next-quarter
+strategy lists are rebuilt from the final verdicts, so they can never
+contradict the recommendations printed above them.
+
+## What the dataset supports — and what it does not
+
+Supported: trips, on-time, SLA adherence, delay distribution and reasons,
+driver/cab non-compliance, riders planned vs actual, no-shows, dashboard
+cancellations, alerts with severity, rider ratings, vendor cost
+(`bill.trip_cost`, 99.9% joined), distance.
+
+**Not in the data, and never referenced:** contracted SLA targets, contract
+terms, penalty clauses, complaint tickets, vendor fleet size, quoted rates.
+Every report says so in its footer, and the selftest asserts the body never
+uses that language.
+
+## The quarter, honestly
+
+The sample holds three whole months — 2026-05, 2026-06, 2026-07 — which is
+not a calendar quarter (Q2 would hold two of them, Q3 one). The default is
+therefore the **last three consecutive months present**, labelled
+`2026-05..2026-07` and described as a rolling quarter in the report itself.
+`--quarter 2026Q2` forces the calendar one and says which months were
+missing. No rows were invented to fill a calendar quarter out.
+
+## Live data
+
+Same as the other two agents: the swap point is the data layer.
+`common/data.py` hands `metrics.py` a DuckDB connection; against a live
+system that becomes a warehouse connection or an API-backed view exposing
+the same columns. `metrics.py`, `scorecard.py`, `analysis.py`, the three
+runners and the Slack path do not change. Triggers move from cron to the
+warehouse's own schedule or a close-of-day event.
 
 ---
 
