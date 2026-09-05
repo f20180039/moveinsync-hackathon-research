@@ -271,8 +271,17 @@ def test_at_least_one_vendor_ota_finding_is_watch_or_worse_on_the_sample(con_and
 # cost_per_km and marshal_compliance: still exactly 7 -- unchanged, since
 # cost_per_km contributes 0 overall+vendor BREACHes this window (its
 # outliers this week are SITE-level, e.g. Boulder Campus, not overall/vendor).
+#
+# Task 15: re-measured after activating late_pickup_rate and cost_per_rider --
+# now 8, up from 7. late_pickup_rate contributes 0 overall+vendor BREACHes
+# this window (its own outliers are SITE-level, e.g. Eastgate Office 52.6%,
+# same shape as cost_per_km's own site-level outliers above). cost_per_rider
+# contributes exactly 1: vendor Meera Lebedev Travel at INR 2,380.95/rider
+# (peer median far lower -- see the registry measurement in the task-15
+# report). This is a genuine new signal from a metric that previously did not
+# exist, not drift in an existing one -- raised to 8 rather than excluded.
 REAL_DATA = os.environ.get("SIGNALDESK_REAL_DATA", REAL_DEFAULT)
-BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL = 7
+BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL = 8
 
 
 def test_breach_count_at_overall_and_vendor_level_stays_within_the_measured_ceiling_on_real_data():
