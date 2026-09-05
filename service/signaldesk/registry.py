@@ -110,15 +110,25 @@ def active(ids=TIER_1_METRICS) -> tuple[Metric, ...]:
     return tuple(m for m in METRICS if m.id in ids)
 
 
-def _with_slice(sql: str, slc: Slice) -> str:
-    predicate = "" if slc.dim is Dimension.NONE else f"AND {slc.dim.column} = ?"
+def _as_slices(slc: "Slice | tuple[Slice, ...]") -> tuple[Slice, ...]:
+    """Task 8: decompose.py needs a COMPOUND slice -- a finding already sliced
+    by site, decomposed further by vendor, means binding both predicates in
+    one query. A bare Slice is still the common case everywhere else
+    (evaluate/evidence_sql/coverage), so it is accepted as-is and wrapped."""
+    return slc if isinstance(slc, tuple) else (slc,)
+
+
+def _with_slice(sql: str, slc: "Slice | tuple[Slice, ...]") -> str:
+    predicate = " ".join(f"AND {s.dim.column} = ?" for s in _as_slices(slc)
+                         if s.dim is not Dimension.NONE)
     return sql.replace("{{SLICE}}", predicate)
 
 
-def _params(slc: Slice, window: Window) -> list:
+def _params(slc: "Slice | tuple[Slice, ...]", window: Window) -> list:
     p = [window.start_ms, window.end_ms]
-    if slc.dim is not Dimension.NONE:
-        p.append(slc.value)      # ALWAYS bound, never interpolated
+    for s in _as_slices(slc):
+        if s.dim is not Dimension.NONE:
+            p.append(s.value)    # ALWAYS bound, never interpolated
     return p
 
 
@@ -130,9 +140,19 @@ def _params(slc: Slice, window: Window) -> list:
 # the `in` check below distinguishes "never computed" from "computed as None".
 _CACHE: dict[tuple, float | None] = {}
 
+# Task 8: decompose.py's own cache, independent of _CACHE above. evaluate()'s
+# guard folds a thin slice's value to None -- exactly right for a Finding,
+# wrong for decompose.py, which needs the slice's true population (and its
+# value, when the query still resolves one) to fold it into an honest
+# "(other)" row rather than silently losing its volume. Keeping this cache
+# separate means evaluate()'s own behaviour, and the tests pinned on _CACHE's
+# exact contents, are untouched.
+_RAW_CACHE: dict[tuple, tuple[float | None, int]] = {}
+
 
 def clear_cache() -> None:
     _CACHE.clear()
+    _RAW_CACHE.clear()
 
 
 def evaluate(con, metric: Metric, slc: Slice, window: Window) -> float | None:
@@ -162,6 +182,34 @@ def evaluate(con, metric: Metric, slc: Slice, window: Window) -> float | None:
         value = float(row[0])
     _CACHE[key] = value
     return value
+
+
+def evaluate_with_n(con, metric: Metric, slc: "Slice | tuple[Slice, ...]",
+                    window: Window) -> tuple[float | None, int]:
+    """The raw (value, n) pair for a metric x slice x window triple -- `slc`
+    may be a single Slice or a tuple of Slices bound together (a compound
+    slice: decompose.py's "within site X, broken out by vendor").
+
+    UNLIKE evaluate(), this is NOT floored by MIN_ROWS_PER_SLICE: a thin
+    slice's own population (and its value, when the query still resolves one)
+    is exactly what decompose.py needs to fold the slice into an honest
+    "(other)" row, rather than losing its volume the way evaluate()'s guard
+    would if decompose read through evaluate() alone. n is 0, never None,
+    both for a genuinely empty slice and for a synthetic single-column metric
+    (used only in a few pure-Python test fixtures) that carries no population
+    column at all.
+    """
+    key = (id(con), metric.id, slc, window)
+    if key in _RAW_CACHE:
+        return _RAW_CACHE[key]
+    row = con.execute(_with_slice(metric.sql, slc), _params(slc, window)).fetchone()
+    if row is None or row[0] is None:
+        value = None
+    else:
+        value = float(row[0])
+    n = int(row[1]) if (row is not None and len(row) > 1 and row[1] is not None) else 0
+    _RAW_CACHE[key] = (value, n)
+    return _RAW_CACHE[key]
 
 
 def coverage(con, metric: Metric, slc: Slice, window: Window) -> float:
@@ -199,6 +247,35 @@ def distinct_values(con, dim: Dimension, window: Window) -> list[str]:
         f"WHERE t.scheduled_at >= ? AND t.scheduled_at < ? AND {col} IS NOT NULL ORDER BY v",
         [window.start_ms, window.end_ms]).fetchall()
     return [r[0] for r in rows]
+
+
+# Task 8: MoveInSync's own delay taxonomy ships as a real column
+# (docs/real-dataset-mapping.md §4, docs/moveinsync-domain-vocabulary.md §1) --
+# NODELAY/TRAFFIC/DRIVER/EMPLOYEE, checked in that cascade precedence upstream
+# of this file. NODELAY is excluded here: it means the trip was not late at
+# all, so it owns none of a shortfall by definition -- decompose.py's shares
+# are shares of LATE trips, not of all trips.
+_DELAY_REASON_SQL = """
+SELECT delay_reason, count(*) AS trips, avg(CAST(delay_minutes AS DOUBLE)) AS avg_delay_min
+FROM trips t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND delay_reason IS NOT NULL AND delay_reason <> 'NODELAY'
+  {{SLICE}}
+GROUP BY delay_reason
+ORDER BY trips DESC
+"""
+
+
+def delay_reason_breakdown(con, slc: "Slice | tuple[Slice, ...]",
+                           window: Window) -> list[tuple[str, int, float]]:
+    """(reason, trip count, average delay minutes) for every late trip in the
+    window (and slice, if any) -- one row per TRAFFIC/DRIVER/EMPLOYEE value
+    actually present. decompose.py is the only caller; this is the one query
+    its DELAY_REASON path needs, kept here per the SELECT-only-in-registry
+    invariant (spec 1.1: registry.py and ingest.py are the only modules that
+    query raw tables)."""
+    rows = con.execute(_with_slice(_DELAY_REASON_SQL, slc), _params(slc, window)).fetchall()
+    return [(r[0], int(r[1]), float(r[2]) if r[2] is not None else 0.0) for r in rows]
 
 
 def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:

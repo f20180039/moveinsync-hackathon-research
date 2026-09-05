@@ -20,6 +20,8 @@ import re
 
 from . import registry
 from .actions import action_for
+from .decompose import OTHER as _OTHER_DECOMPOSITION_VALUE
+from .decompose import decompose
 from .model import SarvamClient, TruncatedResponse
 from .schemas import Audience, Cause, Dimension, Finding, Tier
 
@@ -52,7 +54,48 @@ def format_value(value: float, unit: str) -> str:
     return _rendered(value, 1 if unit == "%" else 2)
 
 
-def validate_narrative(narrative: str, run) -> str | None:
+def _decomposition_dim_for(finding: Finding) -> Dimension:
+    """VENDOR is the default breakdown; SITE when the finding is itself a
+    vendor slice, since decomposing a vendor by itself is degenerate (one
+    value that trivially owns everything)."""
+    return Dimension.SITE if finding.slice.dim is Dimension.VENDOR else Dimension.VENDOR
+
+
+def _top_contributors(con, finding, dim: Dimension | None = None) -> list[dict]:
+    """Task 8: the two named contributors (vendor, or site when `finding` is
+    itself a vendor slice) that own the most of `finding`'s own gap -- used by
+    both the narrative's "owns:" line and template_brief's "Owns the
+    shortfall:" line, and by validate_narrative's allowed set, so a narrative
+    that repeats what it was actually shown can never be rejected as if it
+    were invented. `con` is None in every test that predates decomposition;
+    "(other)" is excluded since it names no vendor or site a narrative could
+    sensibly cite."""
+    if con is None:
+        return []
+    dim = dim if dim is not None else _decomposition_dim_for(finding)
+    try:
+        rows = decompose(con, finding, dim)
+    except Exception:
+        logger.warning("compose: decompose(%s) failed for finding %s, omitting "
+                       "the owns/Owns-the-shortfall line", dim.name, finding.id,
+                       exc_info=True)
+        return []
+    return [r for r in rows if r["value"] != _OTHER_DECOMPOSITION_VALUE][:2]
+
+
+def _owns_line(con, top: Finding) -> str | None:
+    """template_brief's "Owns the shortfall:" line, under the top finding
+    only -- the Slack/template surface's own pointer to the same decomposition
+    the top finding's action line refers to. None (silently) when con is not
+    given or the decomposition has no named contributor to show."""
+    contributors = _top_contributors(con, top)
+    if not contributors:
+        return None
+    parts = ", ".join(f"{c['value']} {c['points_of_gap']:.1f} pts" for c in contributors)
+    return f"Owns the shortfall: {parts}"
+
+
+def validate_narrative(narrative: str, run, con=None, audience: Audience | None = None) -> str | None:
     """Returns the offending figure, or None if every number checks out.
 
     Every number in the narrative must match a figure in the findings, at the
@@ -62,6 +105,14 @@ def validate_narrative(narrative: str, run) -> str | None:
 
     If validation fails the brief is sent from the deterministic template
     instead. A wrong number in a leadership brief is worse than plain prose.
+
+    `con`/`audience`: Task 8's decomposition adds one more source of allowed
+    figures -- the top finding's own top-2 vendor contributors' observed and
+    points_of_gap values (the same two the prompt is given via
+    `_findings_as_text`'s "owns:" line), so a narrative that repeats "two
+    vendors own 5.2 of the 7 points" is not rejected as inventing 5.2. Both
+    default to None/None, which adds nothing -- every pre-Task-8 caller keeps
+    its exact prior behaviour.
     """
     values: set[float] = set()
     for f in run.findings:
@@ -72,6 +123,19 @@ def validate_narrative(narrative: str, run) -> str | None:
     for h in run.feed_health.values():
         values.add(h.confidence)
         values.add(h.confidence * 100)
+
+    top = None
+    if audience is not None:
+        relevant = _top_findings_for(run, audience)
+        top = relevant[0] if relevant else None
+    elif run.findings:
+        top = run.findings[0]
+    if top is not None:
+        for c in _top_contributors(con, top):
+            if c["observed"] is not None:
+                values.add(c["observed"])
+            values.add(c["points_of_gap"])
+            values.add(abs(c["points_of_gap"]))
 
     # The template renders some claims at 1dp (percentages) and some at 2dp
     # (rupees, confidence); a narrative figure is only wrong if it disagrees
@@ -171,10 +235,15 @@ def _finding_line(f: Finding) -> str:
     return line
 
 
-def template_brief(run, audience: Audience) -> str:
+def template_brief(run, audience: Audience, con=None) -> str:
     """Deterministic prose over the ranked findings for `audience`. Findings
     arrive already ranked worst-first (verdict.rank); this only filters,
-    caps and formats."""
+    caps and formats.
+
+    `con`: Task 8's decomposition -- when given, the top finding gets one
+    extra "Owns the shortfall:" line (its top-2 contributors). None (the
+    default, and every pre-Task-8 caller's value) omits it entirely.
+    """
     label = _audience_label(audience)
     header = f"Signal Desk — {label} brief — {run.window.label}"
 
@@ -192,11 +261,15 @@ def template_brief(run, audience: Audience) -> str:
         lines.append(f"Nothing above PASS this week for {label}.")
         return "\n".join(lines)
 
-    for f in above_pass:
+    for i, f in enumerate(above_pass):
         lines.append(_finding_line(f))
         action = action_for(f)
         if action:
             lines.append(f"  → {action}")
+        if i == 0 and con is not None:
+            owns = _owns_line(con, f)
+            if owns:
+                lines.append(f"  {owns}")
     lines.append("")
     lines.append(_action_sentence(above_pass[0]))
     return "\n".join(lines)
@@ -230,12 +303,18 @@ _SYSTEM_PROMPT = (
 MAX_RETRY_TOKENS = 32_000
 
 
-def _findings_as_text(run, audience: Audience) -> str:
+def _findings_as_text(run, audience: Audience, con=None) -> str:
     """The same top-8, non-PASS, worst-first subset `template_brief` shows --
     never every finding for the audience (a real-dataset audience can carry
-    150+; the model would rather see the same short list a human does)."""
+    150+; the model would rather see the same short list a human does).
+
+    `con`: Task 8's decomposition needs a live DuckDB connection, which the
+    API route has and a unit test's fake findings do not -- None (the
+    default) simply omits the "owns:" line, exactly the prior behaviour.
+    """
     lines = []
-    for f in _top_findings_for(run, audience):
+    top_findings = _top_findings_for(run, audience)
+    for i, f in enumerate(top_findings):
         metric = registry.by_id(f.metric_id)
         parts = [
             f"metric={metric.label}",
@@ -251,6 +330,12 @@ def _findings_as_text(run, audience: Audience) -> str:
         action = action_for(f)
         if action:
             lines.append(f"  action: {action}")
+        if i == 0:
+            contributors = _top_contributors(con, f)
+            if contributors:
+                owned = ", ".join(
+                    f"{c['value']} {c['points_of_gap']:.1f}pts" for c in contributors)
+                lines.append(f"  owns: {owned} of {abs(f.gap):.1f} points")
     return "\n".join(lines)
 
 
@@ -279,20 +364,25 @@ def _call_with_retry(model, messages: list[dict], purpose: str = "brief") -> str
         return model.complete(messages, purpose=purpose, max_tokens=retry_ceiling)
 
 
-def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
+def _compose_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
     """The tuple-returning core both `sarvam_brief` and the API route share, so
-    the route can report which path fired without duplicating the logic."""
+    the route can report which path fired without duplicating the logic.
+
+    `con`: threaded through to `_findings_as_text`/`validate_narrative` for
+    Task 8's decomposition (the "owns:" line and its matching allowed
+    figures); None -- the default, and every pre-Task-8 caller's value --
+    simply omits it."""
     if model is None:
         api_key = os.environ.get("SARVAM_API_KEY", "")
         if not api_key:
             logger.info("compose: no SARVAM_API_KEY configured, using template (audience=%s)",
                        audience.value)
-            return template_brief(run, audience), "template"
+            return template_brief(run, audience, con), "template"
         model = SarvamClient(api_key=api_key)
 
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT.format(audience=_audience_label(audience))},
-        {"role": "user", "content": f"Findings:\n{_findings_as_text(run, audience)}"},
+        {"role": "user", "content": f"Findings:\n{_findings_as_text(run, audience, con)}"},
     ]
 
     try:
@@ -302,30 +392,30 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
                        "(prompt_tokens=%s completion_tokens=%s ceiling=%s), falling "
                        "back to template (audience=%s)", e.prompt_tokens,
                        e.completion_tokens, e.max_tokens, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
     except Exception as exc:
         logger.warning("compose: model call failed (%s), falling back to template "
                        "(audience=%s)", type(exc).__name__, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
 
-    bad = validate_narrative(narrative, run)
+    bad = validate_narrative(narrative, run, con=con, audience=audience)
     if bad is not None:
         logger.warning("compose: model narrative rejected (invented figure %r), "
                        "falling back to template (audience=%s)", bad, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
 
     return narrative, "sarvam"
 
 
-def sarvam_brief(run, audience: Audience, model=None) -> str:
+def sarvam_brief(run, audience: Audience, model=None, con=None) -> str:
     """One model call on success; at most two if the first truncates (see
     `_call_with_retry`). Validated either way, falling back to
     `template_brief` on a validation failure, a second TruncatedResponse, or
     any other exception."""
-    return _compose_with_source(run, audience, model)[0]
+    return _compose_with_source(run, audience, model, con)[0]
 
 
-def brief_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
+def brief_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
     """As `sarvam_brief`, but also reports which path produced the text --
     `"sarvam"` or `"template"` -- for the API route to expose."""
-    return _compose_with_source(run, audience, model)
+    return _compose_with_source(run, audience, model, con)

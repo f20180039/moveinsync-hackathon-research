@@ -11,7 +11,7 @@
       "sliceLabel": "overall",
       "tier": "BREACH",
       "cause": "BELOW_TARGET",
-      "action": "Check the delay-reason split below before escalating: driver delay is a vendor conversation, employee delay is a comms one, traffic is a routing one.",
+      "action": "Check the delay-reason split in the breakdown before escalating: driver delay is a vendor conversation, employee delay is a comms one, traffic is a routing one.",
       "observed": 59.1,
       "gap": 30.9,
       "confidence": 0.96,

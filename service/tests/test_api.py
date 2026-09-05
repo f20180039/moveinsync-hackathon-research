@@ -131,6 +131,48 @@ def test_get_one_finding_by_id(client):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/findings/{id}/decompose
+# ---------------------------------------------------------------------------
+
+def test_decompose_defaults_to_vendor_and_the_rows_sum_to_the_gap(client):
+    findings = client.get("/api/runs/latest/findings").json()["findings"]
+    fid = findings[0]["id"]
+    r = client.get(f"/api/findings/{fid}/decompose")
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body.keys()) == {"findingId", "dim", "overallObserved", "gap", "rows"}
+    assert body["findingId"] == fid
+    assert body["dim"] == "VENDOR"
+    if body["rows"]:
+        assert set(body["rows"][0].keys()) == {
+            "value", "label", "observed", "shareOfVolume", "pointsOfGap", "n"}
+        assert sum(r["pointsOfGap"] for r in body["rows"]) == pytest.approx(body["gap"], abs=0.5)
+
+
+def test_decompose_accepts_delay_reason(client):
+    findings = client.get("/api/runs/latest/findings").json()["findings"]
+    ota = next(f for f in findings if f["metricId"] == "ota")
+    r = client.get(f"/api/findings/{ota['id']}/decompose", params={"dim": "DELAY_REASON"})
+    assert r.status_code == 200
+    assert r.json()["dim"] == "DELAY_REASON"
+
+
+def test_decompose_for_an_unknown_finding_is_404(client):
+    r = client.get("/api/findings/no-such-finding-ever/decompose")
+    assert r.status_code == 404
+    assert r.json()
+
+
+def test_decompose_for_an_unknown_dimension_is_422_naming_the_valid_values(client):
+    findings = client.get("/api/runs/latest/findings").json()["findings"]
+    fid = findings[0]["id"]
+    r = client.get(f"/api/findings/{fid}/decompose", params={"dim": "NOT_A_REAL_DIM"})
+    assert r.status_code == 422
+    error = r.json()["detail"]["error"]
+    assert "DELAY_REASON" in error and "VENDOR" in error
+
+
+# ---------------------------------------------------------------------------
 # 404s -- unknown ids return a JSON body, not a bare error.
 # ---------------------------------------------------------------------------
 

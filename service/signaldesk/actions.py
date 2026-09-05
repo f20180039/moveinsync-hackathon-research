@@ -26,21 +26,22 @@ _ACTIONS: dict[tuple[str, Cause], str] = {
         "Raise {slice_value}'s decline with the account manager before it reaches "
         "the SLA review -- it is trending, not a one-week blip.",
     ("ota", Cause.BELOW_TARGET):
-        "Check the delay-reason split below before escalating: driver delay is a "
-        "vendor conversation, employee delay is a comms one, traffic is a routing one.",
+        "Check the delay-reason split in the breakdown before escalating: driver "
+        "delay is a vendor conversation, employee delay is a comms one, traffic "
+        "is a routing one.",
     ("ota", Cause.PEER_LAGGARD):
-        "Check which vendors serve {slice_value} -- the decomposition below says "
-        "who owns the shortfall -- before escalating the site.",
+        "Check which vendors serve {slice_value} -- the decomposition in the "
+        "breakdown says who owns the shortfall -- before escalating the site.",
     ("ota", Cause.TREND_REGRESSION):
-        "Check the delay-reason split below before escalating {slice_value} -- a "
-        "trend regression usually traces to one driver, traffic or employee "
-        "cause, not a step change everywhere.",
+        "Check the delay-reason split in the breakdown before escalating "
+        "{slice_value} -- a trend regression usually traces to one driver, "
+        "traffic or employee cause, not a step change everywhere.",
     ("otd", Cause.TREND_REGRESSION):
         "Compare the affected shift's release time against cab arrival -- logout "
         "slippage is usually a dispatch-window problem, not a vendor one.",
     ("otd", Cause.PEER_LAGGARD):
-        "Check which vendors serve {slice_value} -- the decomposition below says "
-        "who owns the shortfall -- before escalating the site.",
+        "Check which vendors serve {slice_value} -- the decomposition in the "
+        "breakdown says who owns the shortfall -- before escalating the site.",
     ("no_show_rate", Cause.PEER_LAGGARD):
         "Share the no-show list with the line managers for {slice_value}; "
         "confirmed no-shows are billable capacity nobody used.",

@@ -20,6 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import ingest, registry
 from .actions import action_for
 from .compose import brief_with_source
+from .decompose import decompose, valid_dims
 from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
 from .schemas import Audience, Finding
@@ -212,8 +213,36 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             raise HTTPException(status_code=400,
                                 detail={"error": f"unknown audience {audience!r}; "
                                                  f"valid values are {valid}"})
-        text, source = brief_with_source(run, aud)
+        text, source = brief_with_source(run, aud, con=state.con)
         return {"runId": run.run_id, "audience": aud.value, "brief": text, "source": source}
+
+    @app.get("/api/findings/{finding_id}/decompose")
+    def get_finding_decompose(finding_id: str, dim: str = "VENDOR"):
+        f = STORE.finding(finding_id)
+        if f is None:
+            _not_found("finding", finding_id)
+        try:
+            rows = decompose(state.con, f, dim)
+        except ValueError:
+            raise HTTPException(status_code=422, detail={
+                "error": f"unknown dimension {dim!r}; valid values are {valid_dims()}"})
+        return {
+            "findingId": f.id,
+            "dim": dim.upper(),
+            "overallObserved": round(f.observed, 2),
+            "gap": round(f.gap, 2),
+            "rows": [
+                {
+                    "value": r["value"],
+                    "label": r["value"],
+                    "observed": round(r["observed"], 2) if r["observed"] is not None else None,
+                    "shareOfVolume": round(r["share_of_volume"], 4),
+                    "pointsOfGap": round(r["points_of_gap"], 2),
+                    "n": r["n"],
+                }
+                for r in rows
+            ],
+        }
 
     @app.post("/api/dispatch/{run_id}")
     def post_dispatch(run_id: str, body: dict | None = None):
