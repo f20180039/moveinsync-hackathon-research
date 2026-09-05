@@ -19,7 +19,8 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
-from .config import ROOT, Config
+from ..common.config import ROOT
+from .config import Config
 from .run_daily import run
 
 logger = logging.getLogger("trigger")
