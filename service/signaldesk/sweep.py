@@ -213,15 +213,35 @@ class Store:
         self._runs: dict[str, SweepRun] = {}
         self._findings: dict[str, Finding] = {}
         self._latest: str | None = None
+        # The latest run of each window kind, alongside (never instead of)
+        # the single `_latest` pointer. The Overview, the weekly review and
+        # the monthly review all read "latest" and all got the same run,
+        # because the startup sweep is a WEEK sweep and "latest" has no
+        # notion of window -- so the monthly page showed a week of data
+        # labelled as a month.
+        self._latest_by_kind: dict[str, str] = {}
         self._lock = threading.Lock()
 
-    def put(self, run: SweepRun):
+    def put(self, run: SweepRun, make_latest: bool = True):
+        """`make_latest=False` stores the run and makes it the latest of its
+        OWN kind without moving the global pointer -- what the background
+        month sweep at startup needs, so it can fill the monthly view without
+        changing what "latest" means for everyone else."""
         with self._lock:
             self._runs[run.run_id] = run
             self._findings.update({f.id: f for f in run.findings})
-            self._latest = run.run_id
+            self._latest_by_kind[run.window_kind] = run.run_id
+            if make_latest:
+                self._latest = run.run_id
 
-    def get(self, run_id: str) -> SweepRun | None:
+    def get(self, run_id: str, window_kind: str | None = None) -> SweepRun | None:
+        """`window_kind` narrows "latest" to the latest run of that kind, and
+        returns None when there is none yet -- never a run of a different
+        window, since silently answering a monthly question with a week of
+        data is the bug this exists to fix."""
+        if run_id == "latest" and window_kind is not None:
+            latest = self._latest_by_kind.get(window_kind)
+            return self._runs.get(latest) if latest else None
         return self._runs.get(self._latest if run_id == "latest" else run_id)
 
     def finding(self, finding_id: str) -> Finding | None:

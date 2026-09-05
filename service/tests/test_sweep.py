@@ -20,6 +20,7 @@ import duckdb
 import pytest
 
 from signaldesk import ingest, registry, sweep, verdict
+from signaldesk.sweep import Store, SweepRun
 from signaldesk.schemas import Dimension, Slice, Tier, Window
 
 SAMPLE = str(pathlib.Path(__file__).resolve().parents[2] / "data" / "sample")
@@ -493,3 +494,49 @@ def test_a_stopped_replay_clock_keeps_the_time_it_reached():
     clock.stop()
     assert clock.now_ms > 1_000_000
     assert clock.millis() == clock.now_ms
+
+
+# ---------------------------------------------------------------------------
+# Store: the latest run PER WINDOW KIND. The Overview, the weekly review and
+# the monthly review were all rendering the same run, because "latest" is a
+# single pointer and the startup sweep is a WEEK sweep -- so the monthly page
+# showed a week of data labelled as a month.
+# ---------------------------------------------------------------------------
+
+def _stub_run(run_id: str, window_kind: str):
+    window = Window(1_000_000_000_000, 1_000_604_800_000)
+    return SweepRun(run_id, window, (), {}, window.end_ms, window_kind)
+
+
+def test_the_store_remembers_the_latest_run_of_each_window_kind():
+    store = Store()
+    store.put(_stub_run("run-week-1", "week"))
+    store.put(_stub_run("run-month-1", "month"))
+    store.put(_stub_run("run-week-2", "week"))
+    assert store.get("latest", window_kind="week").run_id == "run-week-2"
+    assert store.get("latest", window_kind="month").run_id == "run-month-1"
+
+
+def test_latest_without_a_window_kind_means_exactly_what_it_meant_before():
+    store = Store()
+    store.put(_stub_run("run-week-1", "week"))
+    store.put(_stub_run("run-month-1", "month"))
+    assert store.get("latest").run_id == "run-month-1"
+
+
+def test_a_window_kind_with_no_run_yet_is_none_not_the_wrong_window():
+    # Silently answering a monthly question with a week of data is precisely
+    # the bug; the absence has to be reportable.
+    store = Store()
+    store.put(_stub_run("run-week-1", "week"))
+    assert store.get("latest", window_kind="month") is None
+
+
+def test_a_background_run_can_be_stored_without_stealing_the_latest_pointer():
+    # The startup month sweep runs behind the week sweep the demo points at;
+    # it must fill the monthly view without moving what "latest" means.
+    store = Store()
+    store.put(_stub_run("run-week-1", "week"))
+    store.put(_stub_run("run-month-1", "month"), make_latest=False)
+    assert store.get("latest").run_id == "run-week-1"
+    assert store.get("latest", window_kind="month").run_id == "run-month-1"
