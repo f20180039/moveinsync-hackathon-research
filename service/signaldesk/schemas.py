@@ -49,6 +49,15 @@ class Cause(Enum):
     PEER_LAGGARD = "PEER_LAGGARD"
     LOW_CONFIDENCE = "LOW_CONFIDENCE"
     DATA_GAP = "DATA_GAP"
+    # Task 18: the two causes a TWO-SIDED metric (Metric.is_two_sided --
+    # riders_per_day today) fires. They replace TREND_REGRESSION/PEER_LAGGARD
+    # for such a metric because the DIRECTION of the move is the whole
+    # finding: demand above its reference means the fleet is about to fall
+    # short and employees get stranded; demand below it means vehicles were
+    # booked that nobody rode. The reference that fired is still on the
+    # Finding (`refs`); what the Cause carries here is which SIDE.
+    DEMAND_SURGE = "DEMAND_SURGE"
+    DEMAND_DROP = "DEMAND_DROP"
 
 
 class Audience(Enum):
@@ -161,7 +170,14 @@ class Metric:
     id: str
     label: str
     unit: str
-    better: Direction
+    # None is a REAL, load-bearing value here, not a missing one: it declares
+    # the metric TWO-SIDED -- a volume/demand reading where a spike and a
+    # collapse are both findings, for opposite reasons, so no single direction
+    # is "better". verdict.py judges exactly one direction, so a two-sided
+    # metric must never reach it; registry.active() refuses to return one
+    # (see is_two_sided below, and riders_per_day's own comment in registry.py).
+    # Every one-directional metric still declares HIGHER or LOWER as before.
+    better: Optional[Direction]
     sql: str
     refs: tuple[ReferenceKind, ...]
     source: str                       # the feed/table the confidence comes from
@@ -186,11 +202,26 @@ class Metric:
             raise ValueError(f"metric {self.id} has a target but does not declare TARGET")
         if self.hard_target and self.target is None:
             raise ValueError(f"metric {self.id} has a hard target but no target value")
+        if self.better is None and self.target is not None:
+            raise ValueError(f"metric {self.id} is two-sided (better=None) but declares a "
+                             f"target -- a target IS a direction, so the two cannot coexist")
         if "{{SLICE}}" not in self.sql:
             raise ValueError(f"metric {self.id} SQL has no {{{{SLICE}}}} token")
         if Dimension.NONE in self.dims:
             raise ValueError(f"metric {self.id}.dims must not include Dimension.NONE "
                              f"(the unsliced pass is not a dims entry)")
+
+    @property
+    def is_two_sided(self) -> bool:
+        """True when the metric declares no single "better" direction.
+
+        The sweep cannot judge such a metric: verdict.delta() signs its
+        shortfall against ONE direction and Finding.gap's "positive always
+        means worse" invariant depends on that sign. registry.active() raises
+        rather than handing one to sweep.py, so the gap is structural and not
+        merely documented.
+        """
+        return self.better is None
 
 
 @dataclass(frozen=True)
