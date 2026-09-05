@@ -19,7 +19,7 @@ import logging
 import os
 import re
 
-from . import registry
+from . import forecast, registry
 from .actions import action_for
 from .model import SarvamClient, TruncatedResponse
 from .schemas import Audience, Cause, Dimension, Finding, Tier
@@ -319,7 +319,21 @@ def _safety_context_line(run) -> str | None:
            f"{_rendered(run.safety_alert_escort_pct, 1)}%.")
 
 
-def template_brief(run, audience: Audience) -> str:
+def _outlook_line(con, run) -> str | None:
+    """Task 14: one deterministic `outlook:` sentence for the top finding,
+    computed by forecast.py (a stated four-week same-weekday BASELINE, never a
+    forecast or a prediction) -- None when no connection was supplied or the
+    baseline cannot be built. The model never writes this line."""
+    if con is None:
+        return None
+    try:
+        return forecast.outlook_line(con, run)
+    except Exception:
+        logger.warning("compose: outlook line failed for run %s", run.run_id, exc_info=True)
+        return None
+
+
+def template_brief(run, audience: Audience, con=None) -> str:
     """Deterministic prose over the ranked findings for `audience`. Findings
     arrive already ranked worst-first (verdict.rank); this only filters,
     caps and formats.
@@ -345,6 +359,8 @@ def template_brief(run, audience: Audience) -> str:
     above_pass = _top_findings_for(run, audience)
 
     lines = [header, "", context, ""]
+    outlook = _outlook_line(con, run)
+
     if not above_pass:
         lines.append(f"Nothing above PASS this week for {label}.")
         return "\n".join(lines)
@@ -359,6 +375,9 @@ def template_brief(run, audience: Audience) -> str:
             if owns:
                 lines.append(f"  {owns}")
     lines.append("")
+    if outlook:
+        lines.append(outlook)
+        lines.append("")
     lines.append(_action_sentence(above_pass[0]))
     return "\n".join(lines)
 
@@ -459,7 +478,7 @@ def _call_with_retry(model, messages: list[dict], purpose: str = "brief") -> str
         return model.complete(messages, purpose=purpose, max_tokens=retry_ceiling)
 
 
-def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
+def _compose_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
     """The tuple-returning core both `sarvam_brief` and the API route share, so
     the route can report which path fired without duplicating the logic."""
     if model is None:
@@ -467,7 +486,7 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
         if not api_key:
             logger.info("compose: no SARVAM_API_KEY configured, using template (audience=%s)",
                        audience.value)
-            return template_brief(run, audience), "template"
+            return template_brief(run, audience, con), "template"
         model = SarvamClient(api_key=api_key)
 
     messages = [
@@ -482,30 +501,37 @@ def _compose_with_source(run, audience: Audience, model=None) -> tuple[str, str]
                        "(prompt_tokens=%s completion_tokens=%s ceiling=%s), falling "
                        "back to template (audience=%s)", e.prompt_tokens,
                        e.completion_tokens, e.max_tokens, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
     except Exception as exc:
         logger.warning("compose: model call failed (%s), falling back to template "
                        "(audience=%s)", type(exc).__name__, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
 
     bad = validate_narrative(narrative, run, audience=audience)
     if bad is not None:
         logger.warning("compose: model narrative rejected (invented figure %r), "
                        "falling back to template (audience=%s)", bad, audience.value)
-        return template_brief(run, audience), "template"
+        return template_brief(run, audience, con), "template"
 
+    # Task 14: the outlook line is appended AFTER validation and is written
+    # by forecast.py, not by the model -- so a stated baseline can never be
+    # reworded into a prediction, and validate_narrative never sees a figure
+    # it has no finding for.
+    outlook = _outlook_line(con, run)
+    if outlook:
+        narrative = f"{narrative}\n\n{outlook}"
     return narrative, "sarvam"
 
 
-def sarvam_brief(run, audience: Audience, model=None) -> str:
+def sarvam_brief(run, audience: Audience, model=None, con=None) -> str:
     """One model call on success; at most two if the first truncates (see
     `_call_with_retry`). Validated either way, falling back to
     `template_brief` on a validation failure, a second TruncatedResponse, or
     any other exception."""
-    return _compose_with_source(run, audience, model)[0]
+    return _compose_with_source(run, audience, model, con)[0]
 
 
-def brief_with_source(run, audience: Audience, model=None) -> tuple[str, str]:
+def brief_with_source(run, audience: Audience, model=None, con=None) -> tuple[str, str]:
     """As `sarvam_brief`, but also reports which path produced the text --
     `"sarvam"` or `"template"` -- for the API route to expose."""
-    return _compose_with_source(run, audience, model)
+    return _compose_with_source(run, audience, model, con)

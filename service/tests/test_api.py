@@ -17,6 +17,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
+from signaldesk import registry
 from signaldesk.api import create_app, finding_to_json
 from signaldesk.sweep import STORE
 
@@ -66,8 +67,11 @@ def test_health_capabilities_name_every_optional_endpoint_served(client):
     # Exact set, not a subset: deleting one of these routes drops its name
     # from the derived list and fails here, rather than leaving the console
     # feature-detecting an endpoint that no longer exists.
+    # Task 14 adds "outlook" to the same list -- additive, and the six names
+    # the console was written against are unchanged.
     assert set(client.get("/api/health").json()["capabilities"]) == {
-        "ask", "decompose", "safety", "employees", "cost", "dispatch-log"}
+        "ask", "decompose", "safety", "employees", "cost", "dispatch-log",
+        "outlook"}
 
 
 def test_health_capabilities_are_all_really_routed(client):
@@ -81,6 +85,7 @@ def test_health_capabilities_are_all_really_routed(client):
         "employees": client.get("/api/employees/impact"),
         "cost": client.get("/api/cost"),
         "dispatch-log": client.get("/api/dispatch/log"),
+        "outlook": client.get("/api/outlook"),
     }
     for name in caps:
         assert probes[name].status_code != 405
@@ -327,6 +332,98 @@ def test_unknown_finding_id_is_404_with_a_json_body(client):
     r = client.get("/api/findings/no-such-finding-ever")
     assert r.status_code == 404
     assert r.json()
+
+
+# ---------------------------------------------------------------------------
+# GET /api/outlook and /api/outlook/shifts -- Task 14's stated seasonal
+# baseline. Never presented as prediction; every basis day is a real query.
+# ---------------------------------------------------------------------------
+
+def test_outlook_states_its_method_and_weights(client):
+    r = client.get("/api/outlook")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["method"] == "seasonal-baseline-4w"
+    assert body["basisWeeks"] == 4
+    assert body["weights"] == [4, 3, 2, 1]
+    assert len(body["projections"]) == len(set(registry.ACTIVE_METRICS))
+
+
+def test_every_outlook_projection_carries_four_dated_runnable_basis_queries(client):
+    body = client.get("/api/outlook?date=2026-07-29").json()
+    assert body["targetDate"] == "2026-07-29"
+    for p in body["projections"]:
+        assert p["method"] == "seasonal-baseline-4w"
+        assert len(p["basis"]) == 4
+        assert [b["date"] for b in p["basis"]] == [
+            "2026-07-22", "2026-07-15", "2026-07-08", "2026-07-01"]
+        # A judge asking "where does that number come from" gets four queries.
+        for b in p["basis"]:
+            assert b["sql"] and "SELECT" in b["sql"].upper()
+        assert {"projected", "intervalLow", "intervalHigh", "readiness",
+                "action", "targetDate", "slice", "metric"} <= set(p)
+
+
+def test_outlook_projection_is_the_weighted_mean_of_its_own_basis_values(client):
+    """The response is self-checking: the projected value must be the 4/3/2/1
+    weighted mean of the four basis values printed alongside it."""
+    body = client.get("/api/outlook?date=2026-07-29&metric=ota").json()
+    p = body["projections"][0]
+    v = [b["value"] for b in p["basis"]]
+    assert all(x is not None for x in v), "sample data should carry four Wednesdays"
+    expected = (4 * v[0] + 3 * v[1] + 2 * v[2] + 1 * v[3]) / 10.0
+    assert p["projected"] == pytest.approx(expected, abs=0.02)
+    assert p["basisDaysUsed"] == 4
+
+
+def test_outlook_rejects_an_unknown_metric(client):
+    assert client.get("/api/outlook?metric=nope").status_code == 422
+    assert client.get("/api/outlook/shifts?metric=nope").status_code == 422
+
+
+def test_outlook_rejects_a_malformed_date(client):
+    assert client.get("/api/outlook?date=29-07-2026").status_code == 422
+
+
+def test_outlook_shifts_projects_one_row_per_shift_band(client):
+    r = client.get("/api/outlook/shifts?date=2026-07-29")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["metric"] == "no_show_rate"
+    assert body["shifts"], "sample data carries shift bands"
+    labels = [p["slice"] for p in body["shifts"]]
+    assert len(labels) == len(set(labels))
+    assert all(lab.startswith("shift ") for lab in labels)
+    assert all(p["method"] == "seasonal-baseline-4w" for p in body["shifts"])
+
+
+def test_outlook_shifts_action_names_a_seat_count_when_it_can(client):
+    body = client.get("/api/outlook/shifts?date=2026-07-29").json()
+    projected = [p for p in body["shifts"] if not p["withheld"]]
+    if not projected:
+        pytest.skip("no shift band in data/sample has four Wednesdays of history")
+    assert any("planned seats" in p["action"] for p in projected)
+
+
+def test_outlook_never_calls_itself_a_forecast_or_a_prediction(client):
+    body = client.get("/api/outlook?date=2026-07-29").json()
+    for p in body["projections"]:
+        text = (p["action"] + " " + p["note"]).lower()
+        assert "predict" not in text
+        assert text.count("forecast") == text.count("not a forecast")
+
+
+def test_brief_carries_the_outlook_line(client, monkeypatch):
+    # Same convention as the brief tests below: no SARVAM_API_KEY in the test
+    # env even if ../.env carries a real one, so this asserts the wiring and
+    # never makes a live model call.
+    monkeypatch.setenv("SARVAM_API_KEY", "")
+    body = client.get("/api/runs/latest/brief?audience=TRANSPORT_MANAGER").json()
+    assert body["source"] == "template"
+    outlook_lines = [l for l in body["brief"].split("\n") if l.startswith("outlook:")]
+    assert len(outlook_lines) == 1, body["brief"]
+    assert "baseline" in outlook_lines[0]
+    assert "predict" not in outlook_lines[0].lower()
 
 
 # ---------------------------------------------------------------------------

@@ -506,6 +506,26 @@ def safety_alert_summary(con, window: Window) -> tuple[int, float]:
     return n, float(row[1]) if row[1] is not None else 0.0
 
 
+# Task 14: the outlook's no_show_rate action names how many SEATS to
+# release, not just a rate -- planned headcount is the number a facilities
+# head can act on. sum(plannedemployee_cnt), the same column no_show_rate's
+# own SQL already reads as its denominator.
+_PLANNED_SEATS_SQL = """
+SELECT sum(t.plannedemployee_cnt)
+FROM trips t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  {{SLICE}}
+"""
+
+
+def planned_seats(con, slc: "Slice | tuple[Slice, ...]", window: Window) -> int:
+    """Total planned headcount (sum of plannedemployee_cnt) over a slice and
+    window -- forecast.py's own outlook action for no_show_rate is the only
+    caller."""
+    row = con.execute(_with_slice(_PLANNED_SEATS_SQL, slc), _params(slc, window)).fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
 def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:
     """The literal-substituted form, so a human can paste it into the DuckDB CLI
     and get the same number. This is what the console shows on expand: "where did

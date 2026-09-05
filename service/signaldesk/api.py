@@ -8,6 +8,7 @@ never open a DuckDB connection or touch the filesystem.
 """
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -17,7 +18,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import ingest, registry
+from . import forecast, ingest, registry
 from .actions import action_for
 from .compose import brief_with_source
 from .decompose import decompose, valid_dims
@@ -54,6 +55,7 @@ MAX_REPLAY_SPEED = 10_000_000.0
 # route drops its capability with no second place to update.
 OPTIONAL_ENDPOINTS: tuple[tuple[str, str, str], ...] = (
     ("ask", "POST", "/api/ask"),
+    ("outlook", "GET", "/api/outlook"),
     ("decompose", "GET", "/api/findings/{finding_id}/decompose"),
     ("safety", "GET", "/api/runs/{run_id}/safety"),
     ("employees", "GET", "/api/employees/impact"),
@@ -312,7 +314,8 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             raise HTTPException(status_code=400,
                                 detail={"error": f"unknown audience {audience!r}; "
                                                  f"valid values are {valid}"})
-        text, source = brief_with_source(run, aud)
+        # Task 14: state.con so the brief can carry its deterministic outlook: line.
+        text, source = brief_with_source(run, aud, con=state.con)
         return {"runId": run.run_id, "audience": aud.value, "brief": text, "source": source}
 
     @app.get("/api/findings/{finding_id}/decompose")
@@ -447,6 +450,79 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "withheld": result["withheld"],
             "reason": result["reason"],
             "trace": result["trace"],
+        }
+
+    def _outlook_target(run_id: str, date: str | None = None):
+        """The target date every outlook route projects onto.
+
+        Defaults to the day the run's window ENDS on -- the first day the
+        dataset does not cover, i.e. "the next shift day". `date`
+        (YYYY-MM-DD, UTC) overrides it so a planner can ask about any shift
+        day rather than only tomorrow. Returns (run, target_start_ms)."""
+        run = STORE.get(run_id)
+        if run is None:
+            _not_found("run", run_id)
+        if date is None:
+            return run, run.window.end_ms
+        try:
+            day = dt.datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=dt.UTC)
+        except ValueError:
+            raise HTTPException(status_code=422, detail={
+                "error": f"date must be YYYY-MM-DD, got {date!r}"})
+        return run, int(day.timestamp() * 1000)
+
+    @app.get("/api/outlook")
+    def get_outlook(runId: str = "latest", metric: str | None = None,
+                    date: str | None = None):
+        """Task 14: the shift readiness outlook as a STATED SEASONAL BASELINE.
+
+        Not machine learning and never presented as prediction: each projection
+        is the recency-weighted mean of the SAME WEEKDAY over the last four
+        weeks, and carries the four basis observations with their dates, their
+        values and the literal SQL that produced each one. All arithmetic lives
+        in forecast.py over registry.evaluate(); this route only shapes JSON.
+        """
+        run, target = _outlook_target(runId, date)
+        if metric is not None:
+            try:
+                registry.by_id(metric)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail={"error": str(exc)})
+            ids = (metric,)
+        else:
+            ids = None
+        projections = forecast.outlook(state.con, target, ids)
+        return {
+            "runId": run.run_id,
+            "method": forecast.METHOD,
+            "basisWeeks": forecast.BASIS_WEEKS,
+            "weights": list(forecast.WEIGHTS),
+            "targetDate": projections[0].target_date if projections else None,
+            "targetStartMs": target,
+            "projections": [p.to_json() for p in projections],
+        }
+
+    @app.get("/api/outlook/shifts")
+    def get_outlook_shifts(runId: str = "latest", metric: str = "no_show_rate",
+                           date: str | None = None):
+        """One projection per shift band, worst readiness first. no_show_rate by
+        default because its action names how many SEATS to release -- planned
+        headcount is the number a facilities head can actually act on."""
+        run, target = _outlook_target(runId, date)
+        try:
+            registry.by_id(metric)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail={"error": str(exc)})
+        projections = forecast.shift_outlook(state.con, target, metric)
+        return {
+            "runId": run.run_id,
+            "metric": metric,
+            "method": forecast.METHOD,
+            "basisWeeks": forecast.BASIS_WEEKS,
+            "weights": list(forecast.WEIGHTS),
+            "targetDate": projections[0].target_date if projections else None,
+            "targetStartMs": target,
+            "shifts": [p.to_json() for p in projections],
         }
 
     @app.get("/api/dispatch/log")

@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from signaldesk.compose import (_SYSTEM_PROMPT, _findings_as_text, sarvam_brief,
-                                template_brief, validate_narrative)
+from signaldesk.compose import (_SYSTEM_PROMPT, _findings_as_text, brief_with_source,
+                                sarvam_brief, template_brief, validate_narrative)
 from signaldesk.model import SarvamClient, TruncatedResponse
 from signaldesk.schemas import (Audience, Cause, Dimension, FeedHealth, Finding,
                                 Reference, ReferenceKind, Slice, Tier, Window,
@@ -312,6 +312,53 @@ class StubModel:
         if raises is not None:
             raise raises
         return text
+
+
+class _FakeCon:
+    """Not a database: outlook_line is monkeypatched in the tests below, so the
+    connection only has to be non-None for compose to attempt the line."""
+
+
+def test_the_outlook_line_is_appended_by_compose_not_written_by_the_model(monkeypatch):
+    """Task 14: the model must never originate or reword the outlook line. It
+    is appended AFTER validate_narrative, so the model's own text cannot
+    contain it and cannot change it."""
+    import signaldesk.compose as compose_mod
+    line = "outlook: the four-week same-weekday baseline (not a forecast) says X."
+    monkeypatch.setattr(compose_mod.forecast, "outlook_line", lambda con, run: line)
+
+    run = _run([_finding()])
+    # No figures at all, so validate_narrative passes and the sarvam path is
+    # the one under test.
+    model = StubModel(text="The vendor is lagging its peers badly and needs a review.")
+    brief, source = brief_with_source(run, Audience.TRANSPORT_MANAGER,
+                                      model=model, con=_FakeCon())
+    assert source == "sarvam"
+    # The model never saw the line...
+    prompt = " ".join(m["content"] for m in model.last_messages)
+    assert "outlook:" not in prompt
+    # ...but the delivered brief carries it, exactly once, unedited.
+    assert brief.count(line) == 1
+    assert brief.endswith(line)
+
+
+def test_the_outlook_line_survives_a_model_failure_falling_back_to_the_template(monkeypatch):
+    import signaldesk.compose as compose_mod
+    line = "outlook: the four-week same-weekday baseline (not a forecast) says X."
+    monkeypatch.setattr(compose_mod.forecast, "outlook_line", lambda con, run: line)
+    run = _run([_finding()])
+    model = StubModel(raises=RuntimeError("connection refused"))
+    brief, source = brief_with_source(run, Audience.TRANSPORT_MANAGER,
+                                      model=model, con=_FakeCon())
+    assert source == "template"
+    assert line in brief
+
+
+def test_no_outlook_line_without_a_connection():
+    """template_brief's default is unchanged: no con, no outlook line, and
+    every pre-existing caller keeps its exact output."""
+    run = _run([_finding()])
+    assert "outlook:" not in template_brief(run, Audience.TRANSPORT_MANAGER)
 
 
 def test_sarvam_brief_substitutes_the_template_when_the_model_invents_a_figure():
