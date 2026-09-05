@@ -86,6 +86,21 @@ _ACTIONS: dict[tuple[str, Cause], str] = {
         "Look at what changed in cab occupancy for {slice_value} over the last "
         "few weeks -- a rising cost per rider usually means falling seat "
         "utilisation, not falling volume.",
+    # Task 18 -- the demand metric, and the one place in this file where the
+    # two causes are OPPOSITE ACTIONS rather than the same action at two
+    # urgencies. That is the whole reason riders_per_day is two-sided: the
+    # user asked for a metric that stops them "falling short of vendors" AND
+    # stops them "overbooking vendors", and those are add-vehicles and
+    # release-vehicles respectively. A one-directional metric could only ever
+    # have said one of them.
+    ("riders_per_day", Cause.DEMAND_SURGE):
+        "Book additional vehicles for {slice_value} before the next roster locks "
+        "-- rider demand is running above its reference, and the shortfall lands "
+        "on employees left without a seat, not on a report.",
+    ("riders_per_day", Cause.DEMAND_DROP):
+        "Release vehicles for {slice_value} in the next roster, or confirm the "
+        "riders -- demand is running below its reference, and cabs booked "
+        "against demand that did not turn up are billed capacity nobody used.",
 }
 
 # Task 16: "identify vendor patterns from past history -- things to look out
@@ -118,6 +133,12 @@ _BY_CAUSE: dict[Cause, str] = {
     Cause.DATA_GAP: "This could not be measured. Check the feed before drawing a "
                     "conclusion.",
     Cause.ON_REFERENCE: "",          # a PASS needs no action
+    # Task 18: fallbacks for the two-sided causes, so a SECOND volume metric
+    # added later still says something useful without editing _ACTIONS first.
+    Cause.DEMAND_SURGE: "Check capacity for {slice_value} before the next roster "
+                        "-- demand is running above its reference.",
+    Cause.DEMAND_DROP: "Check the booked capacity for {slice_value} against the "
+                       "next roster -- demand is running below its reference.",
 }
 
 

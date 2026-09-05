@@ -195,6 +195,11 @@ _CAUSE_PHRASE = {
     Cause.LOW_CONFIDENCE: "low data confidence — read with care",
     Cause.DATA_GAP: "could not be measured",
     Cause.ON_REFERENCE: "on reference",
+    # Task 18: a two-sided (demand) finding names the SIDE, because the two
+    # sides cost different things -- above the reference the fleet falls short
+    # and employees are stranded, below it vehicles were booked nobody rode.
+    Cause.DEMAND_SURGE: "demand above its reference — the fleet may fall short",
+    Cause.DEMAND_DROP: "demand below its reference — vehicles may be overbooked",
 }
 
 
