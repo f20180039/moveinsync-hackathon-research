@@ -448,3 +448,128 @@ def evidence_sql(metric: Metric, slc: Slice, window: Window) -> str:
     if slc.dim is not Dimension.NONE:
         sql = sql.replace("?", "'" + slc.value.replace("'", "''") + "'", 1)
     return sql.strip()
+
+
+def _literal_sub(sql: str, values: list) -> str:
+    """Generic sibling of evidence_sql's own inline substitution, for a query
+    with more `?` placeholders than one metric's (window, [slice]) triple --
+    delay_attribution's own baseline-window bounds, below. Walks `?` in the
+    same left-to-right order the values were bound in, exactly as DuckDB's
+    positional binding would."""
+    out = sql
+    for v in values:
+        literal = "'" + str(v).replace("'", "''") + "'" if isinstance(v, str) else str(v)
+        out = out.replace("?", literal, 1)
+    return out.strip()
+
+
+# Task 17: delay attribution -- SYNTHETIC augmentation, an extra LENS on an
+# existing finding, never a new finding source (api.py's sweep/brief/findings
+# path is completely untouched by this). "Late" here is the same definition
+# _ON_TIME_BASE uses everywhere else: actual_at strictly after planned_end_at
+# plus the standard on-time grace.
+#
+# Every late trip is assigned to EXACTLY ONE cause by the CASE cascade below,
+# in this precedence order -- so shares always sum to 1.0 by construction,
+# with the remainder folding into 'unattributed':
+#   1. driver    -- the REAL delay_reason = 'DRIVER' label (ground truth;
+#                   takes precedence over either synthetic signal).
+#   2. commuter  -- the SYNTHETIC otp_events feed shows the OTP verified
+#                   more than one grace period after the planned pickup, on
+#                   ANY leg of this trip.
+#   3. traffic   -- the SYNTHETIC traffic_index feed's congestion index for
+#                   this trip's (site, shift_band, date) sits above that
+#                   (site, shift_band)'s own trailing-4-week mean.
+#   4. unattributed -- none of the above (folds the remainder).
+_CLASSIFIED_LATE_TRIPS_SQL = f"""
+WITH late_trips AS (
+  SELECT t.trip_id, t.site_id, t.shift_band, t.delay_reason,
+         CAST(to_timestamp(t.scheduled_at / 1000) AS DATE) AS trip_date
+  FROM trips t
+  WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+    AND t.actual_at IS NOT NULL AND t.planned_end_at IS NOT NULL
+    AND t.actual_at > t.planned_end_at + {C.ON_TIME_GRACE_MS}
+    {{{{SLICE}}}}
+),
+commuter_flag AS (
+  SELECT DISTINCT trip_id FROM otp_events
+  WHERE otp_verified_at > planned_pickup_at + {C.ON_TIME_GRACE_MS}
+),
+traffic_baseline AS (
+  SELECT site_id, shift_band, avg(corridor_congestion_index) AS baseline_4wk
+  FROM traffic_index
+  WHERE date >= CAST(to_timestamp(? / 1000) AS DATE)
+    AND date <  CAST(to_timestamp(? / 1000) AS DATE)
+  GROUP BY site_id, shift_band
+),
+classified AS (
+  SELECT lt.trip_id,
+    CASE
+      WHEN lt.delay_reason = 'DRIVER' THEN 'driver'
+      WHEN cf.trip_id IS NOT NULL THEN 'commuter'
+      WHEN ti.corridor_congestion_index > tb.baseline_4wk THEN 'traffic'
+      ELSE 'unattributed'
+    END AS cause
+  FROM late_trips lt
+  LEFT JOIN commuter_flag cf ON cf.trip_id = lt.trip_id
+  LEFT JOIN traffic_index ti
+    ON ti.site_id = lt.site_id AND ti.shift_band = lt.shift_band AND ti.date = lt.trip_date
+  LEFT JOIN traffic_baseline tb
+    ON tb.site_id = lt.site_id AND tb.shift_band = lt.shift_band
+)
+"""
+
+DELAY_ATTRIBUTION_CAUSES = ("commuter", "traffic", "driver", "unattributed")
+
+_FOUR_WEEKS_MS = 28 * 86_400_000
+
+
+def _attribution_params(slc: "Slice | tuple[Slice, ...]", window: Window) -> list:
+    """(window, [slice value(s)], baseline_start_ms, baseline_end_ms) -- the
+    trailing-4-week baseline is anchored on the window's own end, matching
+    the "4-week mean for that site/band" the finding's own window is judged
+    against."""
+    return _params(slc, window) + [window.end_ms - _FOUR_WEEKS_MS, window.end_ms]
+
+
+def delay_attribution(con, slc: "Slice | tuple[Slice, ...]", window: Window) -> list[dict]:
+    """Task 17: for the LATE trips in `slc`/`window`, the share and count
+    attributable to commuter/traffic/driver/unattributed (module docstring
+    above has the precedence cascade and why shares always sum to 1.0).
+    Each row is {cause, share, n, evidence_sql} -- evidence_sql is a single
+    cause's own literal-substituted, independently-runnable count query, the
+    same "paste it and get the same number" contract evidence_sql() (above)
+    gives every metric.
+
+    Returns [] when otp_events/traffic_index are not loaded (api.py's
+    /attribution route gates on state.synthetic_loaded and never reaches
+    this for that case in practice; this guard is what makes a direct call
+    against a bare connection -- e.g. a test -- fail closed rather than
+    raising a raw duckdb.CatalogException)."""
+    try:
+        con.sql("DESCRIBE otp_events")
+        con.sql("DESCRIBE traffic_index")
+    except duckdb.Error:
+        return []
+
+    grouped_sql = _CLASSIFIED_LATE_TRIPS_SQL + \
+        "SELECT cause, count(*) AS n FROM classified GROUP BY 1"
+    sql = _with_slice(grouped_sql, slc)
+    params = _attribution_params(slc, window)
+    rows = con.execute(sql, params).fetchall()
+
+    counts = {cause: 0 for cause in DELAY_ATTRIBUTION_CAUSES}
+    for cause, n in rows:
+        counts[cause] = int(n)
+    total = sum(counts.values())
+
+    evidence_base = _literal_sub(_with_slice(_CLASSIFIED_LATE_TRIPS_SQL, slc), params)
+
+    result = []
+    for cause in DELAY_ATTRIBUTION_CAUSES:
+        n = counts[cause]
+        share = (n / total) if total > 0 else 0.0
+        evidence = (evidence_base +
+                   f"SELECT count(*) FROM classified WHERE cause = '{cause}'")
+        result.append({"cause": cause, "share": share, "n": n, "evidence_sql": evidence})
+    return result

@@ -53,6 +53,11 @@ class State:
         self.health: dict = {}
         self.clock: ReplayClock | None = None
         self.data_dir: str | None = None
+        # Task 17: True only when SIGNALDESK_SYNTHETIC=1 AND data/synthetic/
+        # actually loaded at least one feed -- /attribution's own feature-
+        # detection gate reads this rather than re-checking the env var or
+        # the filesystem itself.
+        self.synthetic_loaded: bool = False
 
 
 def _midnight_utc_plus_one_day(ms: int) -> int:
@@ -81,6 +86,14 @@ def startup(state: State, data_dir: str | None = None):
     con = duckdb.connect()
     health = ingest.load_all(con, ingest.source_for(base))
 
+    # Task 17: additive and OFF by default -- a no-op unless SIGNALDESK_
+    # SYNTHETIC=1 and data/synthetic/ (base's sibling) exists. Merged into
+    # the same health dict sweep.py's metric-confidence lookup already reads
+    # (extra keys it never looks up are harmless); state.synthetic_loaded is
+    # the boolean /attribution's route gates on.
+    synthetic_health = ingest.load_synthetic(con, base)
+    health.update(synthetic_health)
+
     override = os.environ.get("SIGNALDESK_CLOCK_MS")
     now_ms = int(override) if override else _midnight_utc_plus_one_day(
         ingest.latest_scheduled_ms(con))
@@ -93,6 +106,7 @@ def startup(state: State, data_dir: str | None = None):
     state.health = health
     state.clock = clock
     state.data_dir = base
+    state.synthetic_loaded = bool(synthetic_health)
 
     # The demo points at this exact line: the sweep that ran unprompted, on
     # startup, before any console loaded or any question was asked.
@@ -297,6 +311,35 @@ def create_app(data_dir: str | None = None) -> FastAPI:
                     "shareOfVolume": round(r["share_of_volume"], 4),
                     "pointsOfGap": round(r["points_of_gap"], 2),
                     "n": r["n"],
+                }
+                for r in rows
+            ],
+        }
+
+    @app.get("/api/findings/{finding_id}/attribution")
+    def get_finding_attribution(finding_id: str):
+        """Task 17: an extra LENS on an existing finding, not a new finding
+        source -- the flag-off path (state.synthetic_loaded False, the
+        default) 404s naming SIGNALDESK_SYNTHETIC BEFORE the finding id is
+        even looked up, so the console can feature-detect the capability
+        with one call regardless of which finding it asks about."""
+        if not state.synthetic_loaded:
+            raise HTTPException(status_code=404, detail={
+                "error": "synthetic delay-reasoning feeds are not loaded; "
+                         "set SIGNALDESK_SYNTHETIC=1 and ensure data/synthetic/ exists"})
+        f = STORE.finding(finding_id)
+        if f is None:
+            _not_found("finding", finding_id)
+        rows = registry.delay_attribution(state.con, f.slice, f.window)
+        return {
+            "findingId": f.id,
+            "synthetic": True,
+            "rows": [
+                {
+                    "cause": r["cause"],
+                    "share": round(r["share"], 4),
+                    "n": r["n"],
+                    "evidenceSql": r["evidence_sql"],
                 }
                 for r in rows
             ],

@@ -18,3 +18,11 @@ __pycache__/
 
 # The provided dataset (~555MB). Never committed; pulled via scripts/fetch-dataset.sh
 data/real/
+
+# Task 17 synthetic augmentation: otp_events.csv/traffic_index.csv/README.md
+# ARE committed (the attribution story runs on OTP + traffic + the real
+# delay_reason). eta_log.csv is the least load-bearing of the three and
+# roughly doubles the folder's weight -- regenerate it on demand with
+# scripts/make_synthetic.py's own command (same --seed, byte-identical
+# output) rather than carrying it in the repo/every Render build.
+data/synthetic/eta_log.csv
