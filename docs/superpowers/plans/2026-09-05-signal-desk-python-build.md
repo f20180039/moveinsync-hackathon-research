@@ -2095,6 +2095,25 @@ Unchanged from the second revision: 8a first, Task 9 third, AWS out (R0),
 | — | 8d Shift readiness | **→ R9** | — | swapped out; see above |
 | — | 12 AWS deployment | **→ R0** | — | unchanged; 16:00 step edits `PROPOSAL.md` §5 to the truth if it did not happen |
 
+### Task 7d: MoveInSync-style console (user direction, 10:30) — runs alongside the service column
+
+*The user shared MoveInSync's own "Intelligence" dashboard and the jury's guidance:
+OTA is the metric — "is 92% good or bad? compare with peers; a vendor at 85% is
+lowering your average; this is a reasoning and alerting mechanism, not a
+dashboard."* Console partition only; four stages, each its own commit, each
+reviewable on its own; anything not green at 15:30 is reverted.
+
+| Stage | What | Depends on |
+|---|---|---|
+| 1 | Left sidebar shell (Overview · Alerts with badge · Insights · Vendors · Data health · Cost · Reports: Weekly, Monthly, Brief & dispatch), top bar, greeting band | nothing |
+| 2 | **Overview**: four KPI cards (observed · vs 4-week average · peer median · tier — the "is 92% good or bad" card) and **Priority actions** (top findings ≥ CONCERN as cards: why / impact / compared-against, Investigate · Escalate · Dismiss), Ask bar with suggested questions | `findings[].action` (8a), `/decompose` (8) — feature-detected, hidden when absent |
+| 3 | Alerts tab; findings table filters (severity, metric, dimension, **math filter on Observed** e.g. `< 60`), pagination 25/page, state in the URL | nothing |
+| 4 | Weekly / Monthly review pages: `POST /api/sweep?window=week|month`, KPI row, top findings, brief with "Copy for leadership" and Dispatch | sweep window param |
+
+The service column supplies, in order: **8a** action lines → **8** decomposition
+(by VENDOR/SITE/SHIFT/… and by `delay_reason`) → sweep `window` param → Task 11
+→ Task 9 (`/api/ask`, which the Ask bar consumes) → R1 → 8b → R3.
+
 ### The running order — one developer, agents in parallel by partition
 
 **Pre-condition:** Tier 1 whole-branch review clean and **Task 12R (Render) live**
