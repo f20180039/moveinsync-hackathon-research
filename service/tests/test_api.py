@@ -689,3 +689,47 @@ def test_every_ask_response_carries_a_source_field(client):
     body = client.post("/api/ask", json={"question": "how is on-time?"}).json()
     assert "source" in body
     assert body["source"] in {"sarvam", "withheld"}
+
+
+# ---------------------------------------------------------------------------
+# POST /api/ask `history` -- UAT task 3, the contract agreed with the console.
+# Optional, chronological, excluding the current question; capped and
+# truncated server-side, never a reason to refuse.
+# ---------------------------------------------------------------------------
+
+def test_ask_without_history_is_unchanged(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    r = client.post("/api/ask", json={"question": "how is on-time?"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["question"] == "how is on-time?"
+    assert body["source"] == "withheld"
+
+
+def test_ask_accepts_a_well_formed_history(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    r = client.post("/api/ask", json={
+        "question": "and the night shift?",
+        "history": [
+            {"role": "user", "content": "which vendor is worst?"},
+            {"role": "assistant", "content": "Aarav Petrov Travel."},
+        ],
+    })
+    assert r.status_code == 200
+
+
+def test_ask_ignores_malformed_history_rather_than_500ing(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    for junk in ("a string", 7, [None, "nope", {"role": "system", "content": "x"}],
+                 [{"role": "user"}], [{"content": "no role"}], {"role": "user"}):
+        r = client.post("/api/ask", json={"question": "still answerable?",
+                                          "history": junk})
+        assert r.status_code == 200, junk
+
+
+def test_ask_truncates_an_oversized_history_rather_than_rejecting_it(client, monkeypatch):
+    monkeypatch.delenv("SARVAM_API_KEY", raising=False)
+    huge = [{"role": "user" if i % 2 == 0 else "assistant", "content": "x" * 5_000}
+            for i in range(50)]
+    r = client.post("/api/ask", json={"question": "still answerable?", "history": huge})
+    assert r.status_code == 200

@@ -363,6 +363,66 @@ TOOL_SCHEMAS = [
 
 
 # ---------------------------------------------------------------------------
+# Conversation history. The chat had no memory, so "and what about the night
+# shift?" referred to nothing. The console sends the turns that came BEFORE
+# the current question; this module decides what survives into the prompt.
+#
+# Two caps, both enforced here rather than trusted to the caller, and both
+# TRUNCATING rather than rejecting -- a long session must degrade, never
+# 4xx. MAX_HISTORY_TURNS keeps a follow-up answerable (three exchanges of
+# context) without letting an all-day session drag every earlier answer into
+# every later prompt; MAX_HISTORY_CHARS is the harder bound, because one
+# pasted brief can be longer than six ordinary turns put together and cost
+# per interaction is a scored criterion. Roles are whitelisted to user and
+# assistant: a caller-supplied "system" turn would be an instruction channel
+# into a prompt whose rules are the thing keeping the model off the numbers.
+# ---------------------------------------------------------------------------
+
+MAX_HISTORY_TURNS = 6
+MAX_HISTORY_CHARS = 4_000
+
+_HISTORY_ROLES = ("user", "assistant")
+
+
+def sanitize_history(history) -> list[dict]:
+    """The caps and the shape check in one place, returning the messages to
+    replay. Anything malformed is DROPPED, never raised on: history is an
+    optional convenience and a bad entry in it is not a reason to refuse a
+    question the user can otherwise be answered."""
+    if not isinstance(history, list):
+        return []
+
+    clean: list[dict] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        role = entry.get("role")
+        content = entry.get("content")
+        if role not in _HISTORY_ROLES or not isinstance(content, str):
+            continue
+        content = content.strip()
+        if not content:
+            continue
+        clean.append({"role": role, "content": content})
+
+    clean = clean[-MAX_HISTORY_TURNS:]
+
+    # Newest-first spend of the character budget, so what survives is the
+    # context closest to the question being asked; a single oversized turn is
+    # cut to what is left rather than dropped whole.
+    kept: list[dict] = []
+    budget = MAX_HISTORY_CHARS
+    for entry in reversed(clean):
+        if budget <= 0:
+            break
+        content = entry["content"][:budget]
+        kept.append({"role": entry["role"], "content": content})
+        budget -= len(content)
+    kept.reverse()
+    return kept
+
+
+# ---------------------------------------------------------------------------
 # Provenance. "Is the console really using Gen AI, or not?" must be
 # answerable from the response itself rather than from the source tree. The
 # brief already names its path (`compose.brief_with_source` -> "sarvam" |
@@ -423,14 +483,19 @@ def _complete_with_retry(model, messages: list[dict]):
                                       max_tokens=retry_ceiling)
 
 
-def ask(con, run, question: str, model=None) -> dict:
+def ask(con, run, question: str, model=None, history=None) -> dict:
     """The bounded interrogator: at most MAX_TOOL_CALLS tool calls, then
     answers from what it gathered (or declines). Always returns
     {answer, withheld, reason, source, trace} -- trace is populated even when
     the answer is withheld, so the verified numbers a tool actually returned
     stay visible even when the prose is rejected, and `source` names the path
     that produced the words ("sarvam" or "withheld") so no reader has to
-    infer whether Gen AI was involved."""
+    infer whether Gen AI was involved.
+
+    `history` is the OPTIONAL prior conversation -- [{role, content}, ...] in
+    chronological order, excluding this question -- capped and cleaned by
+    `sanitize_history`. Absent or empty, this behaves exactly as it did
+    before it existed."""
     trace: list[dict] = []
     all_numbers: set[float] = set()
 
@@ -444,6 +509,7 @@ def ask(con, run, question: str, model=None) -> dict:
     system_prompt = _SYSTEM_PROMPT_TEMPLATE.format(digest=_context_digest(run))
     messages = [
         {"role": "system", "content": system_prompt},
+        *sanitize_history(history),
         {"role": "user", "content": question},
     ]
 

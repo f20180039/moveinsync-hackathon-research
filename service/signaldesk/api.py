@@ -489,7 +489,12 @@ def create_app(data_dir: str | None = None) -> FastAPI:
         run = STORE.get(run_id)
         if run is None:
             _not_found("run", run_id)
-        result = ask_question(state.con, run, question)
+        # UAT task 3: `history` is optional and additive -- absent or empty
+        # is exactly the pre-existing behaviour. It is never a reason to
+        # refuse: tools.sanitize_history caps it, truncates it and drops
+        # malformed entries rather than 4xx-ing a question that can still be
+        # answered.
+        result = ask_question(state.con, run, question, history=body.get("history"))
         return {
             "runId": run.run_id,
             "question": question,
