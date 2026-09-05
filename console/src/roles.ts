@@ -52,6 +52,7 @@ export interface RoleConfig {
 // here would be a permission for a link that no longer exists.
 const ALL_NAV_PATHS = new Set([
   '/',
+  '/chat',
   '/alerts',
   '/findings',
   '/employees',
@@ -95,7 +96,7 @@ export const ROLES: Record<Role, RoleConfig> = {
     // contract questions, not on which named site or shift band is hurting
     // employees this week -- the same reason it has no Insights table and
     // no feed-health internals.
-    visibleNavPaths: new Set(['/', '/alerts', '/vendors', '/reports/weekly', '/reports/monthly']),
+    visibleNavPaths: new Set(['/', '/chat', '/alerts', '/vendors', '/reports/weekly', '/reports/monthly']),
     kpiMetricIds: ['ota', 'cost_per_km', 'cost_per_rider', 'marshal_compliance'],
     kpiStripLabel: 'Cost · Safety · Experience',
     isPriorityFinding: (finding) => finding.tier === 'BREACH',

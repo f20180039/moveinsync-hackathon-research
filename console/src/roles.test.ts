@@ -32,7 +32,7 @@ describe('ROLES', () => {
 
   it('Transport manager sees the complete nav and every alert-tier finding', () => {
     const role = ROLES.TRANSPORT_MANAGER
-    for (const path of ['/', '/alerts', '/findings', '/vendors', '/health', '/reports/weekly', '/reports/monthly']) {
+    for (const path of ['/', '/chat', '/alerts', '/findings', '/vendors', '/health', '/reports/weekly', '/reports/monthly']) {
       expect(role.visibleNavPaths.has(path)).toBe(true)
     }
     expect(role.isPriorityFinding(makeFinding({ tier: 'BREACH' }))).toBe(true)
@@ -55,6 +55,7 @@ describe('ROLES', () => {
     expect(role.visibleNavPaths.has('/findings')).toBe(false)
     expect(role.visibleNavPaths.has('/health')).toBe(false)
     expect(role.visibleNavPaths.has('/vendors')).toBe(true)
+    expect(role.visibleNavPaths.has('/chat')).toBe(true)
     expect(role.visibleNavPaths.has('/reports/weekly')).toBe(true)
 
     // /cost and /brief are routed but unlinked for everyone (nav.ts), so

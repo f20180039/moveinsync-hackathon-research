@@ -11,6 +11,7 @@ import { ROLES } from './roles.ts'
 import { useAppStore } from './store.ts'
 import { AlertsPage } from './pages/AlertsPage.tsx'
 import { BriefPage } from './pages/BriefPage.tsx'
+import { ChatPage } from './pages/ChatPage.tsx'
 import { CostPage } from './pages/CostPage.tsx'
 import { EmployeesPage } from './pages/EmployeesPage.tsx'
 import { FindingsPage } from './pages/FindingsPage.tsx'
@@ -144,6 +145,7 @@ function App() {
                   />
                 }
               />
+              <Route path="/chat" element={<ChatPage />} />
               <Route path="/alerts" element={<AlertsPage findings={findings} runId={run?.runId ?? null} />} />
               <Route path="/findings" element={<FindingsPage findings={findings} />} />
               {/* Fetches its own data (and feature-detects the optional

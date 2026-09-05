@@ -8,6 +8,11 @@ describe('titleFor', () => {
     }
   })
 
+  it('puts Ask directly under Overview, where a question is asked before a page is browsed', () => {
+    expect(MAIN_ITEMS[0].to).toBe('/')
+    expect(MAIN_ITEMS[1]).toMatchObject({ to: '/chat', label: 'Ask' })
+  })
+
   it('still titles a routed-but-unlinked page, so a deep link is not headed "Signal Desk"', () => {
     expect(UNLISTED_ITEMS.map((item) => item.to)).toEqual(['/cost', '/brief'])
     expect(titleFor('/cost')).toBe('Cost')

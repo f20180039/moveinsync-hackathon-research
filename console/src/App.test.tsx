@@ -256,6 +256,7 @@ describe('App', () => {
 
     const nav = screen.getByRole('navigation', { name: /primary/i })
     expect(nav).toHaveTextContent('Overview')
+    expect(nav).toHaveTextContent('Ask')
     expect(nav).toHaveTextContent('Alerts')
     expect(nav).toHaveTextContent('Insights')
     expect(nav).toHaveTextContent('Employees')
