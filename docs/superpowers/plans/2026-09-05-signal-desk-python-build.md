@@ -2125,6 +2125,8 @@ The service column supplies, in order: **8a** action lines → **8** decompositi
 | **7d stage 6** | Outlook card ("Tomorrow's shift readiness") + `/outlook` with basis drill-down | console | Task 14 |
 | **7d stage 7** | Persona switch (Transport manager / Facilities head / Line manager) scoping nav, KPIs and priority actions — a filter, not auth; floating assistant persistent across pages (zustand allowed) | console | user: reduce clutter per role; chat while navigating |
 
+| **16 Recurrence** | `recurrence: {weeks, of}` on CONCERN+ findings — how many of the last four windows the same slice was also Concern or worse; "Recurring" tag and pattern-aware action variants ("take it to the vendor review, not the dispatch desk"). Built by the second implementer after Task 15. | service + console | user: "identify vendor patterns from past history — things to look out for" |
+
 Also on the day: per-metric diversity cap (brief ≤3 per metric of the top 8; console ≤2 of the top 5) after `marshal_compliance` breached on 23/24 slices; a safety context line (WOMAN_TRAVELLING_ALONE alerts this window and the escort-present share).
 
 ### The running order — one developer, agents in parallel by partition
