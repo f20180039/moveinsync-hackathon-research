@@ -32,7 +32,7 @@ describe('ROLES', () => {
 
   it('Transport manager sees the complete nav and every alert-tier finding', () => {
     const role = ROLES.TRANSPORT_MANAGER
-    for (const path of ['/', '/alerts', '/findings', '/vendors', '/health', '/cost', '/reports/weekly', '/reports/monthly', '/brief']) {
+    for (const path of ['/', '/alerts', '/findings', '/vendors', '/health', '/reports/weekly', '/reports/monthly']) {
       expect(role.visibleNavPaths.has(path)).toBe(true)
     }
     expect(role.isPriorityFinding(makeFinding({ tier: 'BREACH' }))).toBe(true)
@@ -51,12 +51,16 @@ describe('ROLES', () => {
     expect(role.isPriorityFinding(makeFinding({ tier: 'CONCERN' }))).toBe(false)
 
     // Genuinely different nav -- no raw Insights table, no feed-health
-    // internals; Reports + Cost + Vendors + Alerts stay.
+    // internals; Reports + Vendors + Alerts stay.
     expect(role.visibleNavPaths.has('/findings')).toBe(false)
     expect(role.visibleNavPaths.has('/health')).toBe(false)
-    expect(role.visibleNavPaths.has('/cost')).toBe(true)
+    expect(role.visibleNavPaths.has('/vendors')).toBe(true)
     expect(role.visibleNavPaths.has('/reports/weekly')).toBe(true)
-    expect(role.visibleNavPaths.has('/brief')).toBe(true)
+
+    // /cost and /brief are routed but unlinked for everyone (nav.ts), so
+    // no role grants them -- the two lists cannot drift apart.
+    expect(role.visibleNavPaths.has('/cost')).toBe(false)
+    expect(role.visibleNavPaths.has('/brief')).toBe(false)
 
     expect(role.suggestedQuestions[1]).toBe('Which vendors are recurring laggards?')
   })

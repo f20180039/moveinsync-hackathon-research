@@ -47,6 +47,9 @@ export interface RoleConfig {
   suggestedQuestions: string[]
 }
 
+// Only paths the sidebar can actually link (nav.ts's MAIN_ITEMS +
+// REPORT_ITEMS). /cost and /brief are routed but unlisted, so naming them
+// here would be a permission for a link that no longer exists.
 const ALL_NAV_PATHS = new Set([
   '/',
   '/alerts',
@@ -54,10 +57,8 @@ const ALL_NAV_PATHS = new Set([
   '/employees',
   '/vendors',
   '/health',
-  '/cost',
   '/reports/weekly',
   '/reports/monthly',
-  '/brief',
 ])
 
 const FACILITIES_HEAD_SUGGESTED_QUESTIONS = [
@@ -94,7 +95,7 @@ export const ROLES: Record<Role, RoleConfig> = {
     // contract questions, not on which named site or shift band is hurting
     // employees this week -- the same reason it has no Insights table and
     // no feed-health internals.
-    visibleNavPaths: new Set(['/', '/alerts', '/vendors', '/cost', '/reports/weekly', '/reports/monthly', '/brief']),
+    visibleNavPaths: new Set(['/', '/alerts', '/vendors', '/reports/weekly', '/reports/monthly']),
     kpiMetricIds: ['ota', 'cost_per_km', 'cost_per_rider', 'marshal_compliance'],
     kpiStripLabel: 'Cost · Safety · Experience',
     isPriorityFinding: (finding) => finding.tier === 'BREACH',

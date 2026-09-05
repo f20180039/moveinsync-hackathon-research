@@ -10,11 +10,12 @@ const ALL_LABELS = [
   'Insights',
   'Vendors',
   'Data health',
-  'Cost',
   'Weekly review',
   'Monthly review',
-  'Brief & dispatch',
 ]
+
+// Routed, but deliberately not linked here (see nav.ts's UNLISTED_ITEMS).
+const UNLINKED_LABELS = ['Cost', 'Brief & dispatch']
 
 function renderSidebar(initialEntries: string[] = ['/'], alertCount = 0, alertSeverity: AlertSeverity = null) {
   return render(
@@ -33,6 +34,14 @@ describe('Sidebar', () => {
     // fixed either way, which is exactly what this asserts.
     for (const label of ALL_LABELS) {
       expect(screen.getByRole('link', { name: label })).toBeInTheDocument()
+    }
+  })
+
+  it('does not link the routed-but-unlisted pages', () => {
+    renderSidebar()
+
+    for (const label of UNLINKED_LABELS) {
+      expect(screen.queryByRole('link', { name: label })).not.toBeInTheDocument()
     }
   })
 
@@ -79,17 +88,16 @@ describe('Sidebar', () => {
   it('only links a path when it is in visibleNavPaths -- a route not listed is simply not linked, not a 403', () => {
     render(
       <MemoryRouter>
-        <Sidebar alertCount={0} alertSeverity={null} visibleNavPaths={new Set(['/', '/alerts', '/brief'])} />
+        <Sidebar alertCount={0} alertSeverity={null} visibleNavPaths={new Set(['/', '/alerts', '/vendors'])} />
       </MemoryRouter>,
     )
 
     expect(screen.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Brief & dispatch' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Vendors' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Insights' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Vendors' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Employees' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Data health' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Cost' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Weekly review' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Monthly review' })).not.toBeInTheDocument()
   })

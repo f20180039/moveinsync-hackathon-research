@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { MAIN_ITEMS, REPORT_ITEMS, titleFor } from './nav.ts'
+import { MAIN_ITEMS, REPORT_ITEMS, UNLISTED_ITEMS, titleFor } from './nav.ts'
 
 describe('titleFor', () => {
   it('resolves every nav item to its own label', () => {
-    for (const item of [...MAIN_ITEMS, ...REPORT_ITEMS]) {
+    for (const item of [...MAIN_ITEMS, ...REPORT_ITEMS, ...UNLISTED_ITEMS]) {
       expect(titleFor(item.to)).toBe(item.label)
     }
+  })
+
+  it('still titles a routed-but-unlinked page, so a deep link is not headed "Signal Desk"', () => {
+    expect(UNLISTED_ITEMS.map((item) => item.to)).toEqual(['/cost', '/brief'])
+    expect(titleFor('/cost')).toBe('Cost')
+    expect(titleFor('/brief')).toBe('Brief & dispatch')
   })
 
   it('resolves a nested route to its section, not to Overview', () => {

@@ -16,16 +16,26 @@ export const MAIN_ITEMS: NavItem[] = [
   { to: '/employees', label: 'Employees', icon: '👥' },
   { to: '/vendors', label: 'Vendors', icon: '🚌' },
   { to: '/health', label: 'Data health', icon: '🩺' },
-  { to: '/cost', label: 'Cost', icon: '₹' },
 ]
 
 export const REPORT_ITEMS: NavItem[] = [
   { to: '/reports/weekly', label: 'Weekly review', icon: '📅' },
   { to: '/reports/monthly', label: 'Monthly review', icon: '🗓' },
+]
+
+// Pages that exist and are routed, but are NOT sidebar links. /cost and
+// /brief are demo surfaces reached from where they are relevant (Data
+// health links to /cost, which is where the model cost and measured
+// latency evidence lives) rather than from a permanent slot in a nav an
+// operator scans every day. Their routes in App.tsx are unchanged -- deep
+// linking to either still renders the full page -- so they are listed here
+// to keep titleFor() able to name them.
+export const UNLISTED_ITEMS: NavItem[] = [
+  { to: '/cost', label: 'Cost', icon: '₹' },
   { to: '/brief', label: 'Brief & dispatch', icon: '✉' },
 ]
 
-const ALL_ITEMS = [...MAIN_ITEMS, ...REPORT_ITEMS]
+const ALL_ITEMS = [...MAIN_ITEMS, ...REPORT_ITEMS, ...UNLISTED_ITEMS]
 
 // Longest matching prefix wins, so a future nested route (/vendors/ABC)
 // still resolves to "Vendors" rather than falling through. '/' is exact --

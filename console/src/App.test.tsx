@@ -261,10 +261,12 @@ describe('App', () => {
     expect(nav).toHaveTextContent('Employees')
     expect(nav).toHaveTextContent('Vendors')
     expect(nav).toHaveTextContent('Data health')
-    expect(nav).toHaveTextContent('Cost')
     expect(nav).toHaveTextContent('Weekly review')
     expect(nav).toHaveTextContent('Monthly review')
-    expect(nav).toHaveTextContent('Brief & dispatch')
+
+    // /cost and /brief are routed but not linked (nav.ts) -- they are
+    // reached from the page that needs them, not from the daily nav.
+    expect(nav).not.toHaveTextContent('Brief & dispatch')
   })
 
   it('shows an unread-alert badge counting CONCERN/BREACH findings', async () => {

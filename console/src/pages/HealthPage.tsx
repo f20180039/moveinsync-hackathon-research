@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { label } from '../api/labels.ts'
 import type { FeedHealth } from '../api/types.ts'
 import { FeedHealthStrip } from '../components/FeedHealthStrip.tsx'
@@ -16,6 +17,14 @@ export function HealthPage({ feeds }: { feeds: FeedHealth[] }) {
         <dt>Confidence</dt>
         <dd>The share of this feed's rows we trust for the window -- below 90% is flagged.</dd>
       </dl>
+
+      {/* /cost is no longer a sidebar link, but it is where the model
+          cost and the measured query/sweep/model latency live -- evidence
+          this page's readers are exactly the ones who go looking for. One
+          line, pointing at the panel that already exists. */}
+      <p className="health-cost-link">
+        <Link to="/cost">Model cost &amp; measured latency</Link>
+      </p>
 
       {/* Landing on the service partition -- feature-detected: a feed with
           no `quirks` renders nothing here, not an empty heading. The demo

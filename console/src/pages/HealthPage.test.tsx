@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import type { FeedHealth } from '../api/types.ts'
 import { HealthPage } from './HealthPage.tsx'
@@ -16,6 +17,14 @@ function makeFeed(overrides: Partial<FeedHealth>): FeedHealth {
   }
 }
 
+function renderHealthPage(feeds: FeedHealth[]) {
+  return render(
+    <MemoryRouter>
+      <HealthPage feeds={feeds} />
+    </MemoryRouter>,
+  )
+}
+
 describe('HealthPage', () => {
   it('renders the quirks section for a feed that carries one', () => {
     const feeds: FeedHealth[] = [
@@ -24,7 +33,7 @@ describe('HealthPage', () => {
       }),
     ]
 
-    render(<HealthPage feeds={feeds} />)
+    renderHealthPage(feeds)
 
     expect(screen.getByText('What we noticed and handled')).toBeInTheDocument()
     expect(screen.getByText('Slab-billed lines with no distance')).toBeInTheDocument()
@@ -37,7 +46,7 @@ describe('HealthPage', () => {
   it('renders nothing for the quirks section when a feed has quirks: []', () => {
     const feeds: FeedHealth[] = [makeFeed({ quirks: [] })]
 
-    render(<HealthPage feeds={feeds} />)
+    renderHealthPage(feeds)
 
     expect(screen.queryByText('What we noticed and handled')).not.toBeInTheDocument()
   })
@@ -47,8 +56,17 @@ describe('HealthPage', () => {
     // Simulate an older service response with no `quirks` field present.
     delete (feeds[0] as Partial<FeedHealth>).quirks
 
-    render(<HealthPage feeds={feeds} />)
+    renderHealthPage(feeds)
 
     expect(screen.queryByText('What we noticed and handled')).not.toBeInTheDocument()
+  })
+
+  it('links to the cost and latency evidence, which has no sidebar link of its own', () => {
+    renderHealthPage([makeFeed({})])
+
+    expect(screen.getByRole('link', { name: /model cost & measured latency/i })).toHaveAttribute(
+      'href',
+      '/cost',
+    )
   })
 })

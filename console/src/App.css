@@ -2111,3 +2111,248 @@ body {
 .outlook-table {
   width: 100%;
 }
+
+/* ===========================================================================
+   Full-page chat (/chat) -- the assistant as a page, not a corner panel.
+   One centred column: header, the resumable session list, the conversation,
+   and a composer pinned at the bottom of the column. Colours are the same
+   tokens the floating panel uses, so the two surfaces read as one product.
+   =========================================================================== */
+
+.chat-page {
+  /* Fills the content area's remaining height so the composer sits at the
+     bottom of the page rather than under the last answer, and the
+     conversation (not the page) is what scrolls. */
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.chat-page__column {
+  /* The measure that makes long answers readable -- the reason this page
+     exists rather than a 560px panel. */
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-4);
+}
+
+.chat-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.chat-page__title {
+  margin: 0;
+  font-size: var(--font-xl);
+  color: var(--ink-1);
+}
+
+.chat-page__subtitle {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+  max-width: 60ch;
+}
+
+.chat-page__sessions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-page__sessions-title {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+/* Past conversations scroll sideways in their own track rather than
+   stacking and eating the conversation's height. */
+.chat-page__sessions-list {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.chat-page__sessions-list .btn {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.chat-page__thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-right: var(--space-2);
+}
+
+.chat-page__empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: auto 0;
+}
+
+.chat-page__empty-text {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--font-lg);
+}
+
+.chat-page__suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chat-page__thinking {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--font-sm);
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chat-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  /* Generous, because these are paragraphs read on a projector, not table
+     cells. */
+  line-height: 1.65;
+}
+
+.chat-message--user {
+  align-self: flex-end;
+  max-width: 85%;
+  background: var(--accent-bg);
+  color: var(--text-h);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.chat-message--assistant {
+  align-self: stretch;
+}
+
+.chat-message__role {
+  margin: 0;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.chat-message__text {
+  margin: 0;
+  color: var(--ink-1);
+  white-space: pre-wrap;
+}
+
+.chat-message__withheld {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-2);
+}
+
+.chat-message__error {
+  margin: 0;
+  color: var(--tier-breach);
+}
+
+.chat-message__trace-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.chat-message__trace {
+  align-self: stretch;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--code-bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  overflow-x: auto;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.chat-page__composer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.chat-page__composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.chat-page__input {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  font: inherit;
+  font-size: var(--font-md);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.chat-page__input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--accent-border);
+}
+
+.chat-page__input:disabled {
+  background: var(--code-bg);
+  color: var(--ink-3);
+}
+
+.chat-page__helper {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--ink-3);
+}
+
+/* Data health -> Cost cross-link. /cost lost its sidebar slot but is still
+   where the model cost and measured latency evidence lives, so the one
+   page whose readers go looking for it links to it directly. */
+.health-cost-link {
+  margin: var(--space-4) 0 0;
+  font-size: var(--font-sm);
+}
