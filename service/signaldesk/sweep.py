@@ -106,7 +106,7 @@ class SweepRun:
 
 
 def sweep(con, clock: Clock, health: dict[str, FeedHealth],
-          metric_ids=registry.TIER_1_METRICS, window_days: int = 7,
+          metric_ids=registry.ACTIVE_METRICS, window_days: int = 7,
           window_kind: str = "week") -> SweepRun:
     # Controller ruling (task-5): clear the memoisation cache FIRST. The
     # registry keys evaluate()/coverage() by (id(con), metric, slice, window) --

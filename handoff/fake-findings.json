@@ -81,7 +81,7 @@
       "sliceLabel": "site Clearwater Campus",
       "tier": "BREACH",
       "cause": "BELOW_TARGET",
-      "action": "Escalate Clearwater Campus against the agreed target.",
+      "action": "Audit escort sign-ins at Clearwater Campus for the affected trips. A female employee cannot board before a marshal signs in, so this is a safety breach and not a metric miss.",
       "owns": [
         { "value": "Vikram Mikhailov Travel", "pointsOfGap": 3.8, "n": 22 },
         { "value": "Anand Fleet Services", "pointsOfGap": 2.1, "n": 15 }

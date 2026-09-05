@@ -58,6 +58,14 @@ def test_produces_findings_without_any_prompt_or_question(con_and_health):
     assert run.window.end_ms == CLOCK_MS
 
 
+def test_marshal_compliance_and_cost_per_km_both_appear_in_the_sweep(con_and_health):
+    con, health = con_and_health
+    run = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
+    metric_ids = {f.metric_id for f in run.findings}
+    assert "marshal_compliance" in metric_ids
+    assert "cost_per_km" in metric_ids
+
+
 def test_window_kind_defaults_to_week_and_a_month_window_is_28_days(con_and_health):
     con, health = con_and_health
     week = sweep.sweep(con, sweep.Clock(CLOCK_MS), health)
@@ -183,7 +191,13 @@ def test_the_tier_distribution_is_printed_for_calibration(con_and_health):
     assert sum(counts.values()) == len(run.findings)
     # Fix round 1 (Task 5 review), criterion (a): a mix across all four tiers,
     # not a wall in one of them -- MEASURED on data/sample with the
-    # per-direction BANDS: PASS 97 / WATCH 22 / CONCERN 63 / BREACH 15 of 197.
+    # per-direction BANDS, after fix-wave I3 (ota/otd drop DIRECTION,
+    # vendor_ota is VENDOR-only): PASS 41 / WATCH 8 / CONCERN 40 / BREACH 3
+    # of 92. After Task 11 (cost_per_km + marshal_compliance activated):
+    # PASS 57 / WATCH 20 / CONCERN 41 / BREACH 18 of 136 -- more findings
+    # (two more active metrics) and more BREACHes (marshal_compliance's hard
+    # target breaches almost every slice it produces -- see
+    # test_marshal_compliance_breaches_almost_every_overall_and_vendor_slice_on_real_data).
     assert set(counts) == {"PASS", "WATCH", "CONCERN", "BREACH"}
 
 
@@ -242,6 +256,16 @@ def test_at_least_one_vendor_ota_finding_is_concern_or_worse_on_the_sample(con_a
 # overall+vendor level (2 HIGHER -- ota and vendor_ota, both `vendor Pooja
 # Sokolov Travel` -- plus 5 LOWER -- no_show_rate, across sites and vendors).
 # See constants.py's BANDS comment for the full per-direction distributions.
+#
+# Task 11: this ceiling is scoped to the BANDS-governed (soft-tiered) metrics
+# ONLY -- excludes any metric with hard_target=True. marshal_compliance
+# (activated by Task 11) is a hard target: it breaches on ANY shortfall by
+# construction (deviation 2), so "almost every slice breaches" is the
+# EXPECTED shape for it, not the wall-of-BREACH regression this ceiling
+# exists to catch for a soft-banded metric. Re-measured after activating
+# cost_per_km and marshal_compliance: still exactly 7 -- unchanged, since
+# cost_per_km contributes 0 overall+vendor BREACHes this window (its
+# outliers this week are SITE-level, e.g. Boulder Campus, not overall/vendor).
 REAL_DATA = os.environ.get("SIGNALDESK_REAL_DATA", REAL_DEFAULT)
 BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL = 7
 
@@ -261,12 +285,47 @@ def test_breach_count_at_overall_and_vendor_level_stays_within_the_measured_ceil
 
     overall_vendor_breaches = [
         f for f in run.findings
-        if f.tier is Tier.BREACH and f.slice.dim in (Dimension.NONE, Dimension.VENDOR)]
+        if f.tier is Tier.BREACH and f.slice.dim in (Dimension.NONE, Dimension.VENDOR)
+        and not registry.by_id(f.metric_id).hard_target]
 
     assert 1 <= len(overall_vendor_breaches) <= BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL, (
-        f"got {len(overall_vendor_breaches)} overall+vendor BREACH findings on {REAL_DATA}; "
-        f"expected 1..{BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL} "
+        f"got {len(overall_vendor_breaches)} overall+vendor BREACH findings (soft-banded metrics "
+        f"only) on {REAL_DATA}; expected 1..{BREACH_COUNT_AT_OVERALL_AND_VENDOR_LEVEL_ON_REAL} "
         f"(the ceiling measured against data/real -- see constants.py's BANDS comment)")
+
+
+# Task 11: marshal_compliance's OWN overall+vendor BREACH count, measured and
+# reported separately from the soft-banded ceiling above -- a hard target
+# metric breaching almost everywhere is the honest shape of the data (real
+# escort compliance is far from 100% nearly everywhere), not a regression.
+# MEASURED on data/real: overall compliance 32.6% (n=16,502, the swept week);
+# 23 of 24 possible overall+vendor slices (23 vendors + overall) BREACH; the
+# one vendor that does not is still only 61.2% compliant -- every single
+# overall+vendor slice this metric can produce is at or below CONCERN.
+def test_marshal_compliance_breaches_almost_every_overall_and_vendor_slice_on_real_data():
+    if not pathlib.Path(REAL_DATA).is_dir():
+        pytest.skip(f"no dataset at {REAL_DATA} (set SIGNALDESK_REAL_DATA to point at data/real)")
+
+    con = duckdb.connect()
+    try:
+        health = ingest.load_all(con, ingest.source_for(REAL_DATA))
+        clock_ms = _midnight_plus_one_day(ingest.latest_scheduled_ms(con))
+        run = sweep.sweep(con, sweep.Clock(clock_ms), health)
+    finally:
+        con.close()
+        registry.clear_cache()
+
+    marshal_overall_vendor = [
+        f for f in run.findings
+        if f.metric_id == "marshal_compliance" and f.slice.dim in (Dimension.NONE, Dimension.VENDOR)]
+    assert marshal_overall_vendor, "fixture assumption: marshal_compliance produced overall/vendor findings"
+
+    breaches = [f for f in marshal_overall_vendor if f.tier is Tier.BREACH]
+    print(f"MEASURED (data/real) marshal_compliance: {len(breaches)}/{len(marshal_overall_vendor)} "
+          f"overall+vendor slices BREACH (a hard target -- any shortfall breaches)")
+    assert len(breaches) >= len(marshal_overall_vendor) - 1, (
+        "a hard target with real-world compliance well under 100% should breach "
+        "at nearly every slice -- a sudden mostly-PASS result would itself be suspicious")
 
 
 def _midnight_plus_one_day(ms: int) -> int:

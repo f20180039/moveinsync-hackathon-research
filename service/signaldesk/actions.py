@@ -5,15 +5,15 @@ and a hallucinated one is worse than none -- so it is a lookup, and the lookup i
 tested. The model may re-word an action line when composing prose; it may not
 originate one.
 
-Controller ruling (task-8a): our live metric ids are ota, otd, vendor_ota,
-no_show_rate, cost_per_km; the causes in play are TREND_REGRESSION,
-PEER_LAGGARD, LOW_CONFIDENCE, DATA_GAP and ON_REFERENCE -- BELOW_TARGET is
-handled here too, for when a target metric is active, but no live Tier 1
-metric currently declares one (registry.py's own test:
-test_no_tier_1_metric_carries_a_hard_target). There is no Cause.ANOMALY yet
-(it returns with Task 8c), so the two ANOMALY entries the plan text sketched
-are dropped here rather than raising an AttributeError on an enum member
-that does not exist.
+Controller ruling (task-8a): our live metric ids were ota, otd, vendor_ota,
+no_show_rate, cost_per_km, with BELOW_TARGET handled for when a target
+metric became active but none did yet. Task 11 activated marshal_compliance
+-- the one hard target in the product -- so BELOW_TARGET is now reachable
+for real (registry.py's own test:
+test_marshal_compliance_is_the_one_hard_target_metric). There is no
+Cause.ANOMALY yet (it returns with Task 8c), so the two ANOMALY entries the
+plan text sketched are dropped here rather than raising an AttributeError on
+an enum member that does not exist.
 """
 from __future__ import annotations
 
@@ -51,6 +51,19 @@ _ACTIONS: dict[tuple[str, Cause], str] = {
     ("cost_per_km", Cause.PEER_LAGGARD):
         "Pull {slice_value}'s contract and slab mix against the peer median before "
         "the next billing cycle closes.",
+    ("cost_per_km", Cause.TREND_REGRESSION):
+        "Check what changed in {slice_value}'s own contract or slab mix before "
+        "the next billing cycle -- this is a move against its own history, not "
+        "a vendor comparison.",
+    # Task 11: marshal_compliance is the one hard target in the product, so
+    # this is the one place BELOW_TARGET is reachable today. A shortfall here
+    # is not a metric miss -- the marshal-required population is derived from
+    # dark hours + a female rider, or a WOMAN_TRAVELLING_ALONE alert, so a gap
+    # is a real employee who should have had an escort and did not.
+    ("marshal_compliance", Cause.BELOW_TARGET):
+        "Audit escort sign-ins at {slice_value} for the affected trips. A female "
+        "employee cannot board before a marshal signs in, so this is a safety "
+        "breach and not a metric miss.",
 }
 
 # Fallback by cause alone, so a metric added later still says something useful

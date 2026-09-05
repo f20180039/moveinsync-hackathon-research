@@ -13,6 +13,7 @@ import os
 
 import duckdb
 
+from . import constants as C
 from .schemas import FeedHealth
 
 # The five REAL feeds. There is no gps_pings file and no delays file -- delay is
@@ -175,6 +176,67 @@ NORMALISE = {
 }
 
 
+# Task 11: the marshal-REQUIRED population is derivable rather than declared
+# (docs/real-dataset-mapping.md §7, docs/moveinsync-domain-vocabulary.md §1):
+# a trip needs an escort when it runs inside dark hours AND carries a female
+# rider, OR when a WOMAN_TRAVELLING_ALONE alert fired on it regardless of
+# hour. Kept as its own VIEW (`marshal_population`), not a boolean column
+# folded into trips' own NORMALISE entry, for two reasons: (1) trips' view is
+# built mid-loop, before emp_legs/alerts necessarily exist yet, so an EXISTS
+# subquery against them there would be an ordering hazard; (2) trips is
+# queried by every other metric in registry.py, and this keeps that
+# highly-relied-on view narrow and unchanged. registry.py's marshal_compliance
+# metric queries this view directly, the same way every other metric queries
+# `trips`.
+def _dark_hours_bool_sql(hour_expr: str, start: int, end: int) -> str:
+    """start/end are HOURS (0-23); the window wraps past midnight when
+    start > end (the default 19..6), and does not otherwise."""
+    if start <= end:
+        return f"({hour_expr} >= {start} AND {hour_expr} < {end})"
+    return f"({hour_expr} >= {start} OR {hour_expr} < {end})"
+
+
+def _dark_hours_case_sql(hour_expr: str) -> str:
+    """A CASE over C.DARK_HOURS_BY_SITE's overrides falling back to
+    C.DARK_HOURS_DEFAULT -- built from the same Python function
+    (`constants.dark_hours`) the rest of the codebase reads, so a later
+    per-site override needs no second place to add it. DARK_HOURS_BY_SITE is
+    empty today, and a CASE with no WHEN at all is invalid SQL -- collapse to
+    the bare default expression rather than emitting a CASE with only ELSE."""
+    default_start, default_end = C.DARK_HOURS_DEFAULT
+    default_expr = _dark_hours_bool_sql(hour_expr, default_start, default_end)
+    if not C.DARK_HOURS_BY_SITE:
+        return default_expr
+    lines = ["CASE"]
+    for site, (start, end) in C.DARK_HOURS_BY_SITE.items():
+        safe_site = site.replace("'", "''")
+        lines.append(f"  WHEN t.site_id = '{safe_site}' "
+                     f"THEN {_dark_hours_bool_sql(hour_expr, start, end)}")
+    lines.append(f"  ELSE {default_expr}")
+    lines.append("END")
+    return "\n    ".join(lines)
+
+
+def _marshal_population_sql() -> str:
+    # IST-local hour-of-day from an absolute epoch-ms timestamp, via modulo
+    # arithmetic (deviation 8: epoch ms are absolute, "dark hours" is local) --
+    # avoids a timezone-dependent DuckDB function for something this simple.
+    hour_expr = f"CAST(FLOOR(((t.scheduled_at + {C.IST_OFFSET_MS}) % 86400000) / 3600000.0) AS INTEGER)"
+    dark_hours = _dark_hours_case_sql(hour_expr)
+    return f"""
+        CREATE OR REPLACE VIEW marshal_population AS
+        SELECT t.*
+        FROM trips t
+        WHERE (
+            {dark_hours}
+            AND EXISTS (SELECT 1 FROM emp_legs e
+                        WHERE e.trip_id = t.trip_id AND e.gender = 'FEMALE')
+        )
+        OR EXISTS (SELECT 1 FROM alerts a
+                   WHERE a.trip_id = t.trip_id AND a.event_type = 'WOMAN_TRAVELLING_ALONE')
+    """
+
+
 def source_for(base: str) -> callable:
     """The engine's whole knowledge of where data lives. A local directory on
     the day, an s3:// prefix in production -- the query is identical either
@@ -288,6 +350,13 @@ def load_all(con: duckdb.DuckDBPyConnection, source) -> dict[str, FeedHealth]:
         con.execute(f"ALTER TABLE {feed} RENAME TO {feed}_raw")
         if feed in NORMALISE:
             con.execute(NORMALISE[feed])
+    # Task 11: the marshal-required population depends on trips, emp_legs AND
+    # alerts all being normalised already, so it is built here -- once every
+    # feed in FEEDS above has its final view -- rather than folded into
+    # trips' own NORMALISE entry, which runs mid-loop before emp_legs/alerts
+    # necessarily exist yet.
+    con.execute("DROP VIEW IF EXISTS marshal_population")
+    con.execute(_marshal_population_sql())
     # Second pass: recompute health now that every table exists AND every feed
     # is normalised, so the referential counts are real rather than
     # zero-because-absent or ~100%-because-the-three-id-formats-never-compare-equal.

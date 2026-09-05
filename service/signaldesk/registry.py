@@ -102,20 +102,39 @@ WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
 # is a redundant repeat of the unsliced finding under a misleading label
 # ("On-time arrival - direction LOGIN" reporting the exact same number as
 # "On-time arrival - overall"). vendor_ota carries neither direction filter,
-# so DIRECTION stays meaningful there and is left at the default.
-_ON_TIME_DIMS = tuple(d for d in Dimension if d not in (Dimension.NONE, Dimension.DIRECTION))
+# so DIRECTION stays meaningful there and is left at the default. cost_per_km
+# and marshal_compliance (Task 11) have no direction concept at all -- their
+# source rows (bill, marshal_population) carry no trip_direction of their
+# own that a DIRECTION slice could meaningfully partition -- so they share
+# this same reduced set.
+_DIMS_EXCEPT_DIRECTION = tuple(d for d in Dimension if d not in (Dimension.NONE, Dimension.DIRECTION))
+
+# Task 11: the marshal-required population, derived once in ingest.py as its
+# own view (docs/real-dataset-mapping.md §7) -- a trip needs an escort when it
+# runs in dark hours AND carries a female rider, OR a WOMAN_TRAVELLING_ALONE
+# alert fired on it regardless of hour. Compliance is actual_escort=true over
+# that population; hard_target=True below because deviation 2 applies here
+# exactly as named in the spec -- this is the one metric a partial pass does
+# not make sense for (a trip either had its required escort or it did not).
+_MARSHAL_SQL = """
+SELECT 100.0 * sum(CASE WHEN t.actual_escort THEN 1 ELSE 0 END) / nullif(count(*), 0),
+       count(*) AS n
+FROM marshal_population t
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  {{SLICE}}
+"""
 
 METRICS: tuple[Metric, ...] = (
     # ota is first deliberately: it is the metric a judge reads first.
     Metric("ota", "On-time arrival", "%", Direction.HIGHER, _OTA_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at"), dims=_ON_TIME_DIMS),
+           ("actual_at", "planned_end_at"), dims=_DIMS_EXCEPT_DIRECTION),
     # OTA is On-Time ARRIVAL (LOGIN trips); OTD is On-Time DEPARTURE (LOGOUT
     # trips). Two named metrics in MoveInSync's own vocabulary, not one metric
     # sliced by direction.
     Metric("otd", "On-time departure", "%", Direction.HIGHER, _OTD_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "trips",
-           ("actual_at", "planned_end_at"), dims=_ON_TIME_DIMS),
+           ("actual_at", "planned_end_at"), dims=_DIMS_EXCEPT_DIRECTION),
     # Fix-wave I3: restricted to VENDOR only -- that is the one slice this
     # metric exists to answer ("vendor on-time share"); sliced any other way
     # it duplicates the same question under a mislabelled subject
@@ -135,13 +154,27 @@ METRICS: tuple[Metric, ...] = (
     # use.
     Metric("cost_per_km", "Cost per km", "INR/km", Direction.LOWER, _COST_PER_KM_SQL,
            (ReferenceKind.TREND, ReferenceKind.PEER), "bill",
-           ("trip_cost",)),
+           ("trip_cost",), dims=_DIMS_EXCEPT_DIRECTION),
+    # Task 11: source="trips" (not "marshal_population", which has no entry
+    # in ingest.py's own health dict) -- the feed-confidence lookup in
+    # sweep.py and the coverage() DESCRIBE check both want a real feed name,
+    # and every column marshal_population derives from (actual_escort,
+    # gender, event_type) ultimately traces back to a feed that is already
+    # health-tracked; actual_escort itself is a real trips column.
+    Metric("marshal_compliance", "Marshal compliance", "%", Direction.HIGHER,
+           _MARSHAL_SQL, (ReferenceKind.TARGET,), "trips", ("actual_escort",),
+           target=100.0, hard_target=True, dims=_DIMS_EXCEPT_DIRECTION),
 )
 
-# marshal compliance and EV share are later tasks (marshal needs the derived
-# escort-required population from emp_legs.gender + alerts; EV share is cheap
-# but out of scope here) -- cost_per_km is defined but not yet Tier 1.
-TIER_1_METRICS = ("ota", "otd", "vendor_ota", "no_show_rate")
+# EV share is a later task (cheap, but out of scope here). experience was
+# dropped (Task 11): its ratings include 0 values that may mean "unrated",
+# the only one of the six needing a judgement call about its own data.
+ACTIVE_METRICS = ("ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km",
+                  "marshal_compliance")
+# Compatibility alias -- every pre-Task-11 caller (sweep.py's default,
+# api.py's /api/health, the test suite) keeps working unchanged; new code
+# should read ACTIVE_METRICS.
+TIER_1_METRICS = ACTIVE_METRICS
 
 
 def by_id(metric_id: str) -> Metric:
@@ -152,7 +185,7 @@ def by_id(metric_id: str) -> Metric:
     raise ValueError(f"unknown metric id {metric_id!r}; valid ids are {valid}")
 
 
-def active(ids=TIER_1_METRICS) -> tuple[Metric, ...]:
+def active(ids=ACTIVE_METRICS) -> tuple[Metric, ...]:
     return tuple(m for m in METRICS if m.id in ids)
 
 

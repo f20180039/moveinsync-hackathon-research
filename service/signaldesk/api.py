@@ -213,7 +213,7 @@ def create_app(data_dir: str | None = None) -> FastAPI:
     def get_health():
         return {
             "status": "ok" if STORE.get("latest") is not None else "degraded",
-            "activeMetrics": list(registry.TIER_1_METRICS),
+            "activeMetrics": list(registry.ACTIVE_METRICS),
             "clock": state.clock.millis() if state.clock else None,
         }
 

@@ -41,7 +41,8 @@ def test_health_is_ok_after_startup(client):
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "ok"
-    assert set(body["activeMetrics"]) == {"ota", "otd", "vendor_ota", "no_show_rate"}
+    assert set(body["activeMetrics"]) == {
+        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km", "marshal_compliance"}
     assert isinstance(body["clock"], int)
 
 

@@ -43,11 +43,11 @@ def con():
 # The vocabulary itself.
 # ---------------------------------------------------------------------------
 
-def test_all_five_metrics_are_defined_with_ota_first():
-    assert len(registry.METRICS) == 5
+def test_six_metrics_are_defined_with_ota_first():
+    assert len(registry.METRICS) == 6
     assert registry.METRICS[0].id == "ota"
     assert {m.id for m in registry.METRICS} == {
-        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km"}
+        "ota", "otd", "vendor_ota", "no_show_rate", "cost_per_km", "marshal_compliance"}
 
 
 def test_every_metric_declares_at_least_one_reference_point():
@@ -57,15 +57,23 @@ def test_every_metric_declares_at_least_one_reference_point():
         assert len(m.refs) >= 1
 
 
-def test_no_tier_1_metric_carries_a_hard_target():
-    # This task carries no TARGET at all: the real dataset's on-time rate is
-    # ~59%, so a target would BREACH every slice (docs/real-dataset-mapping.md
-    # §10b). A data-derived target is Task 5's job, not this one's.
-    for metric_id in registry.TIER_1_METRICS:
+def test_marshal_compliance_is_the_one_hard_target_metric():
+    # Task 11: marshal_compliance is deliberately the one hard target in the
+    # product (deviation 2 -- a partial escort does not make sense). Every
+    # other active metric still carries no TARGET at all: the real dataset's
+    # on-time rate is ~59%, so a target would BREACH every slice
+    # (docs/real-dataset-mapping.md §10b), and a data-derived target for
+    # those is a later task's job, not this one's.
+    for metric_id in registry.ACTIVE_METRICS:
         m = registry.by_id(metric_id)
-        assert m.target is None
-        assert m.hard_target is False
-        assert ReferenceKind.TARGET not in m.refs
+        if metric_id == "marshal_compliance":
+            assert m.target == 100.0
+            assert m.hard_target is True
+            assert ReferenceKind.TARGET in m.refs
+        else:
+            assert m.target is None
+            assert m.hard_target is False
+            assert ReferenceKind.TARGET not in m.refs
 
 
 def test_an_unknown_metric_id_is_refused_with_the_valid_ids_named():
@@ -73,11 +81,12 @@ def test_an_unknown_metric_id_is_refused_with_the_valid_ids_named():
         registry.by_id("not_a_real_metric")
 
 
-def test_active_returns_exactly_the_tier_1_metrics():
+def test_active_returns_exactly_the_active_metrics():
     active = registry.active()
-    assert {m.id for m in active} == set(registry.TIER_1_METRICS)
-    assert len(active) == 4
-    assert "cost_per_km" not in {m.id for m in active}
+    assert {m.id for m in active} == set(registry.ACTIVE_METRICS)
+    assert len(active) == 6
+    assert "cost_per_km" in {m.id for m in active}
+    assert "marshal_compliance" in {m.id for m in active}
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +348,78 @@ def test_cost_per_km_divides_by_traveled_km_and_keeps_slab_billed_rows(con):
 
 def test_cost_per_km_unit_is_inr_per_km(con):
     assert registry.by_id("cost_per_km").unit == "INR/km"
+
+
+# ---------------------------------------------------------------------------
+# Task 11: marshal_compliance over the derived required population.
+# ---------------------------------------------------------------------------
+
+_IST_HOUR_SQL = "CAST(FLOOR(((t.scheduled_at + ?) % 86400000) / 3600000.0) AS INTEGER)"
+
+
+def test_marshal_population_is_non_empty_on_the_sample(con):
+    # Bug F1's tripwire: an hour predicate that matches zero rows is a bug
+    # dressed as an empty result, not a genuine "nobody needed an escort".
+    n = con.sql("SELECT count(*) FROM marshal_population").fetchone()[0]
+    assert n > 0
+
+
+def test_a_daytime_trip_with_a_female_rider_and_no_alert_is_not_required(con):
+    # Outside dark hours (IST 06:00-19:00), a female rider alone does not
+    # put a trip in the required population -- only dark hours + female, or
+    # the alert regardless of hour, does.
+    (trip_id,) = con.execute(f"""
+        SELECT t.trip_id
+        FROM trips t
+        WHERE EXISTS (SELECT 1 FROM emp_legs e WHERE e.trip_id = t.trip_id AND e.gender = 'FEMALE')
+          AND NOT EXISTS (SELECT 1 FROM alerts a
+                          WHERE a.trip_id = t.trip_id AND a.event_type = 'WOMAN_TRAVELLING_ALONE')
+          AND {_IST_HOUR_SQL.replace('?', str(C.IST_OFFSET_MS))} BETWEEN 6 AND 18
+        LIMIT 1
+    """).fetchone() or (None,)
+    assert trip_id is not None, "fixture assumption: a daytime female-rider trip exists"
+
+    in_population = con.sql(
+        f"SELECT count(*) FROM marshal_population WHERE trip_id = {trip_id}").fetchone()[0]
+    assert in_population == 0, f"trip {trip_id} is daytime with no alert -- must not be required"
+
+
+def test_a_trip_with_the_alone_alert_is_required_regardless_of_hour(con):
+    # A WOMAN_TRAVELLING_ALONE alert puts a trip in the required population
+    # unconditionally -- confirmed here specifically on a DAYTIME trip, where
+    # the dark-hours-AND-female-rider branch alone would say "not required".
+    (trip_id,) = con.execute(f"""
+        SELECT a.trip_id
+        FROM alerts a JOIN trips t ON t.trip_id = a.trip_id
+        WHERE a.event_type = 'WOMAN_TRAVELLING_ALONE'
+          AND {_IST_HOUR_SQL.replace('?', str(C.IST_OFFSET_MS))} BETWEEN 6 AND 18
+        LIMIT 1
+    """).fetchone() or (None,)
+    assert trip_id is not None, "fixture assumption: a daytime WOMAN_TRAVELLING_ALONE alert exists"
+
+    in_population = con.sql(
+        f"SELECT count(*) FROM marshal_population WHERE trip_id = {trip_id}").fetchone()[0]
+    assert in_population == 1, f"trip {trip_id} carries the alert -- must be required regardless of hour"
+
+
+def test_marshal_compliance_hard_target_breaches_on_any_shortfall(con):
+    from signaldesk import verdict
+    from signaldesk.schemas import Tier
+    metric = registry.by_id("marshal_compliance")
+    value, n = registry.evaluate_with_n(con, metric, Slice.all(), WINDOW)
+    assert isinstance(value, float) and n > 0
+    assert value < 100.0, "fixture assumption: compliance is not already perfect on the sample"
+
+    finding = verdict.evaluate_finding(con, metric, Slice.all(), WINDOW, feed_confidence=1.0)
+    assert finding is not None
+    assert finding.tier is Tier.BREACH, "a hard target admits no tolerance -- any shortfall breaches"
+    assert finding.cause.value == "BELOW_TARGET"
+
+
+def test_marshal_compliance_dims_exclude_direction(con):
+    m = registry.by_id("marshal_compliance")
+    assert Dimension.DIRECTION not in m.dims
+    assert Dimension.VENDOR in m.dims
 
 
 def test_coverage_ignores_a_slice_column_the_source_table_does_not_have(con):
