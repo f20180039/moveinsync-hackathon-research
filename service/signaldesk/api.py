@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import ingest, registry
+from .actions import action_for
 from .compose import brief_with_source
 from .delivery import DISPATCH_LOG, dispatch
 from .model import COST
@@ -99,6 +100,7 @@ def finding_to_json(f: Finding) -> dict:
         "sliceLabel": f.slice.label,
         "tier": f.tier.name,
         "cause": f.cause.value,
+        "action": action_for(f),
         "observed": round(f.observed, 2),
         "gap": round(f.gap, 2),
         "confidence": round(f.confidence, 2),

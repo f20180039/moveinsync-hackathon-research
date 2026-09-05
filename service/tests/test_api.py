@@ -70,6 +70,9 @@ def test_each_finding_matches_the_fixtures_key_set_and_shape(client):
         assert isinstance(f["sliceLabel"], str)
         assert isinstance(f["tier"], str)
         assert isinstance(f["cause"], str)
+        assert isinstance(f["action"], str)
+        if f["tier"] == "PASS":
+            assert f["action"] == "", "a PASS finding must carry no action"
         assert isinstance(f["observed"], (int, float))
         assert isinstance(f["gap"], (int, float))
         assert isinstance(f["confidence"], (int, float))

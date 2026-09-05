@@ -19,6 +19,7 @@ import os
 import re
 
 from . import registry
+from .actions import action_for
 from .model import SarvamClient, TruncatedResponse
 from .schemas import Audience, Cause, Dimension, Finding, Tier
 
@@ -139,6 +140,14 @@ def _subject(f: Finding) -> str:
 
 
 def _action_sentence(top: Finding) -> str:
+    # Task 8a: action_for is the deterministic, tested lookup -- prefer it, and
+    # only fall back to the older per-metric guesses below when it has nothing
+    # (in practice it always does for a non-PASS finding, since _BY_CAUSE
+    # covers every accusatory Cause; the fallback stays as a safety net for a
+    # future Cause this lookup has not caught up with yet).
+    action = action_for(top)
+    if action:
+        return f"Action: {action}"
     if top.metric_id == "vendor_ota" and top.cause is Cause.PEER_LAGGARD:
         return (f"Action: raise on-time performance with {_subject(top)} "
                f"before the next weekly review.")
@@ -183,7 +192,11 @@ def template_brief(run, audience: Audience) -> str:
         lines.append(f"Nothing above PASS this week for {label}.")
         return "\n".join(lines)
 
-    lines.extend(_finding_line(f) for f in above_pass)
+    for f in above_pass:
+        lines.append(_finding_line(f))
+        action = action_for(f)
+        if action:
+            lines.append(f"  → {action}")
     lines.append("")
     lines.append(_action_sentence(above_pass[0]))
     return "\n".join(lines)
@@ -206,7 +219,9 @@ _SYSTEM_PROMPT = (
     "themselves establish it -- describe co-occurring conditions, never "
     "causation across different slices. Do not use citation markers such as "
     "[1]; write plain prose. "
-    "End with exactly one sentence naming the action to take."
+    "End with exactly one sentence naming the action to take. Each finding "
+    "carries an action. Reproduce its meaning in your closing sentence. Do "
+    "not invent an action that is not there."
 )
 
 # The one retry compose._call_with_retry allows, at double the ceiling that
@@ -233,6 +248,9 @@ def _findings_as_text(run, audience: Audience) -> str:
         if f.confidence < 0.9:
             parts.append(f"confidence={f.confidence:.2f}")
         lines.append(f"[{f.tier.name}] " + ", ".join(parts))
+        action = action_for(f)
+        if action:
+            lines.append(f"  action: {action}")
     return "\n".join(lines)
 
 
