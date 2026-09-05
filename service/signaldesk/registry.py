@@ -864,6 +864,138 @@ def employee_impact_by_dim(con, dim: Dimension, window: Window,
     rows = con.execute(sql, [window.start_ms, window.end_ms]).fetchall()
     return [{"value": r[0], "legs": int(r[1]), "no_shows": int(r[2]),
              "late_pickups": int(r[3]), "impacted": int(r[4])} for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Task 20 -- BOOKING RELIABILITY. The per-employee leg counts the reliability
+# score in reliability.py is computed from. This file supplies the counts;
+# NOTHING here scores, ranks or names anybody.
+#
+# THE ONE QUESTION: does a booked seat get used? An unused booked seat is a cab
+# seat paid for and left empty, and it is the thing a rider actually controls.
+#
+# THREE HARD CONSTRAINTS, enforced in the SQL itself rather than downstream:
+#
+# 1. `gender` IS NEVER READ. It is on the emp_legs view (and used, correctly,
+#    by the marshal_population derivation in ingest.py, where a female rider in
+#    dark hours is what makes an escort REQUIRED -- a safety entitlement, not a
+#    score). It has no place in a reliability figure, directly or as a proxy,
+#    and this query must never select it. There is a test that greps this
+#    module for it. DO NOT ADD IT LATER: a booking-reliability score that reads
+#    gender is a discrimination engine wearing a metric's clothes, and no
+#    accuracy gain would make that acceptable.
+#
+# 2. ONLY THE CONTROLLABLE SIDE IS COUNTED. This codebase already draws that
+#    line -- late_pickup_rate is the delay an employee EXPERIENCES (their cab
+#    was late; that is the VENDOR's failure) and delay_reason = 'EMPLOYEE' is
+#    the delay an employee CAUSES; /api/employees/impact labels the two apart.
+#    Only the caused side may reach a score, so:
+#      * NO_SHOW counts against the rider. They held a seat, did not travel,
+#        and did not release it. MEASURED: `is_no_show` is exactly equivalent
+#        to `not_boarding_reason = 'NO_SHOW'` on both datasets (0 rows
+#        disagree, data/sample 609 and data/real 118,032), so the boolean is
+#        read and the string is not double-counted.
+#      * TRIP_CANCELLED_FROM_DASHBOARD is EXCLUDED from the score entirely --
+#        numerator AND denominator. It is a booking pulled from the transport
+#        desk's own console after the trip was formed, which this repo already
+#        classifies as a BOOKING event and not a rider failure
+#        (delay_analyzer.py's BOOKING_CANCELLED, distinct from its
+#        NO_SHOW_IMPACT). It is still a wasted seat, so it is RETURNED as its
+#        own count for the report -- it is simply not attributed to a person.
+#        MEASURED: 353 legs on data/sample, 71,976 on data/real.
+#      * NON_COMMUNICATING (1 leg on data/real, 0 on data/sample) goes the
+#        same way: nobody can say from this column whether the rider or the
+#        device failed, so it is counted and not attributed.
+#      * LATE TO PICKUP IS DELIBERATELY ABSENT. The data cannot attribute it.
+#        `actual_pickup_at > planned_pickup_at` is the CAB arriving late (see
+#        late_pickup_rate's own comment above), and trips.delay_reason =
+#        'EMPLOYEE' is a TRIP-level label on a vehicle carrying many riders --
+#        charging every rider on that trip for one colleague's lateness would
+#        be exactly the guess constraint 2 forbids. Left out rather than
+#        guessed at.
+#      * `signintype` cannot help here even if it were wanted: MEASURED, it is
+#        NULL on precisely the not-boarded legs (data/sample 962 of 962,
+#        data/real 190,009 of 190,009), so an Adhoc-vs-Planned split of the
+#        numerator is not expressible on this dataset at all.
+#
+# 3. NO RANKING OF PEOPLE HAPPENS HERE OR ANYWHERE DOWNSTREAM. The counts are
+#    per-`stwid` because a per-seat question needs a per-booker denominator,
+#    and reliability.py aggregates them before anything a manager reads. The
+#    id never reaches the model, a narrative or Slack.
+#
+# The three buckets are mutually exclusive and exhaustive BY CONSTRUCTION --
+# one CASE cascade, checked no-show first -- so used + no_show + not_attributed
+# always equals the leg count, and a future dataset that puts a leg in two
+# states cannot silently inflate the denominator. There is a test on that sum.
+#
+# Window and slice bind on t. (not e.), so "sliced by SITE/SHIFT/..." means the
+# same trip population here as it does for every metric in this file.
+# ---------------------------------------------------------------------------
+
+_BOOKING_RELIABILITY_CASE = """
+       sum(CASE WHEN coalesce(e.is_no_show, FALSE) THEN 1 ELSE 0 END) AS no_show_legs,
+       sum(CASE WHEN coalesce(e.is_no_show, FALSE) THEN 0
+                WHEN e.boarding_status = 'Boarded' THEN 1 ELSE 0 END) AS used_legs,
+       sum(CASE WHEN coalesce(e.is_no_show, FALSE) THEN 0
+                WHEN e.boarding_status = 'Boarded' THEN 0 ELSE 1 END) AS not_attributed_legs,
+       count(*) AS legs
+"""
+
+_BOOKING_RELIABILITY_SQL = f"""
+SELECT e.stwid,
+{_BOOKING_RELIABILITY_CASE}
+FROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id
+WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+  AND e.stwid IS NOT NULL
+  {{{{SLICE}}}}
+GROUP BY e.stwid
+"""
+
+
+def booking_reliability_legs(con, slc: "Slice | tuple[Slice, ...]",
+                             window: Window) -> list[dict]:
+    """Per-employee booked-leg counts for one slice and window.
+
+    One row per rider who has at least one leg in scope:
+    {stwid, used_legs, no_show_legs, not_attributed_legs, legs}. The scoring,
+    the minimum-observations floor and every aggregate live in reliability.py
+    -- this returns counts and nothing else.
+    """
+    rows = con.execute(_with_slice(_BOOKING_RELIABILITY_SQL, slc),
+                       _params(slc, window)).fetchall()
+    return [{"stwid": r[0], "no_show_legs": int(r[1]), "used_legs": int(r[2]),
+             "not_attributed_legs": int(r[3]), "legs": int(r[4])} for r in rows]
+
+
+def booking_reliability_legs_by_dim(con, dim: Dimension, window: Window) -> list[dict]:
+    """The same per-employee counts, additionally grouped by `dim` -- ONE query
+    rather than one per dimension value, the same reason
+    employee_impact_by_dim groups in SQL.
+
+    A rider who travels from two sites appears once per site. That is correct
+    for the question a site aggregate answers ("how reliably are the seats
+    booked AT THIS SITE used"), and it means per-site rider counts do not sum
+    to the overall rider count -- reliability.py states that in its output
+    rather than leaving a reader to discover it.
+
+    dim.column is one of Dimension's own fixed enum values, never a
+    caller-supplied string -- the same interpolation distinct_values and
+    employee_impact_by_dim already make.
+    """
+    sql = f"""
+    SELECT {dim.column} AS grp, e.stwid,
+    {_BOOKING_RELIABILITY_CASE}
+    FROM emp_legs e JOIN trips t ON t.trip_id = e.trip_id
+    WHERE t.scheduled_at >= ? AND t.scheduled_at < ?
+      AND e.stwid IS NOT NULL AND {dim.column} IS NOT NULL
+    GROUP BY 1, 2
+    """
+    rows = con.execute(sql, [window.start_ms, window.end_ms]).fetchall()
+    return [{"group": r[0], "stwid": r[1], "no_show_legs": int(r[2]),
+             "used_legs": int(r[3]), "not_attributed_legs": int(r[4]),
+             "legs": int(r[5])} for r in rows]
+
+
 def _literal_sub(sql: str, values: list) -> str:
     """Generic sibling of evidence_sql's own inline substitution, for a query
     with more `?` placeholders than one metric's (window, [slice]) triple --

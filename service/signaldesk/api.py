@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import forecast, ingest, registry
+from . import forecast, ingest, registry, reliability
 from .actions import action_for
 from .compose import brief_with_source
 from .decompose import decompose, valid_dims
@@ -63,6 +63,7 @@ OPTIONAL_ENDPOINTS: tuple[tuple[str, str, str], ...] = (
     ("decompose", "GET", "/api/findings/{finding_id}/decompose"),
     ("safety", "GET", "/api/runs/{run_id}/safety"),
     ("employees", "GET", "/api/employees/impact"),
+    ("booking-reliability", "GET", "/api/employees/reliability"),
     ("cost", "GET", "/api/cost"),
     ("dispatch-log", "GET", "/api/dispatch/log"),
 )
@@ -645,6 +646,34 @@ def create_app(data_dir: str | None = None) -> FastAPI:
             "costPerRider": _round(cost_per_rider),
             "costPerRiderTrend": _round(cost_per_rider_trend),
         }
+
+    @app.get("/api/employees/reliability")
+    def get_employees_reliability(runId: str = "latest", detail: bool = False):
+        """Task 20: the booking-reliability score -- does a booked seat get
+        used? Aggregates by default; `detail=true` adds the per-rider rows.
+
+        THREE THINGS THIS ROUTE IS DELIBERATELY NOT. It is not an employee
+        performance score (the payload says so in `disclaimer`, and the cohort
+        names describe the SEAT, not the person). It never reads `gender` --
+        registry.booking_reliability_legs does not select it. And it never
+        scores anyone for a late cab, which is the vendor's failure; the
+        attribution ruling is above _BOOKING_RELIABILITY_SQL in registry.py.
+
+        `detail` is OFF by default and is the only way a rider id leaves this
+        service. Everything a manager, a Slack message or the model sees comes
+        from `summary()`, which contains no identifier at all.
+        """
+        run = STORE.get(runId)
+        if run is None:
+            _not_found("run", runId)
+        s = reliability.summary(state.con, run.window)
+        payload = {"runId": run.run_id, **s,
+                   "narrative": reliability.narrative_line(s)}
+        if detail:
+            rows = registry.booking_reliability_legs(state.con, Slice.all(), run.window)
+            payload["employees"] = reliability.employees(
+                rows, reliability.population_rate(rows))
+        return payload
 
     @app.get("/api/cost")
     def get_cost():
