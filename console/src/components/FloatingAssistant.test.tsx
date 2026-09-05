@@ -33,7 +33,9 @@ function healthResponse(capabilities?: string[]) {
 // Routes the only two endpoints the assistant touches. Anything unrouted
 // 404s, which for /api/health means "capabilities unknown".
 function stubFetch(routes: { health?: () => Promise<Response>; ask?: () => Promise<Response> }) {
-  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+  // `init` is declared so a test can assert what was actually POSTed, not
+  // merely that a POST happened.
+  const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
     const url = String(input)
     if (url.includes('/api/health')) return routes.health?.() ?? notFound()
     if (url.includes('/api/ask')) return routes.ask?.() ?? notFound()
@@ -95,9 +97,50 @@ describe('FloatingAssistant', () => {
     await openPanel()
 
     expect(screen.getByRole('button', { name: 'Why is on-time low this week?' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Which vendor is underperforming?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Which vendor is worst on on-time?' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Where are no-shows concentrated?' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'What changed vs last week?' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Summarise this week' })).toBeInTheDocument()
+  })
+
+  it('lists the suggestions in their own column BEFORE the conversation', async () => {
+    stubFetch({ health: () => healthResponse(['ask']) })
+    const { container } = render(<FloatingAssistant runId="run-1" />)
+    await openPanel()
+
+    const body = container.querySelector('.assistant-panel__body') as HTMLElement
+    const suggestions = body.querySelector('.assistant-panel__suggestions') as HTMLElement
+    const conversation = body.querySelector('.assistant-panel__history') as HTMLElement
+
+    // Both live inside the one row, suggestions first -- that DOM order is
+    // what puts them on the left, and what the narrow-width media query
+    // reflows to a row above the conversation rather than beside it.
+    expect(suggestions).toBeInTheDocument()
+    expect(conversation).toBeInTheDocument()
+    expect(suggestions.compareDocumentPosition(conversation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(suggestions).getByRole('button', { name: 'Why is on-time low this week?' })).toBeInTheDocument()
+    expect(within(suggestions).getByRole('heading', { name: /suggested/i })).toBeInTheDocument()
+    // The conversation column holds no starter buttons of its own.
+    expect(within(conversation).queryByRole('button', { name: /why is on-time/i })).not.toBeInTheDocument()
+  })
+
+  it('clicking a suggestion in the left column asks exactly that question', async () => {
+    const fetchMock = stubFetch({
+      health: () => healthResponse(['ask']),
+      ask: () => jsonResponse(makeResponse({ answer: 'Vendor C is worst on on-time.' })),
+    })
+    const { container } = render(<FloatingAssistant runId="run-1" />)
+    const user = await openPanel()
+    await screen.findByLabelText(/ask a question/i)
+
+    const suggestions = container.querySelector('.assistant-panel__suggestions') as HTMLElement
+    await user.click(within(suggestions).getByRole('button', { name: 'Which vendor is worst on on-time?' }))
+
+    expect(await screen.findByText('Vendor C is worst on on-time.')).toBeInTheDocument()
+    const askCall = fetchMock.mock.calls.find(([input]) => String(input).includes('/api/ask'))
+    expect(JSON.parse(String(askCall?.[1]?.body))).toEqual({
+      runId: 'run-1',
+      question: 'Which vendor is worst on on-time?',
+    })
   })
 
   it('accepts an override list of suggested questions (Stage 7 role-specific chips)', async () => {
@@ -106,7 +149,7 @@ describe('FloatingAssistant', () => {
     await openPanel()
 
     expect(screen.getByRole('button', { name: 'Which vendors are recurring laggards?' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Which vendor is underperforming?' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Which vendor is worst on on-time?' })).not.toBeInTheDocument()
   })
 
   it('disables the input when /api/health advertises capabilities without "ask"', async () => {

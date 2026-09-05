@@ -170,11 +170,18 @@ export const DEFAULT_KPI_METRIC_IDS = ['ota', 'otd', 'no_show_rate', 'cost_per_k
 // (a plain data module, not a component) rather than in
 // FloatingAssistant.tsx so pulling it into a role-mapping table later
 // doesn't need touching the component itself.
+// Each one maps onto a tool the interrogator actually has (list_findings /
+// explain_finding / decompose_finding / summarize_run), so a starter chip
+// never opens with a refusal. "What changed vs last week?" was dropped for
+// exactly that reason: there is no cross-window tool, only the TREND
+// reference carried on a finding, so it was the one default likely to be
+// withheld. Forecast-shaped questions stay off this list for the same
+// reason -- a fine demo beat, a bad default.
 export const DEFAULT_SUGGESTED_QUESTIONS = [
   'Why is on-time low this week?',
-  'Which vendor is underperforming?',
+  'Which vendor is worst on on-time?',
   'Where are no-shows concentrated?',
-  'What changed vs last week?',
+  'Summarise this week',
 ]
 
 // A finding counts as "recurring" once the same slice has been Concern or

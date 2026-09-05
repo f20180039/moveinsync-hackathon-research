@@ -41,16 +41,33 @@ describe('floating assistant panel layout (CSS contract)', () => {
     expect(history).toMatch(/overflow-y:\s*auto\s*;/)
   })
 
-  it('the suggestion chips give way instead of eating the panel', () => {
-    const chips = rule('.assistant-panel__chips')
+  it('the suggestions column scrolls itself instead of eating the panel', () => {
+    const suggestions = rule('.assistant-panel__suggestions')
 
     // Four wrapped chips measured 177px -- a third of the panel that no
     // viewport height could reclaim while this was `flex-shrink: 0`.
-    expect(chips).not.toMatch(/flex-shrink:\s*0\s*;/)
-    expect(chips).toMatch(/flex:\s*0 1 auto\s*;/)
-    expect(chips).toMatch(/min-height:\s*0\s*;/)
-    expect(chips).toMatch(/overflow-y:\s*auto\s*;/)
-    expect(chips).toMatch(/max-height:/)
+    expect(suggestions).not.toMatch(/flex-shrink:\s*0\s*;/)
+    expect(suggestions).toMatch(/min-height:\s*0\s*;/)
+    expect(suggestions).toMatch(/overflow-y:\s*auto\s*;/)
+    // A fixed left track: it must not take width from the conversation.
+    expect(suggestions).toMatch(/flex:\s*0 0 \d+px\s*;/)
+  })
+
+  it('the two-column body is the flex item that absorbs the vertical give', () => {
+    const body = rule('.assistant-panel__body')
+    expect(body).toMatch(/display:\s*flex\s*;/)
+    expect(body).toMatch(/flex:\s*1 1 auto\s*;/)
+    expect(body).toMatch(/min-height:\s*0\s*;/)
+  })
+
+  it('narrow widths reflow the suggestions to a capped row, never a crushed column', () => {
+    // The same markup, no second render path. Without the cap the reflowed
+    // row would take the panel back to the state that clipped the composer.
+    expect(css).toMatch(/@media \(max-width: 620px\) \{/)
+    const narrow = css.slice(css.indexOf('@media (max-width: 620px)'))
+    expect(narrow).toMatch(/\.assistant-panel__body\s*\{\s*flex-direction:\s*column\s*;/)
+    expect(narrow).toMatch(/flex-wrap:\s*wrap\s*;/)
+    expect(narrow).toMatch(/max-height:\s*\d+px\s*;/)
   })
 
   it("the panel's height budget is the space above the launcher, not a flat 70vh", () => {

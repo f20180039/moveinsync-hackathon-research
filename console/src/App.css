@@ -1582,7 +1582,10 @@ body {
   position: absolute;
   right: 0;
   bottom: calc(56px + var(--space-3));
-  width: min(380px, calc(100vw - var(--space-6)));
+  /* Wide enough for the 168px suggestions column PLUS the conversation
+     width the panel had before it (the media query above reflows to one
+     column below 620px, so this never squeezes a narrow screen). */
+  width: min(560px, calc(100vw - var(--space-6)));
   max-height: min(640px, calc(100vh - 56px - var(--space-5) - var(--space-3) - var(--space-4)));
   display: flex;
   flex-direction: column;
@@ -1607,6 +1610,53 @@ body {
 .assistant-panel__title {
   font-size: var(--font-md);
   margin: 0;
+}
+
+/* The two-column region between the header and the composer: starter
+   questions on the left, conversation on the right. This is the flex item
+   that absorbs ALL the vertical give -- `min-height: 0` is what lets it
+   shrink below its content so the composer below can never be pushed out
+   of the panel. */
+.assistant-panel__body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The left column. Scrolls within itself rather than growing the panel,
+   and never takes width from the conversation beyond its fixed track. */
+.assistant-panel__suggestions {
+  flex: 0 0 168px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.assistant-panel__suggestions-title {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* A starter question is a sentence, not a pill: it wraps to as many lines
+   as it needs instead of being clipped by .btn--sm's fixed height. */
+.assistant-panel__suggestions .btn {
+  height: auto;
+  min-height: var(--control-height-sm);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 /* `min-height: 0` (not the 80px floor this used to carry) is the whole
@@ -1677,20 +1727,37 @@ body {
   overflow-y: auto;
 }
 
-/* Was `flex-shrink: 0` with four wrapped chips -- 177px, a third of the
-   panel, that no viewport height could reclaim. It gives now, and scrolls
-   within its own cap rather than eating the conversation or the composer. */
-.assistant-panel__chips {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  padding: 0 var(--space-4) var(--space-3);
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-3);
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: 132px;
-  overflow-y: auto;
+/* Narrow panels: the same markup reflows to a capped, scrollable row above
+   the conversation instead of a left column that would crush it. The cap
+   plus `flex: 0 1 auto` is the other half of the clipping fix -- as a
+   `flex-shrink: 0` block, four wrapped chips held 177px (a third of the
+   panel) that no viewport height could reclaim. */
+@media (max-width: 620px) {
+  .assistant-panel__body {
+    flex-direction: column;
+  }
+
+  .assistant-panel__suggestions {
+    /* `0 0 auto`, not `0 1 auto`: sharing the shrink with the conversation
+       squeezed this row to 47px, showing the heading and a sliver of one
+       chip. It takes its natural height up to the cap and scrolls past it;
+       the conversation (min-height: 0) absorbs the give instead. */
+    flex: 0 0 auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    max-height: 108px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .assistant-panel__suggestions-title {
+    flex: 0 0 100%;
+  }
+
+  .assistant-panel__suggestions .btn {
+    flex: 0 1 auto;
+  }
 }
 
 .assistant-panel__form {

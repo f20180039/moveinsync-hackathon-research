@@ -212,26 +212,34 @@ export function FloatingAssistant({ runId, suggestedQuestions = DEFAULT_SUGGESTE
             </Button>
           </div>
 
-          <div className="assistant-panel__history" ref={historyRef}>
-            {history.length === 0 ? (
-              <p className="assistant-panel__empty">Ask a question about this window's findings.</p>
-            ) : (
-              history.map((exchange) => <ExchangeView key={exchange.id} exchange={exchange} />)
-            )}
-          </div>
+          {/* Two columns: the starter questions down the left, the
+              conversation on the right. Below the width where both fit,
+              CSS reflows this same markup to a capped, scrollable row
+              above the conversation -- no second render path, and no
+              horizontal scroll at any width. */}
+          <div className="assistant-panel__body">
+            <div className="assistant-panel__suggestions">
+              <h3 className="assistant-panel__suggestions-title">Suggested</h3>
+              {suggestedQuestions.map((suggestion) => (
+                <Button
+                  key={suggestion}
+                  variant="ghost"
+                  size="sm"
+                  disabled={available === false}
+                  onClick={() => submit(suggestion)}
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </div>
 
-          <div className="assistant-panel__chips">
-            {suggestedQuestions.map((suggestion) => (
-              <Button
-                key={suggestion}
-                variant="ghost"
-                size="sm"
-                disabled={available === false}
-                onClick={() => submit(suggestion)}
-              >
-                {suggestion}
-              </Button>
-            ))}
+            <div className="assistant-panel__history" ref={historyRef}>
+              {history.length === 0 ? (
+                <p className="assistant-panel__empty">Ask a question about this window's findings.</p>
+              ) : (
+                history.map((exchange) => <ExchangeView key={exchange.id} exchange={exchange} />)
+              )}
+            </div>
           </div>
 
           <form
