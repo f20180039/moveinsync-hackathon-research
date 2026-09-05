@@ -5,6 +5,8 @@ rather than fake dicts -- Task 4 exists, so there is no reason to fake them.
 """
 from __future__ import annotations
 
+import pytest
+
 from signaldesk.compose import sarvam_brief, template_brief, validate_narrative
 from signaldesk.model import SarvamClient, TruncatedResponse
 from signaldesk.schemas import (Audience, Cause, Dimension, FeedHealth, Finding,
@@ -171,3 +173,36 @@ def test_the_default_token_ceiling_leaves_room_for_reasoning_overhead():
     # Measured: ~200 completion tokens of reasoning before any prose.
     # A 200-word brief is ~280 tokens of prose. 1600 leaves real headroom.
     assert SarvamClient.DEFAULT_MAX_TOKENS >= 1200
+
+
+class _FakeChoice:
+    def __init__(self, content, finish_reason):
+        self.message = type("Msg", (), {"content": content})()
+        self.finish_reason = finish_reason
+
+
+class _FakeCompletion:
+    def __init__(self, content, finish_reason, usage=None):
+        self.choices = [_FakeChoice(content, finish_reason)]
+        self.usage = usage
+
+
+def test_sarvam_client_raises_truncated_response_when_the_model_hits_the_token_ceiling():
+    # Extra direct coverage of model.py's own guard (no test names given for
+    # model.py in the brief's list): the finish_reason=="length" check is the
+    # only thing standing between a half-written brief and the numeric
+    # validator, which cannot detect truncation on its own. No real network:
+    # the underlying OpenAI client is swapped for a fake completions.create.
+    client = SarvamClient(api_key="test-key-not-real")
+    client._client.chat.completions.create = lambda **kwargs: _FakeCompletion(
+        "Vendor on-time share is 6", "length")
+    with pytest.raises(TruncatedResponse):
+        client.complete([{"role": "user", "content": "hi"}], purpose="brief")
+
+
+def test_sarvam_client_raises_truncated_response_when_content_is_empty():
+    client = SarvamClient(api_key="test-key-not-real")
+    client._client.chat.completions.create = lambda **kwargs: _FakeCompletion(
+        "", "stop")
+    with pytest.raises(TruncatedResponse):
+        client.complete([{"role": "user", "content": "hi"}], purpose="brief")
