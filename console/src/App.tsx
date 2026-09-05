@@ -3,9 +3,11 @@ import './App.css'
 import { getCost, getFeedHealth, getLatestFindings, sweepNow } from './api/client.ts'
 import type { Cost, FeedHealth, Finding } from './api/types.ts'
 import { BriefPreview } from './components/BriefPreview.tsx'
+import { Button } from './components/Button.tsx'
 import { CostMeter } from './components/CostMeter.tsx'
 import { FeedHealthStrip } from './components/FeedHealthStrip.tsx'
 import { FindingsList } from './components/FindingsList.tsx'
+import { Legend } from './components/Legend.tsx'
 
 interface RunState {
   runId: string
@@ -83,9 +85,9 @@ function App() {
             {run.windowLabel} · run {run.runId}
           </span>
         )}
-        <button type="button" onClick={sweepNowAndReload} disabled={sweeping}>
-          {sweeping ? 'Sweeping…' : 'Sweep now'}
-        </button>
+        <Button onClick={sweepNowAndReload} busy={sweeping}>
+          Sweep now
+        </Button>
       </header>
 
       {loading && <p className="console__status">Loading…</p>}
@@ -93,10 +95,30 @@ function App() {
 
       {!loading && !error && (
         <main className="console__main">
+          <Legend />
+
+          {/* Control strip: brief controls + cost meter, both visible
+              without scrolling; the brief text panel spans full width
+              underneath. Order top -> bottom matters for the DOM-order
+              test below -- this must come before the findings section. */}
+          <div className="control-strip" data-testid="control-strip">
+            {run && <BriefPreview runId={run.runId} />}
+            {cost && (
+              <div className="control-strip__cost">
+                <h2 className="panel-heading">Cost</h2>
+                <CostMeter cost={cost} />
+              </div>
+            )}
+          </div>
+
           {feeds && <FeedHealthStrip feeds={feeds} />}
-          {run && <FindingsList findings={run.findings} />}
-          {run && <BriefPreview runId={run.runId} />}
-          {cost && <CostMeter cost={cost} />}
+
+          {run && (
+            <section className="findings-section" data-testid="findings-section">
+              <h2 className="panel-heading">Findings</h2>
+              <FindingsList findings={run.findings} />
+            </section>
+          )}
         </main>
       )}
     </div>

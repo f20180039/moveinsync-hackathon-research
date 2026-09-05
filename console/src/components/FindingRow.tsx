@@ -9,14 +9,25 @@ export function FindingRow({ finding }: { finding: Finding }) {
   const panelId = useId()
 
   return (
-    <li className="finding-row">
+    // role="row" on the <li> gives the ranked list table-like structure for
+    // assistive tech, matching the column header row in FindingsList. The
+    // toggle stays a plain, unambiguous <button> (its own implicit role is
+    // untouched) so it's still reachable as a button by keyboard and by
+    // existing getByRole('button', ...) queries -- a real ARIA grid would
+    // also mark each cell, but that would require nesting cell roles inside
+    // an interactive control, which browsers don't expose reliably. This is
+    // the pragmatic middle: row-level structure, unbroken button semantics.
+    <li className="finding-row" role="row">
       <button
         type="button"
-        className="finding-row__toggle"
+        className="btn finding-row__toggle"
         aria-expanded={expanded}
         aria-controls={panelId}
         onClick={() => setExpanded((value) => !value)}
       >
+        <span className="finding-row__chevron" aria-hidden="true">
+          {expanded ? '▾' : '▸'}
+        </span>
         <TierBadge tier={finding.tier} />
         <span className="finding-row__metric">{finding.metricLabel}</span>
         <span className="finding-row__slice">{finding.sliceLabel}</span>

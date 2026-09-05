@@ -1,6 +1,47 @@
 /* Signal Desk console -- plain, dense, legible. Seen on a projector: err
    large on font size, high on contrast. No dark mode, no animation. */
 
+:root {
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  /* Font sizes */
+  --font-sm: 13px;
+  --font-md: 15px;
+  --font-lg: 18px;
+  --font-xl: 28px;
+
+  /* Controls (Button + Select share these) */
+  --control-height-md: 40px;
+  --control-height-sm: 32px;
+  --focus-ring: 0 0 0 3px var(--accent-border);
+
+  /* Tier colours -- the one place BREACH/CONCERN/WATCH/PASS map to a
+     colour. TierBadge, the feed-health flag and the confidence note all
+     reference these instead of repeating hex. */
+  --tier-breach: #b3261e;
+  --tier-concern: #a15c00;
+  --tier-watch: #5b5bd6;
+  --tier-pass: #1e7a45;
+  --tier-breach-bg: rgba(179, 38, 30, 0.06);
+
+  /* Findings grid: chevron | severity | metric | slice | observed |
+     compared-against | confidence -- shared by the column header and every
+     row so cells line up. */
+  --findings-grid-template: 24px minmax(84px, 96px) minmax(160px, 1.3fr) minmax(140px, 1fr) 90px
+    minmax(200px, 1.6fr) 120px;
+}
+
 #root {
   width: 100%;
   max-width: 1200px;
@@ -13,54 +54,236 @@ body {
 }
 
 .console {
-  padding: 24px 32px 64px;
+  padding: var(--space-5) var(--space-6) 64px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-6);
 }
 
 .console__header {
   display: flex;
   align-items: baseline;
-  gap: 16px;
+  gap: var(--space-4);
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 16px;
+  padding-bottom: var(--space-4);
 }
 
 .console__header h1 {
-  font-size: 28px;
+  font-size: var(--font-xl);
   margin: 0;
 }
 
 .console__run-meta {
   color: var(--text);
-  font-size: 15px;
+  font-size: var(--font-md);
   flex: 1;
 }
 
-.console__header button {
-  font-size: 16px;
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid var(--accent-border);
-  background: var(--accent-bg);
-  color: var(--text-h);
-  cursor: pointer;
-}
-
 .console__status {
-  font-size: 18px;
+  font-size: var(--font-lg);
 }
 
 .console__status--error {
-  color: #b3261e;
+  color: var(--tier-breach);
 }
 
 .console__main {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-6);
+}
+
+.panel-heading {
+  font-size: var(--font-md);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+  color: var(--text-h);
+}
+
+/* Shared controls: Button + Select. `.btn` / `.select` alone are a minimal
+   reset (font, cursor, focus ring) that ANY button/select can carry, even
+   one with its own bespoke layout (the finding-row toggle uses `.btn`
+   without a variant, then overrides display/padding itself). The `Button`
+   and `Select` components always add a size + (for Button) a variant
+   modifier on top of that for their pill styling. */
+
+.btn {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: none;
+  box-sizing: border-box;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn:focus-visible,
+.select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.btn--md {
+  height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.btn--sm {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  font-weight: 600;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn--secondary {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--text-h);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-h);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: var(--font-sm);
+  color: var(--text);
+}
+
+.select {
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+  font: inherit;
+  font-size: var(--font-md);
+  box-sizing: border-box;
+}
+
+.select--sm {
+  height: var(--control-height-sm);
+  font-size: var(--font-sm);
+}
+
+/* Legend */
+
+.legend {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-5);
+}
+
+.legend__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.legend__title {
+  font-size: var(--font-lg);
+  margin: 0;
+}
+
+.legend__body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4) var(--space-5);
+  margin-top: var(--space-4);
+}
+
+.legend__section h3 {
+  font-size: var(--font-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text);
+  margin: 0 0 var(--space-2);
+}
+
+.legend__section p,
+.legend__section ul {
+  margin: 0;
+  font-size: var(--font-md);
+}
+
+.legend__section ul {
+  padding-left: var(--space-4);
+}
+
+.legend__tiers {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.legend__tiers li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Control strip: brief controls + cost meter side by side at >=1024px, the
+   brief text panel spanning the full row underneath; stacked below that. */
+
+.control-strip {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    'brief'
+    'cost'
+    'brieftext';
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .control-strip {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'brief cost'
+      'brieftext brieftext';
+  }
+}
+
+.control-strip__brief {
+  grid-area: brief;
+}
+
+.control-strip__cost {
+  grid-area: cost;
+}
+
+.control-strip__brief-text {
+  grid-area: brieftext;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-3);
 }
 
 /* Tier badge */
@@ -68,7 +291,7 @@ body {
 .tier-badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .tier-badge__stripe {
@@ -79,23 +302,47 @@ body {
 }
 
 .tier-badge__word {
-  font-size: 13px;
+  font-size: var(--font-sm);
   letter-spacing: 0.6px;
 }
 
 /* Findings list */
 
+.findings-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.findings {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.findings-header {
+  display: grid;
+  grid-template-columns: var(--findings-grid-template);
+  gap: var(--space-3);
+  align-items: center;
+  padding: 10px var(--space-4);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--text);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .findings-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .findings-list__empty {
-  font-size: 18px;
+  font-size: var(--font-lg);
 }
 
 .finding-row {
@@ -108,17 +355,16 @@ body {
 
 .finding-row__toggle {
   width: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--findings-grid-template);
+  gap: var(--space-3);
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
   text-align: left;
-  padding: 14px 16px;
+  padding: 14px var(--space-4);
   background: var(--bg);
+  height: auto;
   border: none;
-  cursor: pointer;
-  font: inherit;
-  color: inherit;
+  border-radius: 0;
 }
 
 .finding-row__toggle:hover,
@@ -126,24 +372,26 @@ body {
   background: var(--code-bg);
 }
 
+.finding-row__chevron {
+  color: var(--text);
+}
+
 .finding-row__metric {
   font-weight: 600;
-  min-width: 220px;
 }
 
 .finding-row__slice {
   color: var(--text);
-  min-width: 160px;
 }
 
 .finding-row__observed {
   font-weight: 600;
-  min-width: 70px;
+  white-space: nowrap;
 }
 
 .finding-row__references {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   flex-wrap: wrap;
   color: var(--text);
 }
@@ -153,7 +401,7 @@ body {
 }
 
 .finding-row__confidence {
-  color: #a15c00;
+  color: var(--tier-concern);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -161,17 +409,17 @@ body {
 /* Evidence panel */
 
 .evidence-panel {
-  padding: 8px 16px 20px 46px;
+  padding: var(--space-2) var(--space-4) var(--space-5) 46px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .evidence-panel__facts {
   display: grid;
   grid-template-columns: max-content 1fr;
-  column-gap: 16px;
-  row-gap: 6px;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
   margin: 0;
 }
 
@@ -192,7 +440,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   font-weight: 600;
 }
 
@@ -202,9 +450,9 @@ body {
   overflow-x: auto;
   white-space: pre-wrap;
   background: var(--code-bg);
-  border-radius: 6px;
-  padding: 12px;
-  margin: 8px 0 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-2) 0 0;
 }
 
 /* Feed health strip */
@@ -217,50 +465,52 @@ body {
 .feed-health-strip caption {
   text-align: left;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 
 .feed-health-strip th,
 .feed-health-strip td {
   text-align: left;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
 }
 
 .feed-health-strip__quarantined {
-  color: #a15c00;
+  color: var(--tier-concern);
   font-weight: 600;
 }
 
 .feed-health-strip__row--flagged {
-  background: rgba(179, 38, 30, 0.06);
+  background: var(--tier-breach-bg);
 }
 
 .feed-health-strip__flag {
-  color: #b3261e;
+  color: var(--tier-breach);
   font-weight: 600;
 }
 
 /* Brief preview */
 
-.brief-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .brief-preview__controls {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
 .brief-preview__source {
-  font-size: 13px;
+  font-size: var(--font-sm);
   color: var(--text);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  align-self: center;
+}
+
+.brief-preview__text-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .brief-preview__text {
@@ -268,18 +518,18 @@ body {
   font-size: 14px;
   white-space: pre-wrap;
   background: var(--code-bg);
-  border-radius: 6px;
-  padding: 12px;
-  margin: 4px 0 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin: var(--space-2) 0 0;
 }
 
 .brief-preview__error {
-  color: #b3261e;
+  color: var(--tier-breach);
 }
 
 .brief-preview__dispatch-results {
   list-style: none;
-  margin: 0;
+  margin: var(--space-3) 0 0;
   padding: 0;
 }
 
@@ -287,18 +537,18 @@ body {
 
 .cost-meter {
   display: flex;
-  gap: 32px;
+  gap: var(--space-6);
   flex-wrap: wrap;
 }
 
 .cost-meter__stat {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .cost-meter__label {
-  font-size: 13px;
+  font-size: var(--font-sm);
   color: var(--text);
 }
 
@@ -308,6 +558,6 @@ body {
 }
 
 .cost-meter__unconfigured {
-  font-size: 16px;
+  font-size: var(--font-md);
   color: var(--text);
 }

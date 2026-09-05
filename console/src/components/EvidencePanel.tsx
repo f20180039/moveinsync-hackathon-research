@@ -1,5 +1,6 @@
 import type { Finding } from '../api/types.ts'
 import { causePhrase, formatMetricValue } from '../api/types.ts'
+import { Button } from './Button.tsx'
 
 // Expanded region for one finding: observed value, every reference, the rule
 // that fired, confidence, audiences, and the SQL that produced the number.
@@ -40,9 +41,9 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
       <div className="evidence-panel__sql">
         <div className="evidence-panel__sql-header">
           <span>Evidence SQL</span>
-          <button type="button" onClick={copySql}>
+          <Button variant="ghost" size="sm" onClick={copySql}>
             Copy SQL
-          </button>
+          </Button>
         </div>
         <pre className="evidence-panel__sql-block">{finding.evidenceSql}</pre>
       </div>

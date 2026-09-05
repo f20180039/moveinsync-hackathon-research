@@ -26,4 +26,16 @@ describe('FindingsList', () => {
       screen.getByText('The sweep found nothing above PASS for this window.'),
     ).toBeInTheDocument()
   })
+
+  it('renders a column header naming what each column contains', () => {
+    render(<FindingsList findings={findings} />)
+
+    const header = screen.getByRole('row', { name: /severity/i })
+    expect(header).toHaveTextContent('Severity')
+    expect(header).toHaveTextContent('Metric')
+    expect(header).toHaveTextContent('Slice')
+    expect(header).toHaveTextContent('Observed')
+    expect(header).toHaveTextContent('Compared against')
+    expect(header).toHaveTextContent('Confidence')
+  })
 })

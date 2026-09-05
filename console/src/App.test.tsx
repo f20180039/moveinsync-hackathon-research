@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import fixture from '../../handoff/fake-findings.json'
 import App from './App.tsx'
@@ -22,6 +23,17 @@ function mockFetchForRoutes() {
     }
     if (url.includes('/api/cost')) {
       return jsonResponse(fixture.cost)
+    }
+    if (url.includes('/brief')) {
+      return jsonResponse({
+        runId: fixture.runId,
+        audience: 'TRANSPORT_MANAGER',
+        brief: 'Sample brief text.',
+        source: 'template',
+      })
+    }
+    if (url.includes('/api/dispatch/')) {
+      return jsonResponse({ runId: fixture.runId, dispatched: [] })
     }
     return jsonResponse({})
   })
@@ -79,5 +91,49 @@ describe('App', () => {
     expect(callsFor('/api/health/feeds')).toBe(1)
     expect(callsFor('/api/cost')).toBe(1)
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('places the control strip before the findings list in DOM order', async () => {
+    vi.stubGlobal('fetch', mockFetchForRoutes())
+
+    const { container } = render(<App />)
+
+    await screen.findByText(fixture.findings[0].metricLabel)
+
+    const controlStrip = container.querySelector('[data-testid="control-strip"]')
+    const findingsSection = container.querySelector('[data-testid="findings-section"]')
+    expect(controlStrip).toBeInTheDocument()
+    expect(findingsSection).toBeInTheDocument()
+
+    const position = controlStrip!.compareDocumentPosition(findingsSection!)
+    expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('renders every button as the shared Button component', async () => {
+    const fetchMock = mockFetchForRoutes()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+
+    await screen.findByText(fixture.findings[0].metricLabel)
+
+    // Expand a finding row so its "Copy SQL" button renders too.
+    const rowToggle = container.querySelector('.finding-row__toggle') as HTMLElement
+    await user.click(rowToggle)
+
+    // Fetch a brief so its "show/hide brief" toggle renders too.
+    await user.click(screen.getByRole('button', { name: /preview brief/i }))
+    await screen.findByText(/source: template/)
+
+    // Dispatch it so nothing is left unrendered.
+    await user.click(screen.getByRole('button', { name: /dispatch/i }))
+    await screen.findByRole('button', { name: /hide brief/i })
+
+    const buttons = container.querySelectorAll('button')
+    expect(buttons.length).toBeGreaterThan(0)
+    for (const button of buttons) {
+      expect(button.classList.contains('btn')).toBe(true)
+    }
   })
 })

@@ -1,11 +1,13 @@
 import type { Tier } from '../api/types.ts'
 
-// Tier order used for styling and legends -- worst first.
+// Tier order used for styling and legends -- worst first. Colours come from
+// the shared tokens in :root (App.css) -- one definition, everywhere a tier
+// colour is needed (this stripe, the feed-health flag, the confidence note).
 const TIER_STRIPE: Record<Tier, string> = {
-  BREACH: '#b3261e',
-  CONCERN: '#a15c00',
-  WATCH: '#5b5bd6',
-  PASS: '#1e7a45',
+  BREACH: 'var(--tier-breach)',
+  CONCERN: 'var(--tier-concern)',
+  WATCH: 'var(--tier-watch)',
+  PASS: 'var(--tier-pass)',
 }
 
 export function TierBadge({ tier }: { tier: Tier }) {
