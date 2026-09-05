@@ -2,11 +2,20 @@ import { DEFAULT_KPI_METRIC_IDS, DEFAULT_SUGGESTED_QUESTIONS } from './api/insig
 import type { Audience, Finding } from './api/types.ts'
 import { isAlertTier } from './api/types.ts'
 
-// Reuses the existing Audience type (TRANSPORT_MANAGER / FACILITIES_HEAD /
-// LINE_MANAGER, already used for dispatch/brief targeting) rather than a
-// parallel enum -- the person viewing the console and the person a brief
-// targets are the same three kinds of person.
-export type Role = Audience
+// Reuses the existing Audience type (already used for dispatch/brief
+// targeting) rather than a parallel enum -- the person viewing the console
+// and the person a brief targets are the same kind of person.
+//
+// LINE_MANAGER is excluded on purpose. It is still a real *audience*: the
+// service's routing rules keep sending shift-sliced findings to a
+// LINE_MANAGER brief, and that has not changed. What it is not is a
+// console persona. The role config below documented it as "deliberately
+// thin -- no bespoke shift board, no dedicated KPI set", and OBJECTIVES.md
+// M3 records the per-shift floor-readiness screen as reserve R9, i.e. next
+// sprint. A dropdown entry that only re-filters someone else's pages does
+// not serve the purpose the persona was written for, so it is not shipped
+// as one.
+export type Role = Exclude<Audience, 'LINE_MANAGER'>
 
 export interface RoleConfig {
   id: Role
@@ -30,7 +39,9 @@ export interface RoleConfig {
   // a Transport manager's attention.
   isPriorityFinding: (finding: Finding) => boolean
   // Applied to the whole findings array once, in App.tsx, before it
-  // reaches any page -- Line manager's is the only non-trivial one.
+  // reaches any page. Both shipped personas read every finding, so both
+  // are the identity filter; the hook stays because scoping a persona's
+  // findings is a role-level decision and this is where it belongs.
   findingsFilter: (finding: Finding) => boolean
   // The floating assistant's suggested chips for this role.
   suggestedQuestions: string[]
@@ -48,12 +59,6 @@ const ALL_NAV_PATHS = new Set([
   '/reports/monthly',
   '/brief',
 ])
-
-// Slice labels are "<dimension> <value>" (formatSliceLabel in labels.ts
-// documents the same convention) -- "shift EARLY", "shift NIGHT", etc.
-function isShiftSliced(finding: Finding): boolean {
-  return finding.sliceLabel.startsWith('shift ')
-}
 
 const FACILITIES_HEAD_SUGGESTED_QUESTIONS = [
   DEFAULT_SUGGESTED_QUESTIONS[0],
@@ -96,30 +101,6 @@ export const ROLES: Record<Role, RoleConfig> = {
     findingsFilter: () => true,
     suggestedQuestions: FACILITIES_HEAD_SUGGESTED_QUESTIONS,
   },
-
-  // Deliberately thin -- a scope cut the user asked for explicitly ("we
-  // need to target only 1 role but can we accommodate 2 roles"). This is
-  // a third dropdown entry, not a third built-out persona: no bespoke
-  // shift board, no dedicated KPI set (reuses Transport manager's). All it
-  // does is scope the same pages everyone else sees down to shift-sliced
-  // findings (via `findingsFilter`, applied once in App.tsx) and trim the
-  // nav to what a line-level shift supervisor plausibly needs day to day
-  // (no Vendors/Cost/Data health -- those are fleet/contract-level
-  // concerns, not a single shift's).
-  //
-  // /employees IS linked here: "which of my people were left standing, on
-  // which shift band" is the most directly actionable page a line manager
-  // has. It is the one page whose own breakdown is by shift band.
-  LINE_MANAGER: {
-    id: 'LINE_MANAGER',
-    label: 'Line manager',
-    visibleNavPaths: new Set(['/', '/alerts', '/findings', '/employees', '/reports/weekly', '/reports/monthly', '/brief']),
-    kpiMetricIds: DEFAULT_KPI_METRIC_IDS,
-    kpiStripLabel: null,
-    isPriorityFinding: (finding) => isAlertTier(finding.tier),
-    findingsFilter: isShiftSliced,
-    suggestedQuestions: DEFAULT_SUGGESTED_QUESTIONS,
-  },
 }
 
-export const ROLE_ORDER: Role[] = ['TRANSPORT_MANAGER', 'FACILITIES_HEAD', 'LINE_MANAGER']
+export const ROLE_ORDER: Role[] = ['TRANSPORT_MANAGER', 'FACILITIES_HEAD']

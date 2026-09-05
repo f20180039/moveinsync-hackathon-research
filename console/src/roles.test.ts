@@ -22,8 +22,11 @@ function makeFinding(overrides: Partial<Finding>): Finding {
 }
 
 describe('ROLES', () => {
-  it('has exactly the three roles, in dropdown order', () => {
-    expect(ROLE_ORDER).toEqual(['TRANSPORT_MANAGER', 'FACILITIES_HEAD', 'LINE_MANAGER'])
+  it('has exactly the two shipped personas, in dropdown order', () => {
+    // LINE_MANAGER is deliberately absent: it is still an audience the
+    // service routes briefs to, but it never got a surface of its own
+    // (see roles.ts), so it is not offered as a console persona.
+    expect(ROLE_ORDER).toEqual(['TRANSPORT_MANAGER', 'FACILITIES_HEAD'])
     expect(Object.keys(ROLES).sort()).toEqual(ROLE_ORDER.slice().sort())
   })
 
@@ -56,26 +59,5 @@ describe('ROLES', () => {
     expect(role.visibleNavPaths.has('/brief')).toBe(true)
 
     expect(role.suggestedQuestions[1]).toBe('Which vendors are recurring laggards?')
-  })
-
-  it('Line manager is thin: Transport manager\'s KPI set and priority rule, only findings/nav scoped to shift-sliced items', () => {
-    const role = ROLES.LINE_MANAGER
-    expect(role.kpiMetricIds).toEqual(ROLES.TRANSPORT_MANAGER.kpiMetricIds)
-    expect(role.kpiStripLabel).toBeNull()
-    expect(role.suggestedQuestions).toEqual(ROLES.TRANSPORT_MANAGER.suggestedQuestions)
-
-    expect(role.findingsFilter(makeFinding({ sliceLabel: 'shift NIGHT' }))).toBe(true)
-    expect(role.findingsFilter(makeFinding({ sliceLabel: 'shift EARLY' }))).toBe(true)
-    expect(role.findingsFilter(makeFinding({ sliceLabel: 'vendor Acme' }))).toBe(false)
-    expect(role.findingsFilter(makeFinding({ sliceLabel: 'overall' }))).toBe(false)
-
-    // Nav is trimmed too (fleet/contract-level pages hidden), but no
-    // bespoke page is added -- every visible path is one of the existing
-    // routes.
-    expect(role.visibleNavPaths.has('/vendors')).toBe(false)
-    expect(role.visibleNavPaths.has('/cost')).toBe(false)
-    for (const path of role.visibleNavPaths) {
-      expect(ROLES.TRANSPORT_MANAGER.visibleNavPaths.has(path)).toBe(true)
-    }
   })
 })

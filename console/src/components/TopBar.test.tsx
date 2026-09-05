@@ -65,14 +65,16 @@ describe('TopBar', () => {
     expect(screen.getByRole('button', { name: /sweep now/i })).toHaveAttribute('aria-busy', 'true')
   })
 
-  it('shows a "Viewing as" role switcher with all three roles', () => {
+  it('shows a "Viewing as" role switcher with the two shipped personas', () => {
     renderTopBar()
 
     const select = screen.getByLabelText(/viewing as/i)
     expect(select).toHaveValue('TRANSPORT_MANAGER')
     expect(screen.getByRole('option', { name: 'Transport manager' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: 'Transport & facilities head' })).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: 'Line manager' })).toBeInTheDocument()
+    // Line manager is an audience the service routes to, not a persona
+    // the console offers -- see roles.ts.
+    expect(screen.queryByRole('option', { name: 'Line manager' })).not.toBeInTheDocument()
   })
 
   it('calls onRoleChange when a different role is selected', async () => {

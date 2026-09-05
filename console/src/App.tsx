@@ -41,7 +41,11 @@ function App() {
   const [sweeping, setSweeping] = useState(false)
   const role = useAppStore((state) => state.role)
   const setRole = useAppStore((state) => state.setRole)
-  const roleConfig = ROLES[role]
+  // `?? ROLES.TRANSPORT_MANAGER` is not paranoia about the type: the role
+  // is persisted to localStorage, so a browser that last selected the
+  // retired LINE_MANAGER persona still hands us that string on load, and
+  // an undefined config here would take the whole console down.
+  const roleConfig = ROLES[role] ?? ROLES.TRANSPORT_MANAGER
 
   // `ignore` guards against setting state from a load that started before an
   // unmount (or before "Sweep now" kicked off a fresher one) resolves after.
@@ -96,9 +100,10 @@ function App() {
     }
   }
 
-  // Role-scoped once, here, before any page sees it -- Line manager's
-  // findingsFilter (shift-sliced only) is the only non-trivial one; the
-  // other two roles' filter is a no-op, so this changes nothing for them.
+  // Role-scoped once, here, before any page sees it. Both shipped
+  // personas read every finding today, so this is currently a no-op --
+  // it stays because narrowing a persona's findings belongs in roles.ts,
+  // not scattered through the pages.
   const findings = (run?.findings ?? []).filter(roleConfig.findingsFilter)
   const alertCount = findings.filter((f) => isAlertTier(f.tier)).length
   const alertSeverity = findings.some((f) => f.tier === 'BREACH')
