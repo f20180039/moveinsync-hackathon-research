@@ -9,9 +9,11 @@
   "scripts": {
     "predev": "node ../scripts/require-node.mjs",
     "dev": "vite",
+    "prebuild": "node ../scripts/require-node.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "pretest": "node ../scripts/require-node.mjs",
     "test": "vitest run"
   },
   "dependencies": {

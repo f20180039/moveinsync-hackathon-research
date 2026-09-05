@@ -1,6 +1,6 @@
 import { causePhrase, label } from '../api/labels.ts'
 import type { Finding } from '../api/types.ts'
-import { formatMetricValue } from '../api/types.ts'
+import { NOT_MEASURED, NOT_MEASURED_EXPLANATION, formatMetricValue, isDataGap } from '../api/types.ts'
 import { Button } from './Button.tsx'
 
 // Expanded region for one finding: observed value, every reference, the rule
@@ -20,14 +20,21 @@ export function EvidencePanel({ finding }: { finding: Finding }) {
     <div className="evidence-panel">
       <dl className="evidence-panel__facts">
         <dt>Observed</dt>
-        <dd>{formatMetricValue(finding.observed, finding.unit)}</dd>
+        <dd>{isDataGap(finding) ? NOT_MEASURED : formatMetricValue(finding.observed, finding.unit)}</dd>
 
-        {finding.references.map((ref) => (
-          <div key={`${ref.kind}-${ref.label}`} className="evidence-panel__ref">
-            <dt>{ref.label || label('referenceKind', ref.kind)}</dt>
-            <dd>{formatMetricValue(ref.value, finding.unit)}</dd>
+        {isDataGap(finding) ? (
+          <div className="evidence-panel__ref">
+            <dt>Compared against</dt>
+            <dd>{NOT_MEASURED_EXPLANATION}</dd>
           </div>
-        ))}
+        ) : (
+          finding.references.map((ref) => (
+            <div key={`${ref.kind}-${ref.label}`} className="evidence-panel__ref">
+              <dt>{ref.label || label('referenceKind', ref.kind)}</dt>
+              <dd>{formatMetricValue(ref.value, finding.unit)}</dd>
+            </div>
+          ))
+        )}
 
         <dt>Rule that fired</dt>
         <dd>{causePhrase(finding.cause)}</dd>

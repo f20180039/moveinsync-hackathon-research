@@ -59,4 +59,27 @@ describe('FindingRow', () => {
     expect(screen.getAllByText(/59\.1/).length).toBeGreaterThan(0)
     expect(within(panel).getByText(/below its SLA target/)).toBeInTheDocument()
   })
+
+  it('never shows a bare 0 for a DATA_GAP finding -- an em dash and an explanation instead', async () => {
+    const dataGapFinding: Finding = {
+      ...twoReferenceHighConfidence,
+      id: 'synthetic-data-gap',
+      cause: 'DATA_GAP',
+      observed: 0.0,
+      references: [],
+    }
+    const user = userEvent.setup()
+    render(<FindingRow finding={dataGapFinding} />)
+
+    // The collapsed row: an em dash, not "0%".
+    expect(screen.queryByText('0%')).not.toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.getByText('could not be measured')).toBeInTheDocument()
+
+    // The expanded panel: same treatment for Observed and Compared against.
+    await user.click(screen.getByRole('button'))
+    const panel = screen.getByRole('region')
+    expect(within(panel).getByText('—')).toBeInTheDocument()
+    expect(within(panel).getByText('could not be measured')).toBeInTheDocument()
+  })
 })

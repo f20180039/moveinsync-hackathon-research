@@ -1,7 +1,13 @@
 import { useId, useState } from 'react'
 import { formatSliceLabel } from '../api/labels.ts'
 import type { Finding } from '../api/types.ts'
-import { formatMetricValue, shouldDiscloseConfidence } from '../api/types.ts'
+import {
+  NOT_MEASURED,
+  NOT_MEASURED_EXPLANATION,
+  formatMetricValue,
+  isDataGap,
+  shouldDiscloseConfidence,
+} from '../api/types.ts'
 import { EvidencePanel } from './EvidencePanel.tsx'
 import { TierBadge } from './TierBadge.tsx'
 
@@ -32,13 +38,19 @@ export function FindingRow({ finding }: { finding: Finding }) {
         <TierBadge tier={finding.tier} />
         <span className="finding-row__metric">{finding.metricLabel}</span>
         <span className="finding-row__slice">{formatSliceLabel(finding.sliceLabel)}</span>
-        <span className="finding-row__observed num">{formatMetricValue(finding.observed, finding.unit)}</span>
+        <span className="finding-row__observed num">
+          {isDataGap(finding) ? NOT_MEASURED : formatMetricValue(finding.observed, finding.unit)}
+        </span>
         <span className="finding-row__references">
-          {finding.references.map((ref) => (
-            <span key={`${ref.kind}-${ref.label}`} className="finding-row__reference">
-              {ref.label} {formatMetricValue(ref.value, finding.unit)}
-            </span>
-          ))}
+          {isDataGap(finding) ? (
+            <span className="finding-row__reference">{NOT_MEASURED_EXPLANATION}</span>
+          ) : (
+            finding.references.map((ref) => (
+              <span key={`${ref.kind}-${ref.label}`} className="finding-row__reference">
+                {ref.label} {formatMetricValue(ref.value, finding.unit)}
+              </span>
+            ))
+          )}
         </span>
         {/* Always rendered (even empty) so every row has the same number of
             cells as the header, regardless of whether this finding's

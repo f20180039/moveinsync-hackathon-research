@@ -185,3 +185,15 @@ export function shouldFlagFeed(feed: Pick<FeedHealth, 'confidence' | 'mustBeDisc
 export function formatMetricValue(value: number, unit: string): string {
   return unit === '%' ? `${value}${unit}` : `${value} ${unit}`
 }
+
+// A DATA_GAP finding arrives with observed: 0.0 and no references -- that
+// zero is not a measurement, it's the absence of one. Rendering "0%" would
+// read as a real (and alarming) number; every cell that would otherwise
+// show that bare zero renders "—" (an em dash) or "could not be
+// measured" instead, so no cell is ever an uncontextualised number.
+export function isDataGap(finding: Pick<Finding, 'cause'>): boolean {
+  return finding.cause === 'DATA_GAP'
+}
+
+export const NOT_MEASURED = '—'
+export const NOT_MEASURED_EXPLANATION = 'could not be measured'
