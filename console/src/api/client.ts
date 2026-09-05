@@ -151,16 +151,30 @@ export function getSafety(runId: string): Promise<SafetySummary | null> {
   return tryRequest<SafetySummary>(`/api/runs/${runId}/safety`)
 }
 
+// One prior message in the conversation, for POST /api/ask's optional
+// `history` field: chronological, oldest first, excluding the question
+// being asked. The service caps it too -- this is a contract, not a
+// promise about length.
+export interface AskHistoryMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 // Throws (ApiError) rather than swallowing failures to null. Callers must
 // distinguish a 404 -- this build has no /api/ask, disable the feature --
 // from a 422/500/timeout, which is one question that failed and must leave
 // the input enabled to retry. Availability is NOT detected by calling this;
 // use getCapabilities() below.
-export function ask(runId: string, question: string): Promise<AskResponse> {
+export function ask(runId: string, question: string, history: AskHistoryMessage[] = []): Promise<AskResponse> {
   return request<AskResponse>('/api/ask', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ runId, question }),
+    // `history` is omitted entirely when there is none, so a first
+    // question posts exactly the body it always did. A service that does
+    // not know the field ignores it, which is why this is never gated on
+    // a capability: conversational memory is best-effort, and the answer
+    // to a standalone question is the same with or without it.
+    body: JSON.stringify({ runId, question, ...(history.length > 0 && { history }) }),
   })
 }
 
